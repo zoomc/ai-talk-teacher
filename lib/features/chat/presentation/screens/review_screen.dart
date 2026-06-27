@@ -6,6 +6,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../domain/chat_models.dart';
+import '../../../review/data/sm2_service.dart';
 
 class ReviewScreen extends ConsumerStatefulWidget {
   const ReviewScreen({super.key});
@@ -225,9 +226,25 @@ class _CorrectionCard extends StatelessWidget {
                   style: TextStyle(color: typeColor, fontSize: 11, fontWeight: FontWeight.w600),
                 ),
               ),
+              const SizedBox(width: AppSpacing.xs),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Color(Sm2Service.getMasteryColor(correction)).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Text(
+                  Sm2Service.getMasteryLevel(correction),
+                  style: TextStyle(
+                    color: Color(Sm2Service.getMasteryColor(correction)),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
               const Spacer(),
               Text(
-                'Reviewed ${correction.reviewCount}x',
+                Sm2Service.getNextReviewText(correction),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.textMuted,
                 ),
