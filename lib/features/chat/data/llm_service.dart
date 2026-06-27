@@ -34,7 +34,17 @@ class LlmService {
     }
 
     final data = jsonDecode(response.body);
-    final content = data['choices'][0]['message']['content'] as String;
+
+    // Null-safe response parsing
+    final choices = data['choices'] as List?;
+    if (choices == null || choices.isEmpty) {
+      throw LlmException('No response choices returned from API');
+    }
+    final message = choices[0]['message'] as Map<String, dynamic>?;
+    final content = message?['content'] as String? ?? '';
+    if (content.isEmpty) {
+      throw LlmException('Empty response from API');
+    }
 
     // Parse corrections from the response
     final corrections = _extractCorrections(content);
@@ -69,7 +79,7 @@ IMPORTANT: When you notice grammar, vocabulary, or pronunciation errors in the s
 At the end of your response, if there were any errors, add a JSON block like this:
 ```corrections
 [
-  {"original": "what student said", "corrected": "correct version", "type": "grammar|vocabulary| pronunciation", "explanation": "brief explanation"}
+  {"original": "what student said", "corrected": "correct version", "type": "grammar|vocabulary|pronunciation", "explanation": "brief explanation"}
 ]
 ```
 
@@ -131,7 +141,8 @@ If there were no errors, do not include the corrections block.''',
           }
         }
       } catch (e) {
-        // If parsing fails, return empty list
+        // Log parsing error - response still returned, just without corrections
+        print('Warning: Failed to parse corrections block: $e');
       }
     }
 

@@ -15,6 +15,8 @@ class Correction {
   final String? messageId;
   final String? sessionId;
   final int reviewCount;
+  final double easinessFactor;
+  final int intervalDays;
   final DateTime? nextReviewAt;
   final DateTime createdAt;
 
@@ -27,6 +29,8 @@ class Correction {
     this.messageId,
     this.sessionId,
     this.reviewCount = 0,
+    this.easinessFactor = 2.5,
+    this.intervalDays = 0,
     this.nextReviewAt,
     DateTime? createdAt,
   })  : id = id ?? _uuid.v4(),
@@ -40,7 +44,10 @@ class Correction {
     String? messageId,
     String? sessionId,
     int? reviewCount,
+    double? easinessFactor,
+    int? intervalDays,
     DateTime? nextReviewAt,
+    bool clearNextReviewAt = false,
   }) {
     return Correction(
       id: id,
@@ -51,7 +58,9 @@ class Correction {
       messageId: messageId ?? this.messageId,
       sessionId: sessionId ?? this.sessionId,
       reviewCount: reviewCount ?? this.reviewCount,
-      nextReviewAt: nextReviewAt ?? this.nextReviewAt,
+      easinessFactor: easinessFactor ?? this.easinessFactor,
+      intervalDays: intervalDays ?? this.intervalDays,
+      nextReviewAt: clearNextReviewAt ? null : (nextReviewAt ?? this.nextReviewAt),
       createdAt: createdAt,
     );
   }
@@ -66,6 +75,8 @@ class Correction {
       'message_id': messageId,
       'session_id': sessionId,
       'review_count': reviewCount,
+      'easiness_factor': easinessFactor,
+      'interval_days': intervalDays,
       'next_review_at': nextReviewAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
     };
@@ -81,6 +92,8 @@ class Correction {
       messageId: map['message_id'] as String?,
       sessionId: map['session_id'] as String?,
       reviewCount: (map['review_count'] as int?) ?? 0,
+      easinessFactor: (map['easiness_factor'] as num?)?.toDouble() ?? 2.5,
+      intervalDays: (map['interval_days'] as int?) ?? 0,
       nextReviewAt: map['next_review_at'] != null
           ? DateTime.parse(map['next_review_at'] as String)
           : null,

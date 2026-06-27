@@ -32,7 +32,7 @@ class SttService {
     ).timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
-      throw SttException('Deepgram error: ${response.statusCode}');
+      throw SttException('Deepgram error: ${response.statusCode} - ${response.body}');
     }
 
     final data = jsonDecode(response.body);
@@ -68,7 +68,7 @@ class SttService {
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode != 200) {
-      throw SttException('OpenAI error: ${response.statusCode}');
+      throw SttException('OpenAI error: ${response.statusCode} - ${response.body}');
     }
 
     final data = jsonDecode(response.body);
@@ -93,7 +93,7 @@ class SttService {
     ).timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
-      throw SttException('Google error: ${response.statusCode}');
+      throw SttException('Google error: ${response.statusCode} - ${response.body}');
     }
 
     final data = jsonDecode(response.body);
@@ -108,9 +108,18 @@ class SttService {
   }
 
   Future<String> _transcribeAzure(Uint8List audioData) async {
+    // Parse region from extraConfig or default to eastus
+    String region = 'eastus';
+    if (profile.extraConfig != null) {
+      try {
+        final config = jsonDecode(profile.extraConfig!);
+        region = config['region'] ?? 'eastus';
+      } catch (_) {}
+    }
+
     // Azure Speech Services
     final response = await http.post(
-      Uri.parse('https://eastus.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US'),
+      Uri.parse('https://$region.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US'),
       headers: {
         'Ocp-Apim-Subscription-Key': profile.apiKey,
         'Content-Type': 'audio/wav',
@@ -119,7 +128,7 @@ class SttService {
     ).timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
-      throw SttException('Azure error: ${response.statusCode}');
+      throw SttException('Azure error: ${response.statusCode} - ${response.body}');
     }
 
     final data = jsonDecode(response.body);

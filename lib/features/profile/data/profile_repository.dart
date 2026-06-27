@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import '../../../core/database/database_helper.dart';
+import '../../../core/services/secure_storage_service.dart';
 import '../domain/profile_models.dart';
 
 class ProfileRepository {
@@ -8,33 +9,52 @@ class ProfileRepository {
   Future<List<LlmProfile>> getAllLlmProfiles() async {
     final db = await DatabaseHelper.database;
     final maps = await db.query('llm_profiles', orderBy: 'created_at DESC');
-    return maps.map((m) => LlmProfile.fromMap(m)).toList();
+    final profiles = <LlmProfile>[];
+    for (final map in maps) {
+      final profile = LlmProfile.fromMap(map);
+      // Load API key from secure storage
+      final apiKey = await SecureStorageService.getApiKey(profile.id);
+      profiles.add(profile.copyWith(apiKey: apiKey ?? ''));
+    }
+    return profiles;
   }
 
   Future<LlmProfile?> getActiveLlmProfile() async {
     final db = await DatabaseHelper.database;
     final maps = await db.query('llm_profiles', where: 'is_active = 1', limit: 1);
     if (maps.isEmpty) return null;
-    return LlmProfile.fromMap(maps.first);
+    final profile = LlmProfile.fromMap(maps.first);
+    final apiKey = await SecureStorageService.getApiKey(profile.id);
+    return profile.copyWith(apiKey: apiKey ?? '');
   }
 
   Future<void> saveLlmProfile(LlmProfile profile) async {
     final db = await DatabaseHelper.database;
+    // Store API key in secure storage, placeholder in SQLite
+    await SecureStorageService.storeApiKey(profile.id, profile.apiKey);
+    final mapForDb = profile.toMap();
+    mapForDb['api_key'] = '***stored***'; // placeholder
     await db.insert(
       'llm_profiles',
-      profile.toMap(),
+      mapForDb,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
   Future<void> setActiveLlmProfile(String id) async {
     final db = await DatabaseHelper.database;
-    await db.update('llm_profiles', {'is_active': 0});
-    await db.update('llm_profiles', {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()}, where: 'id = ?', whereArgs: [id]);
+    await db.transaction((txn) async {
+      await txn.update('llm_profiles', {'is_active': 0});
+      await txn.update('llm_profiles', {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()}, where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   Future<void> deleteLlmProfile(String id) async {
     final db = await DatabaseHelper.database;
+    // Check if active
+    final maps = await db.query('llm_profiles', where: 'id = ? AND is_active = 1', whereArgs: [id], limit: 1);
+    if (maps.isNotEmpty) throw Exception('Cannot delete active profile');
+    await SecureStorageService.deleteApiKey(id);
     await db.delete('llm_profiles', where: 'id = ?', whereArgs: [id]);
   }
 
@@ -43,33 +63,49 @@ class ProfileRepository {
   Future<List<SttProfile>> getAllSttProfiles() async {
     final db = await DatabaseHelper.database;
     final maps = await db.query('stt_profiles', orderBy: 'created_at DESC');
-    return maps.map((m) => SttProfile.fromMap(m)).toList();
+    final profiles = <SttProfile>[];
+    for (final map in maps) {
+      final profile = SttProfile.fromMap(map);
+      final apiKey = await SecureStorageService.getApiKey(profile.id);
+      profiles.add(profile.copyWith(apiKey: apiKey ?? ''));
+    }
+    return profiles;
   }
 
   Future<SttProfile?> getActiveSttProfile() async {
     final db = await DatabaseHelper.database;
     final maps = await db.query('stt_profiles', where: 'is_active = 1', limit: 1);
     if (maps.isEmpty) return null;
-    return SttProfile.fromMap(maps.first);
+    final profile = SttProfile.fromMap(maps.first);
+    final apiKey = await SecureStorageService.getApiKey(profile.id);
+    return profile.copyWith(apiKey: apiKey ?? '');
   }
 
   Future<void> saveSttProfile(SttProfile profile) async {
     final db = await DatabaseHelper.database;
+    await SecureStorageService.storeApiKey(profile.id, profile.apiKey);
+    final mapForDb = profile.toMap();
+    mapForDb['api_key'] = '***stored***';
     await db.insert(
       'stt_profiles',
-      profile.toMap(),
+      mapForDb,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
   Future<void> setActiveSttProfile(String id) async {
     final db = await DatabaseHelper.database;
-    await db.update('stt_profiles', {'is_active': 0});
-    await db.update('stt_profiles', {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()}, where: 'id = ?', whereArgs: [id]);
+    await db.transaction((txn) async {
+      await txn.update('stt_profiles', {'is_active': 0});
+      await txn.update('stt_profiles', {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()}, where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   Future<void> deleteSttProfile(String id) async {
     final db = await DatabaseHelper.database;
+    final maps = await db.query('stt_profiles', where: 'id = ? AND is_active = 1', whereArgs: [id], limit: 1);
+    if (maps.isNotEmpty) throw Exception('Cannot delete active profile');
+    await SecureStorageService.deleteApiKey(id);
     await db.delete('stt_profiles', where: 'id = ?', whereArgs: [id]);
   }
 
@@ -78,33 +114,49 @@ class ProfileRepository {
   Future<List<TtsProfile>> getAllTtsProfiles() async {
     final db = await DatabaseHelper.database;
     final maps = await db.query('tts_profiles', orderBy: 'created_at DESC');
-    return maps.map((m) => TtsProfile.fromMap(m)).toList();
+    final profiles = <TtsProfile>[];
+    for (final map in maps) {
+      final profile = TtsProfile.fromMap(map);
+      final apiKey = await SecureStorageService.getApiKey(profile.id);
+      profiles.add(profile.copyWith(apiKey: apiKey ?? ''));
+    }
+    return profiles;
   }
 
   Future<TtsProfile?> getActiveTtsProfile() async {
     final db = await DatabaseHelper.database;
     final maps = await db.query('tts_profiles', where: 'is_active = 1', limit: 1);
     if (maps.isEmpty) return null;
-    return TtsProfile.fromMap(maps.first);
+    final profile = TtsProfile.fromMap(maps.first);
+    final apiKey = await SecureStorageService.getApiKey(profile.id);
+    return profile.copyWith(apiKey: apiKey ?? '');
   }
 
   Future<void> saveTtsProfile(TtsProfile profile) async {
     final db = await DatabaseHelper.database;
+    await SecureStorageService.storeApiKey(profile.id, profile.apiKey);
+    final mapForDb = profile.toMap();
+    mapForDb['api_key'] = '***stored***';
     await db.insert(
       'tts_profiles',
-      profile.toMap(),
+      mapForDb,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
   Future<void> setActiveTtsProfile(String id) async {
     final db = await DatabaseHelper.database;
-    await db.update('tts_profiles', {'is_active': 0});
-    await db.update('tts_profiles', {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()}, where: 'id = ?', whereArgs: [id]);
+    await db.transaction((txn) async {
+      await txn.update('tts_profiles', {'is_active': 0});
+      await txn.update('tts_profiles', {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()}, where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   Future<void> deleteTtsProfile(String id) async {
     final db = await DatabaseHelper.database;
+    final maps = await db.query('tts_profiles', where: 'id = ? AND is_active = 1', whereArgs: [id], limit: 1);
+    if (maps.isNotEmpty) throw Exception('Cannot delete active profile');
+    await SecureStorageService.deleteApiKey(id);
     await db.delete('tts_profiles', where: 'id = ?', whereArgs: [id]);
   }
 

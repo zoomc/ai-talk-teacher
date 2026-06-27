@@ -106,6 +106,8 @@ class DatabaseHelper {
         message_id TEXT,
         session_id TEXT,
         review_count INTEGER NOT NULL DEFAULT 0,
+        easiness_factor REAL NOT NULL DEFAULT 2.5,
+        interval_days INTEGER NOT NULL DEFAULT 0,
         next_review_at TEXT,
         created_at TEXT NOT NULL,
         FOREIGN KEY (message_id) REFERENCES chat_messages(id),

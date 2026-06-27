@@ -29,7 +29,7 @@ class AppColors {
   // Text
   static const Color textPrimary = Color(0xFFF0F0F0);
   static const Color textSecondary = Color(0xFF8892A4);
-  static const Color textMuted = Color(0xFF5A6478);
+  static const Color textMuted = Color(0xFF7A8494); // improved contrast ~4.5:1
   static const Color textOnAccent = Color(0xFFFFFFFF);
 
   // Glow effects

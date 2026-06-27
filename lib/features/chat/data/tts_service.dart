@@ -36,7 +36,7 @@ class TtsService {
     ).timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
-      throw TtsException('Fish Audio error: ${response.statusCode}');
+      throw TtsException('Fish Audio error: ${response.statusCode} - ${response.body}');
     }
 
     return response.bodyBytes;
@@ -61,7 +61,7 @@ class TtsService {
     ).timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
-      throw TtsException('ElevenLabs error: ${response.statusCode}');
+      throw TtsException('ElevenLabs error: ${response.statusCode} - ${response.body}');
     }
 
     return response.bodyBytes;
@@ -84,22 +84,43 @@ class TtsService {
     ).timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
-      throw TtsException('OpenAI TTS error: ${response.statusCode}');
+      throw TtsException('OpenAI TTS error: ${response.statusCode} - ${response.body}');
     }
 
     return response.bodyBytes;
   }
 
   Future<Uint8List> _synthesizeAzure(String text) async {
+    // Parse region from extraConfig or default to eastus
+    String region = 'eastus';
+    // Note: For TTS, we can use profile.voiceName to also encode region
+    // Format: "en-US-JennyNeural" or "eastus:en-US-JennyNeural"
+
+    // Map speed to SSML rate percentage
+    String rate = '0%';
+    if (profile.speed < 0.8) {
+      rate = '-20%';
+    } else if (profile.speed < 1.0) {
+      rate = '-10%';
+    } else if (profile.speed == 1.0) {
+      rate = '0%';
+    } else if (profile.speed <= 1.2) {
+      rate = '+10%';
+    } else if (profile.speed <= 1.5) {
+      rate = '+20%';
+    } else {
+      rate = '+30%';
+    }
+
     final ssml = '''
 <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
   <voice name="${profile.voiceName ?? 'en-US-JennyNeural'}">
-    <prosody rate="${profile.speed}">${_escapeXml(text)}</prosody>
+    <prosody rate="$rate">${_escapeXml(text)}</prosody>
   </voice>
 </speak>''';
 
     final response = await http.post(
-      Uri.parse('https://eastus.tts.speech.microsoft.com/cognitiveservices/v1'),
+      Uri.parse('https://$region.tts.speech.microsoft.com/cognitiveservices/v1'),
       headers: {
         'Ocp-Apim-Subscription-Key': profile.apiKey,
         'Content-Type': 'application/ssml+xml',
@@ -109,7 +130,7 @@ class TtsService {
     ).timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
-      throw TtsException('Azure TTS error: ${response.statusCode}');
+      throw TtsException('Azure TTS error: ${response.statusCode} - ${response.body}');
     }
 
     return response.bodyBytes;
@@ -121,7 +142,7 @@ class TtsService {
         .replaceAll('<', '&lt;')
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
-        .replaceAll("'", '&apos;');
+        .replaceAll("'", '&#39;');
   }
 }
 

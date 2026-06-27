@@ -10,14 +10,37 @@ import '../../features/profile/presentation/screens/profile_form_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/onboarding/presentation/screens/placement_screen.dart';
+import '../../features/profile/data/profile_repository.dart';
 
 class AppRouter {
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
   static final _shellNavigatorKey = GlobalKey<NavigatorState>();
+  static final _profileRepo = ProfileRepository();
 
   static final router = GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/',
+    redirect: (context, state) async {
+      final isOnboarding = state.matchedLocation == '/onboarding';
+      final isPlacement = state.matchedLocation == '/placement';
+
+      // Check if onboarding is completed
+      final hasCompletedOnboarding = await _profileRepo.hasCompletedOnboarding();
+
+      if (!hasCompletedOnboarding && !isOnboarding) {
+        return '/onboarding';
+      }
+
+      if (hasCompletedOnboarding) {
+        // Check if placement is completed
+        final hasCompletedPlacement = await _profileRepo.hasCompletedPlacement();
+        if (!hasCompletedPlacement && !isPlacement && !isOnboarding) {
+          return '/placement';
+        }
+      }
+
+      return null;
+    },
     routes: [
       GoRoute(
         path: '/onboarding',

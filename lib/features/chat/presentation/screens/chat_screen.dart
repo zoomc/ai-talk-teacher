@@ -112,6 +112,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: _ChatMessageList(
               sessionId: widget.sessionId,
               scrollController: _scrollController,
+              onPlayTts: _playTts,
             ),
           ),
 
@@ -340,10 +341,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 class _ChatMessageList extends ConsumerWidget {
   final String sessionId;
   final ScrollController scrollController;
+  final Function(String, String)? onPlayTts;
 
   const _ChatMessageList({
     required this.sessionId,
     required this.scrollController,
+    this.onPlayTts,
   });
 
   @override
@@ -384,7 +387,7 @@ class _ChatMessageList extends ConsumerWidget {
               message: msg.content,
               isUser: isUser,
               isPlaying: false,
-              onPlayTts: isUser ? null : () {},
+              onPlayTts: isUser ? null : (onPlayTts != null ? () => onPlayTts!(msg.id, msg.content) : null),
             );
           },
         );
@@ -507,25 +510,27 @@ class _ChatInputBar extends StatelessWidget {
       child: Row(
         children: [
           // Record button
-          GestureDetector(
-            onLongPressStart: (_) => onRecordToggle(),
-            onLongPressEnd: (_) => onRecordToggle(),
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isRecording ? AppColors.error : AppColors.accentSecondary,
-                boxShadow: [
-                  BoxShadow(
-                    color: (isRecording ? AppColors.error : AppColors.accentSecondary).withValues(alpha: 0.3),
-                    blurRadius: isRecording ? 20 : 10,
-                  ),
-                ],
-              ),
-              child: Icon(
-                isRecording ? Icons.stop : Icons.mic,
-                color: Colors.white,
+          Tooltip(
+            message: isRecording ? 'Stop recording' : 'Tap to record',
+            child: GestureDetector(
+              onTap: onRecordToggle,
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isRecording ? AppColors.error : AppColors.accentSecondary,
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isRecording ? AppColors.error : AppColors.accentSecondary).withValues(alpha: 0.3),
+                      blurRadius: isRecording ? 20 : 10,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  isRecording ? Icons.stop : Icons.mic,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),

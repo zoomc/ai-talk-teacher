@@ -8,56 +8,45 @@ class Sm2Service {
     // quality: 0-5 (0=complete blackout, 5=perfect)
     assert(quality >= 0 && quality <= 5);
 
+    // Get current values
+    double ef = correction.easinessFactor;
     final reviewCount = correction.reviewCount + 1;
-    double easinessFactor = 2.5; // default EF
-    int interval;
+    int prevInterval = correction.intervalDays;
+    int newInterval;
 
-    if (reviewCount == 1) {
-      interval = 1; // 1 day
-    } else if (reviewCount == 2) {
-      interval = 6; // 6 days
-    } else {
-      // Calculate interval based on previous interval and EF
-      // For simplicity, we use a basic implementation
-      interval = (6 * easinessFactor).round();
+    // Adjust easiness factor based on quality (SM-2 formula)
+    ef = ef + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+    if (ef < 1.3) ef = 1.3;
+
+    // Calculate interval
+    if (quality < 3) {
+      // Failed: reset to 1 day, keep EF reduction
+      newInterval = 1;
+      return correction.copyWith(
+        reviewCount: 0, // reset review count on failure
+        easinessFactor: ef,
+        intervalDays: newInterval,
+        nextReviewAt: DateTime.now().add(Duration(days: newInterval)),
+        clearNextReviewAt: false,
+      );
     }
 
-    // Adjust easiness factor based on quality
-    easinessFactor = easinessFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
-    if (easinessFactor < 1.3) easinessFactor = 1.3;
-
-    // If quality < 3, reset the review count
-    if (quality < 3) {
-      return correction.copyWith(
-        reviewCount: 0,
-        nextReviewAt: DateTime.now().add(const Duration(days: 1)),
-      );
+    // Passed: calculate next interval
+    if (reviewCount == 1) {
+      newInterval = 1;
+    } else if (reviewCount == 2) {
+      newInterval = 6;
+    } else {
+      newInterval = (prevInterval * ef).round();
     }
 
     return correction.copyWith(
       reviewCount: reviewCount,
-      nextReviewAt: DateTime.now().add(Duration(days: interval)),
+      easinessFactor: ef,
+      intervalDays: newInterval,
+      nextReviewAt: DateTime.now().add(Duration(days: newInterval)),
+      clearNextReviewAt: false,
     );
-  }
-
-  /// Get quality rating from user response
-  static int getQualityFromResponse(String response) {
-    switch (response.toLowerCase()) {
-      case 'perfect':
-        return 5;
-      case 'easy':
-        return 4;
-      case 'good':
-        return 3;
-      case 'hard':
-        return 2;
-      case 'fail':
-        return 1;
-      case 'blackout':
-        return 0;
-      default:
-        return 3;
-    }
   }
 
   /// Get human-readable next review time
@@ -68,18 +57,19 @@ class Sm2Service {
     final diff = correction.nextReviewAt!.difference(now);
 
     if (diff.isNegative) return 'Ready for review';
-    if (diff.inMinutes < 60) return 'In ${diff.inMinutes} minutes';
-    if (diff.inHours < 24) return 'In ${diff.inHours} hours';
+    if (diff.inMinutes < 60) return 'In ${diff.inMinutes}m';
+    if (diff.inHours < 24) return 'In ${diff.inHours}h';
     if (diff.inDays == 1) return 'Tomorrow';
-    return 'In ${diff.inDays} days';
+    return 'In ${diff.inDays}d';
   }
 
-  /// Get mastery level based on review count
+  /// Get mastery level based on review count and EF
   static String getMasteryLevel(Correction correction) {
     if (correction.reviewCount == 0) return 'New';
-    if (correction.reviewCount < 3) return 'Learning';
-    if (correction.reviewCount < 6) return 'Familiar';
-    if (correction.reviewCount < 10) return 'Mastered';
+    if (correction.reviewCount < 2) return 'Learning';
+    if (correction.easinessFactor < 2.0) return 'Struggling';
+    if (correction.reviewCount < 5) return 'Familiar';
+    if (correction.reviewCount < 8) return 'Mastered';
     return 'Expert';
   }
 
@@ -91,6 +81,8 @@ class Sm2Service {
         return 0xFFFF5252; // error
       case 'Learning':
         return 0xFFFFB74D; // warning
+      case 'Struggling':
+        return 0xFFFF9800; // orange
       case 'Familiar':
         return 0xFF42A5F5; // info
       case 'Mastered':
