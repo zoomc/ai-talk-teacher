@@ -242,27 +242,63 @@ xxl:  48px   (屏幕级间距)
 
 ## 七、Flutter 包推荐
 
-### 7.1 核心 UI 包
+### 7.1 核心 UI 包（2026 年最新版本）
 
-| 包名 | 用途 | 链接 |
-|------|------|------|
-| `flutter_animate` | 声明式动画，弹性曲线 | pub.dev/packages/flutter_animate |
-| `shimmer` | 骨架屏加载微光效果 | pub.dev/packages/shimmer |
-| `lottie` | Lottie 动画播放 | pub.dev/packages/lottie |
-| `animated_text_kit` | 文字动画（打字机效果等） | pub.dev/packages/animated_text_kit |
-| `wave` | 录音波形动画 | pub.dev/packages/wave |
-| `flutter_blur` | 模糊效果辅助 | pub.dev/packages/flutter_blur |
-| `flex_color_scheme` | Material 3 主题生成器 | pub.dev/packages/flex_color_scheme |
-| `dynamic_color` | Android Dynamic Color 支持 | pub.dev/packages/dynamic_color |
-| `forui` | Shadcn 风格 Flutter 组件库 | pub.dev/packages/forui |
+| 包名 | 版本 | 用途 | 链接 |
+|------|------|------|------|
+| **`liquid_glass_widgets`** | 0.19.1 | **首选** iOS 26 Liquid Glass 风格，shader 毛玻璃、物理果冻动画、动态光照 | [pub.dev](https://pub.dev/packages/liquid_glass_widgets) |
+| `shadcn_ui` | 0.55.0 | Shadcn 风格组件库，931 likes，深色主题首选 | [pub.dev](https://pub.dev/packages/shadcn_ui) |
+| `forui` | 0.23.0 | 极简 Shadcn 风格组件，407 likes | [pub.dev](https://pub.dev/packages/forui) |
+| `flex_color_scheme` | 8.4.0 | Material 3 主题生成器，66 内置配色，Flutter Favorite | [pub.dev](https://pub.dev/packages/flex_color_scheme) |
+| `flutter_animate` | 4.5.2 | 声明式动画，弹性曲线，Flutter Favorite | [pub.dev](https://pub.dev/packages/flutter_animate) |
+| `lottie` | 3.4.0 | Lottie 动画播放，纯 Dart 实现 | [pub.dev](https://pub.dev/packages/lottie) |
+| `shimmer` | 2.0.0 | 骨架屏加载微光效果 | [pub.dev](https://pub.dev/packages/shimmer) |
+| `animated_text_kit` | 4.2.2 | 文字动画（打字机效果等） | [pub.dev](https://pub.dev/packages/animated_text_kit) |
+| `dynamic_color` | 1.8.1 | Android Dynamic Color（壁纸取色） | [pub.dev](https://pub.dev/packages/dynamic_color) |
+
+**Liquid Glass 实现方案：**
+
+推荐使用 `liquid_glass_widgets`，它完整实现了 Apple iOS 26 的 Liquid Glass 设计语言：
+
+```dart
+// 初始化
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await LiquidGlassWidgets.initialize();
+  runApp(LiquidGlassWidgets.wrap(child: const MyApp()));
+}
+
+// 使用 GlassScaffold
+GlassScaffold(
+  background: Image.asset('assets/wallpaper.jpg', fit: BoxFit.cover),
+  appBar: GlassAppBar(title: const Text('SpeakFlow')),
+  body: GlassCard(child: Text('Hello, Glass!')),
+)
+```
+
+**质量模式：**
+
+| 模式 | 适用场景 |
+|------|---------|
+| Standard（默认） | 通用，覆盖 95% 场景 |
+| Premium | 仅 Impeller，全 shader 管线 + 色差效果 |
+| Minimal | 零 shader 开销，仅 `BackdropFilter` 模糊，低端设备降级 |
+
+**特性亮点：**
+- 双通道高斯模糊 + shader 折射（Impeller 引擎）
+- Liquid Morph Engine — iOS 26 风格水滴变形转场
+- 内容感知亮度 — 玻璃导航栏自动切换深浅图标
+- 自适应质量 — 启动时设备基准测试，实时调整渲染质量
+- WCAG 合规 — 自动尊重系统"减少动态效果"和"减少透明度"设置
+- 跨平台：iOS、Android、macOS、Web、Windows、Linux
 
 ### 7.2 参考项目
 
 | 项目 | 链接 | 参考价值 |
 |------|------|---------|
-| **Flutter Neumorphic** | https://github.com/Idean/Flutter-Neumorphic | 毛玻璃/软阴影组件实现，2100+ ⭐ |
-| **Forui** | https://github.com/forus-labs/forui | Shadcn 风格 Flutter 组件，1300+ ⭐ |
-| **Shadcn Flutter** | https://github.com/nank1ro/flutter-shadcn | Shadcn/ui 的 Flutter 移植，2200+ ⭐ |
+| **liquid_glass_widgets demo** | [pub.dev 示例](https://pub.dev/packages/liquid_glass_widgets) | Apple Music、Messages、News 界面复刻 |
+| **shadcn_ui** | [github.com/nank1ro/flutter-shadcn](https://github.com/nank1ro/flutter-shadcn) | 深色主题组件参考，931 likes |
+| **Forui** | [github.com/forus-labs/forui](https://github.com/forus-labs/forui) | 极简组件设计思路，407 likes |
 
 ---
 

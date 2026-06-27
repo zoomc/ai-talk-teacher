@@ -386,7 +386,7 @@
 | **状态管理** | Riverpod 或 Bloc |
 | **路由** | GoRouter |
 | **加密** | `flutter_secure_storage` |
-| **玻璃效果** | `BackdropFilter` + 系统材质 API |
+| **玻璃效果** | `liquid_glass_widgets`（iOS 26 Liquid Glass）+ `BackdropFilter` 降级 |
 
 ### 6.2 唇形同步方案
 
