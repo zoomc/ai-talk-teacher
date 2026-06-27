@@ -8,11 +8,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
-- Virtual character (Live2D + lip sync)
-- Pronunciation scoring (phoneme-level analysis)
-- Learning reports and progress tracking
-- Multi-role tutor selection
-- Cloud sync (optional)
+- Cloud sync (optional, deferred to future version)
+
+---
+
+## [0.8.0] - 2026-06-28
+
+### Added
+- **Virtual Character**: Animated AI tutor placeholder
+  - Breathing animation (gentle scale pulse)
+  - Glow effect with state-based colors
+  - State indicators (idle/listening/thinking/speaking)
+  - Integrated into ChatScreen
+
+---
+
+## [0.7.0] - 2026-06-28
+
+### Added
+- **Multi-role Tutor Selection**: 6 predefined AI tutors
+  - Emma (Friendly): warm, encouraging, patient
+  - James (Professional): structured, business-focused
+  - Alex (Casual): like talking to a friend
+  - Professor Chen (Strict): detail-oriented, high standards
+  - Sarah (Exam Prep): IELTS/TOEFL specialist
+  - Dr. Miller (Pronunciation): phonetics expert
+
+- TutorSelectionScreen: Visual selection interface
+- TutorRepository: Tutor management with default fallback
+
+---
+
+## [0.6.0] - 2026-06-28
+
+### Added
+- **Learning Reports + Progress Tracking**:
+  - LearningStatsService: Comprehensive statistics
+  - ProgressScreen: Visual progress dashboard
+  - Mastery breakdown (New/Learning/Mastered)
+  - Error type distribution (grammar/vocabulary/pronunciation)
+  - Daily activity tracking (last 7 days)
+  - Due for review count
+
+- Home Screen: Added Learning Progress quick action
 
 ---
 
@@ -236,3 +274,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 | `164ebae` | 2026-06-28 | feat: Stage 4 - STT recording + TTS playback integration |
 | `3eab12c` | 2026-06-28 | fix: address UI and business review blockers |
 | `6280efb` | 2026-06-28 | feat: Stage 5 - animation polish + UI refinement |
+| `2730a39` | 2026-06-28 | feat: Stage 6 - learning reports + progress tracking |
+| `1ad7ff8` | 2026-06-28 | feat: Stage 7 - multi-role tutor selection |
+| `a5b5d14` | 2026-06-28 | feat: Stage 8 - virtual character placeholder with animations |
