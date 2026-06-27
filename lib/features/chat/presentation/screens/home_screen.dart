@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -51,7 +52,10 @@ class HomeScreen extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(AppRadius.lg),
                         ),
                         child: const Icon(Icons.mic, color: Colors.white, size: 24),
-                      ),
+                      )
+                          .animate()
+                          .fadeIn(duration: 600.ms)
+                          .scale(begin: const Offset(0.8, 0.8)),
                       const SizedBox(width: AppSpacing.md),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,7 +180,7 @@ class HomeScreen extends ConsumerWidget {
                         subtitle: 'Start a conversation about anything',
                         color: AppColors.accentPrimary,
                         onTap: () => _startNewSession(context, ref),
-                      ),
+                      ).animate().fadeIn(delay: 300.ms).slideX(begin: -0.1),
                       const SizedBox(height: AppSpacing.md),
                       _QuickActionCard(
                         icon: Icons.grid_view,
@@ -184,7 +188,7 @@ class HomeScreen extends ConsumerWidget {
                         subtitle: 'Practice real-life situations',
                         color: AppColors.accentSecondary,
                         onTap: () => context.go('/scenarios'),
-                      ),
+                      ).animate().fadeIn(delay: 450.ms).slideX(begin: -0.1),
                       const SizedBox(height: AppSpacing.md),
                       _QuickActionCard(
                         icon: Icons.refresh,
@@ -192,7 +196,7 @@ class HomeScreen extends ConsumerWidget {
                         subtitle: 'Practice your weak points',
                         color: AppColors.success,
                         onTap: () => context.go('/review'),
-                      ),
+                      ).animate().fadeIn(delay: 600.ms).slideX(begin: -0.1),
                     ],
                   ),
                 ),
