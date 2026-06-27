@@ -6,6 +6,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../data/chat_repository.dart';
+import '../../data/llm_service.dart';
 import '../../domain/chat_models.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -130,18 +131,64 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
     await repo.saveMessage(message);
 
-    // TODO: Call LLM API for response
-    // For now, simulate AI response
-    await Future.delayed(const Duration(seconds: 1));
-    final aiResponse = ChatMessage(
-      sessionId: widget.sessionId,
-      role: MessageRole.assistant,
-      content: 'I understand you said "$text". Let me help you practice! Can you tell me more about that?',
-    );
-    await repo.saveMessage(aiResponse);
+    // Call LLM API
+    try {
+      final profileRepo = ref.read(profileRepoProvider);
+      final llmProfile = await profileRepo.getActiveLlmProfile();
 
-    setState(() => _isLoading = false);
-    _scrollToBottom();
+      if (llmProfile == null) {
+        throw Exception('No LLM profile configured. Please set up your AI service first.');
+      }
+
+      // Get chat history
+      final history = await repo.getMessages(widget.sessionId);
+
+      // Get scenario system prompt
+      final session = await repo.getSession(widget.sessionId);
+      String systemPrompt = 'You are a friendly English tutor. Have a natural conversation with the student. Correct their errors naturally.';
+
+      if (session?.scenarioId != null) {
+        final scenario = await repo.getScenario(session!.scenarioId!);
+        if (scenario != null) {
+          systemPrompt = scenario.systemPrompt;
+        }
+      }
+
+      // Call LLM
+      final llmService = LlmService(llmProfile);
+      final response = await llmService.sendMessage(
+        history: history,
+        systemPrompt: systemPrompt,
+        userMessage: text,
+      );
+
+      // Save AI response
+      final aiResponse = ChatMessage(
+        sessionId: widget.sessionId,
+        role: MessageRole.assistant,
+        content: response.content,
+      );
+      await repo.saveMessage(aiResponse);
+
+      // Save corrections
+      for (final correction in response.corrections) {
+        await repo.saveCorrection(correction.copyWith(
+          messageId: aiResponse.id,
+          sessionId: widget.sessionId,
+        ));
+      }
+
+      // Refresh UI
+      setState(() {});
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _handleRecordToggle() {
