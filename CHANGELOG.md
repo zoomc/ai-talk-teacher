@@ -16,6 +16,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.5.0] - 2026-06-28
+
+### Added
+- **Animation polish**: flutter_animate for smooth entry animations
+  - Home header: fade-in + scale animation
+  - Quick action cards: staggered fade-in + slide
+  - ShimmerBox: real shimmer animation
+
+### Fixed (UI Review)
+- TTS play button now wired to actual playback method
+- Onboarding redirect in GoRouter (un-onboarded users sent to /onboarding)
+- textMuted contrast improved (#5A6478 -> #7A8494, meets WCAG AA 4.5:1)
+- Record button: tap instead of long-press + tooltip for discoverability
+
+### Fixed (Business Review)
+- SM-2: easinessFactor + intervalDays fields added to Correction model
+- SM-2: proper interval calculation using persisted EF across reviews
+- Secure Storage: API keys stored in Keychain/EncryptedSharedPrefs (not plaintext SQLite)
+- Profile switching: wrapped in database transaction (atomic)
+- Active profile deletion prevented
+- LLM: null-safe API response parsing
+- LLM: pronunciation typo fixed in system prompt
+- STT/TTS: Azure region configurable via extraConfig
+- TTS: SSML rate uses proper percentage format
+- TTS: XML entity fix (&apos; -> &#39;)
+- All error messages now include response body for debugging
+
+---
+
 ## [0.3.0] - 2026-06-28
 
 ### Added
@@ -204,3 +233,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 | `ba3f865` | 2026-06-28 | feat: Stage 2 - LLM/STT/TTS service integration |
 | `7d21756` | 2026-06-28 | feat: Stage 3 - SM-2 spaced repetition + review system |
 | `7a95a84` | 2026-06-28 | fix: correct import paths in service files |
+| `164ebae` | 2026-06-28 | feat: Stage 4 - STT recording + TTS playback integration |
+| `3eab12c` | 2026-06-28 | fix: address UI and business review blockers |
+| `6280efb` | 2026-06-28 | feat: Stage 5 - animation polish + UI refinement |
