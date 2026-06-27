@@ -10,3 +10,6 @@ Thumbs.db
 
 # Claude Code session data
 .claude/
+
+# CodeGraph index
+.codegraph/
