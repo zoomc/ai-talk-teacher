@@ -8,16 +8,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
-- Flutter project initialization
-- AI dialogue system implementation
-- STT/TTS system integration
-- UI implementation (Glassmorphism + platform adaptive)
-- Deep competitive analysis of Chinese AI speaking apps
+- Virtual character (Live2D + lip sync)
+- Pronunciation scoring (phoneme-level analysis)
+- Learning reports and progress tracking
+- Multi-role tutor selection
+- Cloud sync (optional)
 
-### Changed
-- Redesign to unified 3-Profile system (LLM + STT + TTS) — all user-provided API keys
-- Emphasize learning loop as core differentiator (练习→自动记录→复习→巩固)
-- Remove "system default" STT/TTS approach — cloud APIs required for quality
+---
+
+## [0.3.0] - 2026-06-28
+
+### Added
+- **SM-2 Spaced Repetition Service**:
+  - Quality-based scheduling (0-5 rating)
+  - Easiness factor adjustment
+  - Mastery level tracking (New/Learning/Familiar/Mastered/Expert)
+  - Next review time calculation
+
+- **Review Screen Enhancement**:
+  - Mastery level badges with color coding
+  - Next review time display
+  - Review session creation
+
+---
+
+## [0.2.0] - 2026-06-28
+
+### Added
+- **LLM Service**: OpenAI-compatible API with correction extraction
+  - Automatic grammar/vocabulary/pronunciation error detection
+  - Correction extraction from ```corrections JSON blocks
+  - Model fetching support
+  - 30s timeout with proper error handling
+
+- **STT Service**: Multi-provider speech-to-text
+  - Deepgram (recommended)
+  - OpenAI Whisper
+  - Google Cloud Speech
+  - Azure Speech
+
+- **TTS Service**: Multi-provider text-to-speech
+  - Fish Audio (recommended)
+  - ElevenLabs
+  - OpenAI TTS
+  - Azure TTS (SSML support)
+
+- **Chat Screen**: Connected to real LLM API
+  - Dynamic system prompts from scenarios
+  - Automatic correction recording
+  - Error handling with user feedback
+
+---
+
+## [0.1.0] - 2026-06-28
+
+### Added
+- Flutter 3.44.4 project with macOS, Web, iOS, Android support
+- Project structure: core/, features/, shared/, assets/
+- Theme system: AppColors, AppTextStyles, AppTheme (dark/light)
+- Glassmorphism UI components: GlassCard, GlowButton, StatusPill
+- 3-Profile system: LLM, STT, TTS profile management
+- Database layer: SQLite with sqflite
+- Navigation: GoRouter with bottom nav shell
+- Feature modules:
+  - Chat: Home, Chat, Scenarios, Review screens
+  - Profile: Service config, Profile form screens
+  - Settings: Settings screen with sections
+  - Onboarding: Welcome + API key setup + Placement test
+- Default scenarios: Free Talk, Restaurant, Airport, Job Interview, etc.
+- Riverpod state management
+- Web build verified successful
 
 ---
 
@@ -137,3 +197,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 | `7f00852` | 2026-06-28 | docs: update Flutter packages to 2026 latest versions |
 | `46d8f5b` | 2026-06-28 | docs: add CHANGELOG.md |
 | `e1f9bdf` | 2026-06-28 | docs: add deep competitive analysis of 可栗口语/咕噜口语/流利说 |
+| `149a210` | 2026-06-28 | docs: update CHANGELOG with competitive analysis details |
+| `e456956` | 2026-06-28 | docs: add level placement test and game-style scene selection |
+| `700d120` | 2026-06-28 | refactor: redesign to unified 3-Profile system |
+| `c53c983` | 2026-06-28 | feat: Stage 1 - Flutter project initialization + foundation |
+| `ba3f865` | 2026-06-28 | feat: Stage 2 - LLM/STT/TTS service integration |
+| `7d21756` | 2026-06-28 | feat: Stage 3 - SM-2 spaced repetition + review system |
+| `7a95a84` | 2026-06-28 | fix: correct import paths in service files |
