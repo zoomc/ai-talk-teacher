@@ -5,6 +5,7 @@ import '../../features/chat/presentation/screens/home_screen.dart';
 import '../../features/chat/presentation/screens/chat_screen.dart';
 import '../../features/chat/presentation/screens/scenarios_screen.dart';
 import '../../features/chat/presentation/screens/review_screen.dart';
+import '../../features/chat/presentation/screens/progress_screen.dart';
 import '../../features/profile/presentation/screens/service_config_screen.dart';
 import '../../features/profile/presentation/screens/profile_form_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
@@ -89,6 +90,10 @@ class AppRouter {
       GoRoute(
         path: '/service-config',
         builder: (context, state) => const ServiceConfigScreen(),
+      ),
+      GoRoute(
+        path: '/progress',
+        builder: (context, state) => const ProgressScreen(),
       ),
       GoRoute(
         path: '/profile-form/:type',
