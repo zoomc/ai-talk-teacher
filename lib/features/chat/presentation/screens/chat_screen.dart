@@ -5,6 +5,7 @@ import 'package:just_audio/just_audio.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
+import '../../../../shared/widgets/virtual_character.dart';
 import '../../../../shared/providers.dart';
 import '../../data/chat_repository.dart';
 import '../../data/llm_service.dart';
@@ -72,37 +73,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         children: [
           // AI Character area
           Container(
-            height: 200,
+            height: 220,
             margin: const EdgeInsets.all(AppSpacing.md),
             child: GlassCard(
               glowColor: AppColors.accentPrimary,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // AI Avatar placeholder
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.gradientPrimary,
-                        borderRadius: BorderRadius.circular(AppRadius.xl),
-                      ),
-                      child: const Icon(Icons.person, size: 40, color: Colors.white),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      'AI Tutor',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    StatusPill(
-                      text: _isRecording ? 'Listening...' : _isLoading ? 'Thinking...' : 'Ready',
-                      color: _isRecording ? AppColors.accentSecondary : _isLoading ? AppColors.accentPrimary : AppColors.success,
-                      isActive: _isRecording || _isLoading,
-                    ),
-                  ],
-                ),
+              child: VirtualCharacter(
+                tutorName: 'AI Tutor',
+                tutorAvatar: '👩‍🏫',
+                state: _isRecording
+                    ? CharacterState.listening
+                    : _isLoading
+                        ? CharacterState.thinking
+                        : CharacterState.idle,
               ),
             ),
           ),
