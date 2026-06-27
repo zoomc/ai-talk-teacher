@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - UI implementation (Glassmorphism + platform adaptive)
 - Deep competitive analysis of Chinese AI speaking apps
 
+### Changed
+- Redesign to unified 3-Profile system (LLM + STT + TTS) — all user-provided API keys
+- Emphasize learning loop as core differentiator (练习→自动记录→复习→巩固)
+- Remove "system default" STT/TTS approach — cloud APIs required for quality
+
 ---
 
 ## [0.1.0] - 2026-06-28
@@ -66,7 +71,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - AI角色扮演 + 场景化练习
   - 游戏化场景选择，低心理门槛
 - **竞品对比**：11维度对比表（AI技术、对话方式、发音评估、纠错策略等）
-- **差异化定位**：7个核心差异点（用户自选AI、虚拟外教、自然纠正、聊天式复习等）
+- **差异化定位**：6个核心差异点（学习闭环、3-Profile、虚拟外教、自然纠正等）
+
+#### 3-Profile 系统设计（重构）
+- **统一服务配置**：LLM / STT / TTS 三套独立 Profile，统一管理界面
+- **云端 STT 供应商**：Deepgram（首推）、OpenAI Whisper、Google Cloud Speech、Azure Speech
+- **云端 TTS 供应商**：Fish Audio（首推）、ElevenLabs、OpenAI TTS、Azure TTS
+- **为什么不用系统内置 STT/TTS**：初学者发音不准、语法错误多、中英混说，系统 STT 无法胜任
+- **用户成本**：~$2.5-6/月（中度使用），平台零运营成本
 
 #### Design Reference (`docs/design-reference.md`)
 - **Design inspiration sources**:
