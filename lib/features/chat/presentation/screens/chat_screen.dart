@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:just_audio/just_audio.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../data/chat_repository.dart';
 import '../../data/llm_service.dart';
+import '../../data/stt_service.dart';
+import '../../data/tts_service.dart';
+import '../../data/recording_service.dart';
+import '../../data/tts_playback_service.dart';
 import '../../domain/chat_models.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -20,13 +25,19 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final RecordingService _recordingService = RecordingService();
+  final TtsPlaybackService _ttsPlaybackService = TtsPlaybackService();
+
   bool _isRecording = false;
   bool _isLoading = false;
+  String? _playingMessageId;
 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _recordingService.dispose();
+    _ttsPlaybackService.dispose();
     super.dispose();
   }
 
@@ -191,9 +202,103 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  void _handleRecordToggle() {
-    setState(() => _isRecording = !_isRecording);
-    // TODO: Implement actual STT recording
+  Future<void> _handleRecordToggle() async {
+    if (_isRecording) {
+      // Stop recording and transcribe
+      setState(() => _isRecording = false);
+
+      try {
+        final audioData = await _recordingService.stopRecording();
+        if (audioData == null || audioData.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No audio recorded')),
+          );
+          return;
+        }
+
+        setState(() => _isLoading = true);
+
+        // Get STT profile
+        final profileRepo = ref.read(profileRepoProvider);
+        final sttProfile = await profileRepo.getActiveSttProfile();
+
+        if (sttProfile == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please configure STT service first')),
+          );
+          return;
+        }
+
+        // Transcribe audio
+        final sttService = SttService(sttProfile);
+        final transcribedText = await sttService.transcribe(audioData);
+
+        if (transcribedText.isNotEmpty) {
+          _messageController.text = transcribedText;
+          // Auto-send the transcribed message
+          await _handleSend();
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Recording error: ${e.toString()}')),
+        );
+      } finally {
+        setState(() => _isLoading = false);
+      }
+    } else {
+      // Start recording
+      try {
+        await _recordingService.startRecording();
+        setState(() => _isRecording = true);
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Cannot start recording: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _playTts(String messageId, String text) async {
+    if (_playingMessageId == messageId) {
+      // Stop playing
+      await _ttsPlaybackService.stop();
+      setState(() => _playingMessageId = null);
+      return;
+    }
+
+    try {
+      setState(() => _playingMessageId = messageId);
+
+      final profileRepo = ref.read(profileRepoProvider);
+      final ttsProfile = await profileRepo.getActiveTtsProfile();
+
+      if (ttsProfile == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please configure TTS service first')),
+        );
+        setState(() => _playingMessageId = null);
+        return;
+      }
+
+      final ttsService = TtsService(ttsProfile);
+      final audioBytes = await ttsService.synthesize(text);
+
+      await _ttsPlaybackService.playAudio(audioBytes);
+
+      // Listen for completion
+      _ttsPlaybackService.player.playerStateStream.listen((state) {
+        if (state.processingState == ProcessingState.completed) {
+          if (mounted) {
+            setState(() => _playingMessageId = null);
+          }
+        }
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('TTS error: ${e.toString()}')),
+      );
+      setState(() => _playingMessageId = null);
+    }
   }
 
   void _showSessionOptions(BuildContext context) {
@@ -278,6 +383,8 @@ class _ChatMessageList extends ConsumerWidget {
             return _ChatBubble(
               message: msg.content,
               isUser: isUser,
+              isPlaying: false,
+              onPlayTts: isUser ? null : () {},
             );
           },
         );
@@ -296,8 +403,15 @@ final _messagesProvider = FutureProvider.family<List<ChatMessage>, String>((ref,
 class _ChatBubble extends StatelessWidget {
   final String message;
   final bool isUser;
+  final bool isPlaying;
+  final VoidCallback? onPlayTts;
 
-  const _ChatBubble({required this.message, required this.isUser});
+  const _ChatBubble({
+    required this.message,
+    required this.isUser,
+    this.isPlaying = false,
+    this.onPlayTts,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -323,9 +437,39 @@ class _ChatBubble extends StatelessWidget {
                 : AppColors.accentPrimary.withValues(alpha: 0.2),
           ),
         ),
-        child: Text(
-          message,
-          style: Theme.of(context).textTheme.bodyLarge,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            if (!isUser && onPlayTts != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              GestureDetector(
+                onTap: onPlayTts,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isPlaying ? Icons.stop_circle : Icons.play_circle,
+                      color: AppColors.accentSecondary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isPlaying ? 'Stop' : 'Listen',
+                      style: TextStyle(
+                        color: AppColors.accentSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
