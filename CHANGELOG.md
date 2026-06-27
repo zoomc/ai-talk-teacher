@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - AI dialogue system implementation
 - STT/TTS system integration
 - UI implementation (Glassmorphism + platform adaptive)
+- Deep competitive analysis of Chinese AI speaking apps
 
 ---
 
@@ -50,6 +51,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Development plan**: 5 phases (MVP → Learning Loop → Virtual Character → Launch → Iteration)
 - **Cost estimation**: $0 operational cost (user-supplied API keys)
 - **Risk assessment**: 8 identified risks with mitigation strategies
+
+#### Competitive Analysis (新增)
+- **流利说深度分析**:
+  - 产品矩阵：流利说英语、懂你英语A+、雅思、阅读、企业版
+  - AI自适应学习系统：定级测试→自适应路径→Level 1-8分级
+  - 纠错机制：音素级发音评分、颜色标识、ETS认证
+  - 学习设计：15-20分钟碎片化、闯关模式、艾宾浩斯复习
+  - 商业模式：C端订阅 + B2B企业培训
+- **可栗口语分析**:
+  - GPT大模型驱动的自然对话（非脚本式）
+  - 现代UI设计，对话自由度高
+- **咕噜口语分析**:
+  - AI角色扮演 + 场景化练习
+  - 游戏化场景选择，低心理门槛
+- **竞品对比**：11维度对比表（AI技术、对话方式、发音评估、纠错策略等）
+- **差异化定位**：7个核心差异点（用户自选AI、虚拟外教、自然纠正、聊天式复习等）
 
 #### Design Reference (`docs/design-reference.md`)
 - **Design inspiration sources**:
@@ -106,3 +123,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 | `192a1ba` | 2026-06-28 | init: project setup with spec and agent workflow docs |
 | `e8a9feb` | 2026-06-28 | docs: update STT/TTS strategy, add UI design spec and design reference |
 | `7f00852` | 2026-06-28 | docs: update Flutter packages to 2026 latest versions |
+| `46d8f5b` | 2026-06-28 | docs: add CHANGELOG.md |
+| `e1f9bdf` | 2026-06-28 | docs: add deep competitive analysis of 可栗口语/咕噜口语/流利说 |
