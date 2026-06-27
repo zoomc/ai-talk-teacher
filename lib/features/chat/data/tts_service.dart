@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
-import '../../features/profile/domain/profile_models.dart';
+import '../../profile/domain/profile_models.dart';
 
 class TtsService {
   final TtsProfile profile;

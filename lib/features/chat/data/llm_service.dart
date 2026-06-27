@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../../features/profile/domain/profile_models.dart';
-import '../../features/chat/domain/chat_models.dart';
+import '../../profile/domain/profile_models.dart';
+import '../domain/chat_models.dart';
 
 class LlmService {
   final LlmProfile profile;

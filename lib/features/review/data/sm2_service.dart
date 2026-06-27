@@ -1,4 +1,4 @@
-import '../../features/chat/domain/chat_models.dart';
+import '../../chat/domain/chat_models.dart';
 
 /// SM-2 Spaced Repetition Algorithm
 /// Based on the SuperMemo SM-2 algorithm
