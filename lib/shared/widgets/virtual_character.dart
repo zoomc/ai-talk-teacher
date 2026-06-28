@@ -3,12 +3,24 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 
 /// AI Virtual Character Widget
-/// Displays the AI tutor with animations and state indicators
+/// Displays the AI tutor with animations and state indicators.
+///
+/// Pass [size] (the diameter of the circular avatar) to scale the widget
+/// for the current breakpoint — see [Responsive.characterSize].
 class VirtualCharacter extends StatefulWidget {
   final String tutorName;
   final String tutorAvatar;
   final CharacterState state;
   final Color accentColor;
+
+  /// Diameter of the character circle in pixels. Defaults to 120 (legacy
+  /// size) so existing callers keep working without changes.
+  final double size;
+
+  /// Whether to render the name + state pill below the avatar.
+  /// On compact layouts with a tight stack height this can be hidden
+  /// (the AppBar already identifies the tutor).
+  final bool showLabel;
 
   const VirtualCharacter({
     super.key,
@@ -16,6 +28,8 @@ class VirtualCharacter extends StatefulWidget {
     required this.tutorAvatar,
     this.state = CharacterState.idle,
     this.accentColor = AppColors.accentPrimary,
+    this.size = 120,
+    this.showLabel = true,
   });
 
   @override
@@ -35,7 +49,6 @@ class _VirtualCharacterState extends State<VirtualCharacter>
   void initState() {
     super.initState();
 
-    // Breathing animation
     _breathingController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
@@ -45,7 +58,6 @@ class _VirtualCharacterState extends State<VirtualCharacter>
     );
     _breathingController.repeat(reverse: true);
 
-    // Glow animation
     _glowController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -56,8 +68,6 @@ class _VirtualCharacterState extends State<VirtualCharacter>
     _glowController.repeat(reverse: true);
 
     // Mouth / speaking animation — simulates lip movement while speaking.
-    // Real amplitude visualization would require a platform visualizer; this
-    // gives the visual cue the spec asks for.
     _mouthController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 220),
@@ -116,6 +126,7 @@ class _VirtualCharacterState extends State<VirtualCharacter>
 
   @override
   Widget build(BuildContext context) {
+    final avatarFontSize = widget.size * 0.42;
     return AnimatedBuilder(
       animation: Listenable.merge([_breathingController, _glowController, _mouthController]),
       builder: (context, child) {
@@ -123,12 +134,13 @@ class _VirtualCharacterState extends State<VirtualCharacter>
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               // Character with glow effect
               AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
-                width: 120,
-                height: 120,
+                width: widget.size,
+                height: widget.size,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _stateColor.withValues(alpha: 0.1),
@@ -161,71 +173,72 @@ class _VirtualCharacterState extends State<VirtualCharacter>
                             : 1.0,
                         child: Text(
                           widget.tutorAvatar,
-                          style: const TextStyle(fontSize: 48),
+                          style: TextStyle(fontSize: avatarFontSize),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: AppSpacing.md),
+              if (widget.showLabel) ...[
+                const SizedBox(height: AppSpacing.md),
 
-              // Tutor name
-              Text(
-                widget.tutorName,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppColors.textPrimary,
+                // Tutor name
+                Text(
+                  widget.tutorName,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppColors.textPrimary,
+                      ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
+                const SizedBox(height: AppSpacing.xs),
 
-              // State indicator
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xxs,
-                ),
-                decoration: BoxDecoration(
-                  color: _stateColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                  border: Border.all(
-                    color: _stateColor.withValues(alpha: 0.3),
+                // State indicator
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xxs,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _stateColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                    border: Border.all(
+                      color: _stateColor.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _stateColor,
+                          boxShadow: widget.state != CharacterState.idle
+                              ? [
+                                  BoxShadow(
+                                    color: _stateColor.withValues(alpha: 0.5),
+                                    blurRadius: 6,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Text(
+                        _stateText,
+                        style: TextStyle(
+                          color: _stateColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Animated dot
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _stateColor,
-                        boxShadow: widget.state != CharacterState.idle
-                            ? [
-                                BoxShadow(
-                                  color: _stateColor.withValues(alpha: 0.5),
-                                  blurRadius: 6,
-                                ),
-                              ]
-                            : null,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    Text(
-                      _stateText,
-                      style: TextStyle(
-                        color: _stateColor,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              ],
             ],
           ),
         );

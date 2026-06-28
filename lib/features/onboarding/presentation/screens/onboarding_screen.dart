@@ -3,10 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../shared/widgets/glass_widgets.dart';
+import '../../../../core/util/responsive.dart';
 import '../../../../shared/providers.dart';
 import '../../../profile/domain/profile_models.dart';
+import '../../../profile/domain/provider_catalog.dart';
 
+/// First-run wizard. The user picks a provider for each of LLM / STT / TTS,
+/// pastes an API key, and we auto-fill the rest from the catalog. Only the API
+/// key is strictly required; everything else has sane catalog defaults.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -18,13 +22,27 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
+  // LLM
+  String _llmProviderId = 'deepseek';
   final _llmKeyController = TextEditingController();
-  final _llmUrlController = TextEditingController(text: 'https://api.deepseek.com');
-  final _llmModelController = TextEditingController(text: 'deepseek-chat');
+  final _llmUrlController = TextEditingController();
+  final _llmModelController = TextEditingController();
+
+  // STT
+  String _sttProviderId = 'deepgram';
   final _sttKeyController = TextEditingController();
+
+  // TTS
+  String _ttsProviderId = 'fish_audio';
   final _ttsKeyController = TextEditingController();
 
   bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _applyLlmDefaults();
+  }
 
   @override
   void dispose() {
@@ -37,21 +55,36 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.dispose();
   }
 
+  void _applyLlmDefaults() {
+    final def = LlmProviderCatalog.byId(_llmProviderId);
+    _llmUrlController.text = def.defaultBaseUrl;
+    _llmModelController.text = def.defaultModel ?? '';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
       body: SafeArea(
-        child: PageView(
-          controller: _pageController,
-          physics: const NeverScrollableScrollPhysics(),
-          onPageChanged: (i) => setState(() => _currentPage = i),
-          children: [
-            _buildWelcomePage(),
-            _buildLlmPage(),
-            _buildSttPage(),
-            _buildTtsPage(),
-          ],
+        child: Center(
+          // Constrain onboarding content on wide screens so the form
+          // stays centered and readable on desktop browsers.
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: Responsive.contentMaxWidth(context),
+            ),
+            child: PageView(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              onPageChanged: (i) => setState(() => _currentPage = i),
+              children: [
+                _buildWelcomePage(),
+                _buildLlmPage(),
+                _buildSttPage(),
+                _buildTtsPage(),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -87,19 +120,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            'Your AI English speaking practice companion.\n\nTo get started, you need API keys for 3 services. All are free to sign up.',
+            'Your AI English speaking practice companion.\n\n'
+            'To get started, configure 3 services. Pick a provider and paste '
+            'an API key — the rest is filled in automatically. You can use a '
+            'relay station (中转站) or a self-hosted local model too.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.6,
-            ),
+                  color: AppColors.textSecondary,
+                  height: 1.6,
+                ),
           ),
           const SizedBox(height: AppSpacing.xxl),
           ElevatedButton(
-            onPressed: () => _pageController.nextPage(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            ),
+            onPressed: () => _next(),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 56),
             ),
@@ -114,11 +147,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return _buildServicePage(
       emoji: '🧠',
       title: 'AI Dialogue',
-      subtitle: 'This powers the conversation with your AI tutor',
-      recommendedService: 'DeepSeek',
-      recommendedUrl: 'https://platform.deepseek.com',
-      hint: 'sk-...',
+      subtitle: 'Powers the conversation with your AI tutor.',
+      providerId: _llmProviderId,
+      onProviderChanged: (v) {
+        setState(() {
+          _llmProviderId = v;
+          _applyLlmDefaults();
+        });
+      },
+      providers: LlmProviderCatalog.all,
       keyController: _llmKeyController,
+      keyHint: 'sk-...',
       extraFields: [
         const SizedBox(height: AppSpacing.md),
         Text('API Base URL', style: Theme.of(context).textTheme.titleMedium),
@@ -126,7 +165,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         TextFormField(
           controller: _llmUrlController,
           style: const TextStyle(color: AppColors.textPrimary),
-          decoration: const InputDecoration(hintText: 'https://api.deepseek.com'),
+          decoration: const InputDecoration(hintText: 'https://api.deepseek.com/v1'),
         ),
         const SizedBox(height: AppSpacing.md),
         Text('Model', style: Theme.of(context).textTheme.titleMedium),
@@ -134,13 +173,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         TextFormField(
           controller: _llmModelController,
           style: const TextStyle(color: AppColors.textPrimary),
-          decoration: const InputDecoration(hintText: 'deepseek-chat'),
+          decoration: const InputDecoration(hintText: 'deepseek-v4-flash'),
         ),
       ],
-      onNext: () => _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      ),
     );
   }
 
@@ -148,15 +183,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return _buildServicePage(
       emoji: '🎤',
       title: 'Speech Recognition',
-      subtitle: 'Converts your speech to text. Cloud services handle accents and errors much better than built-in options.',
-      recommendedService: 'Deepgram',
-      recommendedUrl: 'https://console.deepgram.com',
-      hint: 'dg-...',
+      subtitle: 'Converts your speech to text. Cloud services handle accents far better than on-device options.',
+      providerId: _sttProviderId,
+      onProviderChanged: (v) => setState(() => _sttProviderId = v),
+      providers: SttProviderCatalog.all,
       keyController: _sttKeyController,
-      onNext: () => _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      ),
+      keyHint: 'dg-...',
     );
   }
 
@@ -164,13 +196,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return _buildServicePage(
       emoji: '🔊',
       title: 'Text-to-Speech',
-      subtitle: 'Reads the AI tutor\'s responses aloud. Natural voices make learning more engaging.',
-      recommendedService: 'Fish Audio',
-      recommendedUrl: 'https://fish.audio',
-      hint: 'Enter your API key',
+      subtitle: 'Reads the AI tutor\'s responses aloud with natural voices.',
+      providerId: _ttsProviderId,
+      onProviderChanged: (v) => setState(() => _ttsProviderId = v),
+      providers: TtsProviderCatalog.all,
       keyController: _ttsKeyController,
-      onNext: _saveAndContinue,
+      keyHint: 'Enter your API key',
       isLast: true,
+      onNext: _saveAndContinue,
     );
   }
 
@@ -178,14 +211,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     required String emoji,
     required String title,
     required String subtitle,
-    required String recommendedService,
-    required String recommendedUrl,
-    required String hint,
+    required String providerId,
+    required ValueChanged<String> onProviderChanged,
+    required List<ProviderDef> providers,
     required TextEditingController keyController,
+    required String keyHint,
     List<Widget> extraFields = const [],
-    required VoidCallback onNext,
     bool isLast = false,
+    VoidCallback? onNext,
   }) {
+    final def = providers.firstWhere((p) => p.id == providerId,
+        orElse: () => providers.first);
+    final keyRequired = def.apiKeyRequired;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
@@ -199,7 +236,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   height: 4,
                   margin: const EdgeInsets.symmetric(horizontal: 2),
                   decoration: BoxDecoration(
-                    color: i <= _currentPage ? AppColors.accentPrimary : AppColors.bgTertiary,
+                    color: i <= _currentPage
+                        ? AppColors.accentPrimary
+                        : AppColors.bgTertiary,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -212,43 +251,60 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           const SizedBox(height: AppSpacing.md),
           Text(title, style: Theme.of(context).textTheme.displayLarge),
           const SizedBox(height: AppSpacing.sm),
-          Text(subtitle, style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: AppColors.textSecondary,
-            height: 1.6,
-          )),
+          Text(
+            subtitle,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.6,
+                ),
+          ),
           const SizedBox(height: AppSpacing.xl),
 
-          // Recommendation
-          GlassCard(
-            child: Row(
-              children: [
-                const Icon(Icons.recommend, color: AppColors.accentSecondary),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Recommended: $recommendedService', style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 2),
-                      Text(recommendedUrl, style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.accentSecondary,
-                      )),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          // Provider picker
+          Text('Provider', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpacing.xs),
+          DropdownButtonFormField<String>(
+            value: providerId,
+            dropdownColor: AppColors.bgTertiary,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: const InputDecoration(hintText: 'Select provider'),
+            items: _groupedItems(providers),
+            onChanged: (v) {
+              if (v != null && !v.startsWith('_header_')) onProviderChanged(v);
+            },
           ),
+          if (def.note != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              def.note!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                    height: 1.4,
+                  ),
+            ),
+          ],
+          if (def.docsUrl.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Docs: ${def.docsUrl}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.accentSecondary,
+                  ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
 
           // API Key
-          Text('API Key', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            keyRequired ? 'API Key' : 'API Key (optional)',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: AppSpacing.xs),
           TextFormField(
             controller: keyController,
             style: const TextStyle(color: AppColors.textPrimary),
             obscureText: true,
-            decoration: InputDecoration(hintText: hint),
+            decoration: InputDecoration(hintText: keyHint),
           ),
 
           ...extraFields,
@@ -259,17 +315,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             children: [
               if (_currentPage > 0)
                 TextButton(
-                  onPressed: () => _pageController.previousPage(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  ),
+                  onPressed: _back,
                   child: const Text('Back'),
                 ),
               const Spacer(),
               ElevatedButton(
-                onPressed: _isSaving ? null : onNext,
+                onPressed: _isSaving ? null : (onNext ?? _next),
                 child: _isSaving
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
                     : Text(isLast ? 'Start Learning' : 'Next'),
               ),
             ],
@@ -279,42 +335,160 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
+  List<DropdownMenuItem<String>> _groupedItems(List<ProviderDef> providers) {
+    final byRegion = <ProviderRegion, List<ProviderDef>>{};
+    for (final d in providers) {
+      byRegion.putIfAbsent(d.region, () => []).add(d);
+    }
+    final order = [
+      ProviderRegion.cn,
+      ProviderRegion.global,
+      ProviderRegion.local,
+    ];
+    final items = <DropdownMenuItem<String>>[];
+    for (final region in order) {
+      final list = byRegion[region];
+      if (list == null || list.isEmpty) continue;
+      items.add(DropdownMenuItem<String>(
+        enabled: false,
+        value: '_header_${region.name}',
+        child: Text(
+          _regionLabel(region),
+          style: TextStyle(
+            color: AppColors.accentSecondary,
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+        ),
+      ));
+      for (final d in list) {
+        items.add(DropdownMenuItem<String>(
+          value: d.id,
+          child: Text(d.displayName),
+        ));
+      }
+    }
+    return items;
+  }
+
+  String _regionLabel(ProviderRegion r) {
+    switch (r) {
+      case ProviderRegion.cn:
+        return '— China (国内) —';
+      case ProviderRegion.global:
+        return '— Global (国外) —';
+      case ProviderRegion.local:
+        return '— Local / Self-hosted —';
+    }
+  }
+
+  void _next() {
+    _pageController.nextPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _back() {
+    _pageController.previousPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
   Future<void> _saveAndContinue() async {
-    setState(() => _isSaving = true);
     final repo = ref.read(profileRepoProvider);
 
+    // Validate before save — the LLM is essential; STT/TTS are recommended.
+    // Previously, an empty API key silently skipped saving, leaving the user
+    // stranded on the home screen with no service to talk to. Now we warn
+    // clearly and let them choose: configure now, or skip with explicit
+    // acknowledgement.
+    final llmDef = LlmProviderCatalog.byId(_llmProviderId);
+    final sttDef = SttProviderCatalog.byId(_sttProviderId);
+    final ttsDef = TtsProviderCatalog.byId(_ttsProviderId);
+
+    final llmWillSave =
+        _llmKeyController.text.isNotEmpty || !llmDef.apiKeyRequired;
+    final sttWillSave =
+        _sttKeyController.text.isNotEmpty || !sttDef.apiKeyRequired;
+    final ttsWillSave =
+        _ttsKeyController.text.isNotEmpty || !ttsDef.apiKeyRequired;
+
+    if (!llmWillSave) {
+      // LLM is mandatory — chat literally cannot work without it.
+      final proceed = await _confirmMissingService(
+        title: 'AI Dialogue is required',
+        body:
+            'You haven\'t entered an API key for the AI Dialogue service. '
+            'You won\'t be able to chat with the AI tutor without it.\n\n'
+            'Continue anyway? You can configure it later in Settings.',
+        confirmLabel: 'Skip for now',
+      );
+      if (proceed != true) return;
+    } else if (!sttWillSave || !ttsWillSave) {
+      // STT/TTS missing — warn but make it easy to continue.
+      final missing = <String>[];
+      if (!sttWillSave) missing.add('Speech Recognition');
+      if (!ttsWillSave) missing.add('Text-to-Speech');
+      final proceed = await _confirmMissingService(
+        title: '${missing.join(" and ")} not configured',
+        body:
+            'Without these, voice input and AI spoken replies won\'t work. '
+            'You can still chat by typing.\n\n'
+            'Continue and configure later?',
+        confirmLabel: 'Continue',
+      );
+      if (proceed != true) return;
+    }
+
+    setState(() => _isSaving = true);
+
     try {
-      // Save LLM profile
-      if (_llmKeyController.text.isNotEmpty) {
+      // Save LLM profile (only if a key was entered OR the provider needs none).
+      if (llmWillSave) {
         final llm = LlmProfile(
           name: 'Default',
-          baseUrl: _llmUrlController.text,
+          providerId: _llmProviderId,
+          baseUrl: _llmUrlController.text.trim().isEmpty
+              ? llmDef.defaultBaseUrl
+              : _llmUrlController.text.trim(),
           apiKey: _llmKeyController.text,
-          model: _llmModelController.text,
+          model: _llmModelController.text.trim().isEmpty
+              ? (llmDef.defaultModel ?? '')
+              : _llmModelController.text.trim(),
           isActive: true,
         );
         await repo.saveLlmProfile(llm);
         await repo.setActiveLlmProfile(llm.id);
       }
 
-      // Save STT profile
-      if (_sttKeyController.text.isNotEmpty) {
+      // Save STT profile.
+      if (sttWillSave) {
         final stt = SttProfile(
           name: 'Default',
-          provider: SttProvider.deepgram,
+          providerId: _sttProviderId,
+          baseUrl: sttDef.defaultBaseUrl,
           apiKey: _sttKeyController.text,
+          model: sttDef.defaultModel ?? '',
+          language: 'en-US',
           isActive: true,
         );
         await repo.saveSttProfile(stt);
         await repo.setActiveSttProfile(stt.id);
       }
 
-      // Save TTS profile
-      if (_ttsKeyController.text.isNotEmpty) {
+      // Save TTS profile.
+      if (ttsWillSave) {
         final tts = TtsProfile(
           name: 'Default',
-          provider: TtsProvider.fishAudio,
+          providerId: _ttsProviderId,
+          baseUrl: ttsDef.defaultBaseUrl,
           apiKey: _ttsKeyController.text,
+          model: ttsDef.defaultModel ?? '',
+          voiceId: ttsDef.defaultVoice,
+          voiceName: ttsDef.defaultVoice,
+          speed: 1.0,
           isActive: true,
         );
         await repo.saveTtsProfile(tts);
@@ -335,5 +509,32 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  /// Shows a confirmation dialog when a critical service is missing from
+  /// the onboarding setup. Returns `true` if the user chose to proceed.
+  Future<bool?> _confirmMissingService({
+    required String title,
+    required String body,
+    required String confirmLabel,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgTertiary,
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Go back'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
   }
 }

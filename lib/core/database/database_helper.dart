@@ -5,7 +5,7 @@ import 'package:path_provider/path_provider.dart';
 class DatabaseHelper {
   static Database? _database;
   static const String _dbName = 'speakflow.db';
-  static const int _dbVersion = 1;
+  static const int _dbVersion = 2;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -20,6 +20,7 @@ class DatabaseHelper {
       path,
       version: _dbVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -29,6 +30,7 @@ class DatabaseHelper {
       CREATE TABLE llm_profiles (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        provider_id TEXT NOT NULL DEFAULT 'custom',
         base_url TEXT NOT NULL,
         api_key TEXT NOT NULL,
         model TEXT NOT NULL,
@@ -43,8 +45,11 @@ class DatabaseHelper {
       CREATE TABLE stt_profiles (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        provider TEXT NOT NULL,
+        provider_id TEXT NOT NULL DEFAULT 'custom',
+        base_url TEXT NOT NULL DEFAULT '',
         api_key TEXT NOT NULL,
+        model TEXT NOT NULL DEFAULT '',
+        language TEXT NOT NULL DEFAULT 'en-US',
         extra_config TEXT,
         is_active INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
@@ -57,11 +62,14 @@ class DatabaseHelper {
       CREATE TABLE tts_profiles (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        provider TEXT NOT NULL,
+        provider_id TEXT NOT NULL DEFAULT 'custom',
+        base_url TEXT NOT NULL DEFAULT '',
         api_key TEXT NOT NULL,
+        model TEXT NOT NULL DEFAULT '',
         voice_id TEXT,
         voice_name TEXT,
         speed REAL NOT NULL DEFAULT 1.0,
+        extra_config TEXT,
         is_active INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
@@ -218,5 +226,99 @@ class DatabaseHelper {
     for (final scenario in scenarios) {
       await db.insert('scenarios', scenario);
     }
+  }
+
+  /// Schema migration v1 → v2: introduce the provider-catalog columns.
+  ///
+  /// - Adds `provider_id`, `base_url`, `model`, `language` (and keeps `extra_config`)
+  ///   to `stt_profiles`.
+  /// - Adds `provider_id`, `base_url`, `model`, `extra_config` to `tts_profiles`.
+  /// - Adds `provider_id` to `llm_profiles`.
+  /// - Remaps the legacy closed-enum `provider` column values to catalog ids and
+  ///   back-fills `base_url` / `model` from the catalog defaults so existing users
+  ///   keep working without reconfiguring.
+  static Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      final batch = db.batch();
+
+      // llm_profiles: add provider_id
+      batch.execute("ALTER TABLE llm_profiles ADD COLUMN provider_id TEXT NOT NULL DEFAULT 'custom'");
+
+      // stt_profiles: add new columns (extra_config already exists in v1)
+      batch.execute("ALTER TABLE stt_profiles ADD COLUMN provider_id TEXT NOT NULL DEFAULT 'custom'");
+      batch.execute("ALTER TABLE stt_profiles ADD COLUMN base_url TEXT NOT NULL DEFAULT ''");
+      batch.execute("ALTER TABLE stt_profiles ADD COLUMN model TEXT NOT NULL DEFAULT ''");
+      batch.execute("ALTER TABLE stt_profiles ADD COLUMN language TEXT NOT NULL DEFAULT 'en-US'");
+
+      // tts_profiles: add new columns (extra_config did NOT exist in v1)
+      batch.execute("ALTER TABLE tts_profiles ADD COLUMN provider_id TEXT NOT NULL DEFAULT 'custom'");
+      batch.execute("ALTER TABLE tts_profiles ADD COLUMN base_url TEXT NOT NULL DEFAULT ''");
+      batch.execute("ALTER TABLE tts_profiles ADD COLUMN model TEXT NOT NULL DEFAULT ''");
+      batch.execute('ALTER TABLE tts_profiles ADD COLUMN extra_config TEXT');
+
+      await batch.commit();
+
+      // Remap legacy `provider` enum values to catalog ids + defaults.
+      // STT mapping (matches SttProfile.fromMap backward-compat):
+      await _remapLegacyStt(db, 'deepgram', 'deepgram',
+          'https://api.deepgram.com', 'nova-3');
+      await _remapLegacyStt(db, 'openaiWhisper', 'openai_whisper',
+          'https://api.openai.com/v1', 'whisper-1');
+      await _remapLegacyStt(db, 'googleCloud', 'google',
+          'https://speech.googleapis.com', '');
+      await _remapLegacyStt(db, 'azure', 'azure',
+          'https://{region}.stt.speech.microsoft.com', '');
+
+      // TTS mapping (matches TtsProfile.fromMap backward-compat):
+      await _remapLegacyTts(db, 'fishAudio', 'fish_audio',
+          'https://api.fish.audio', 's1');
+      await _remapLegacyTts(db, 'elevenLabs', 'elevenlabs',
+          'https://api.elevenlabs.io', 'eleven_multilingual_v2');
+      await _remapLegacyTts(db, 'openaiTts', 'openai_tts',
+          'https://api.openai.com/v1', 'gpt-4o-mini-tts');
+      await _remapLegacyTts(db, 'azure', 'azure_tts',
+          'https://{region}.tts.speech.microsoft.com', '');
+
+      // LLM profiles created before v2 default to 'custom' provider_id, which is
+      // correct since they already carry their own base_url + model.
+    }
+  }
+
+  static Future<void> _remapLegacyStt(
+    Database db,
+    String legacyEnum,
+    String providerId,
+    String baseUrl,
+    String model,
+  ) async {
+    await db.update(
+      'stt_profiles',
+      {
+        'provider_id': providerId,
+        'base_url': baseUrl,
+        'model': model,
+      },
+      where: 'provider = ?',
+      whereArgs: [legacyEnum],
+    );
+  }
+
+  static Future<void> _remapLegacyTts(
+    Database db,
+    String legacyEnum,
+    String providerId,
+    String baseUrl,
+    String model,
+  ) async {
+    await db.update(
+      'tts_profiles',
+      {
+        'provider_id': providerId,
+        'base_url': baseUrl,
+        'model': model,
+      },
+      where: 'provider = ?',
+      whereArgs: [legacyEnum],
+    );
   }
 }
