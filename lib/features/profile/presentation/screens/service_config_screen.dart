@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
@@ -111,7 +113,7 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () {},
+                          onPressed: _importProfiles,
                           icon: const Icon(Icons.download),
                           label: const Text('Import All'),
                         ),
@@ -119,7 +121,7 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                       const SizedBox(width: AppSpacing.md),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () {},
+                          onPressed: _exportProfiles,
                           icon: const Icon(Icons.upload),
                           label: const Text('Export All'),
                         ),
@@ -293,6 +295,100 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
         break;
     }
     await _loadProfiles();
+  }
+
+  // ========== Export / Import ==========
+
+  Future<void> _exportProfiles() async {
+    final repo = ref.read(profileRepoProvider);
+    try {
+      final json = await repo.exportAllProfilesJson();
+      Directory? dir;
+      try {
+        dir = await getDownloadsDirectory();
+      } catch (_) {
+        dir = null;
+      }
+      dir ??= await getApplicationDocumentsDirectory();
+      final timestamp = DateTime.now().toIso8601String().replaceAll(RegExp(r'[:.]'), '-');
+      final file = File('${dir.path}/speakflow_profiles_$timestamp.json');
+      await file.writeAsString(json);
+      if (mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppColors.bgTertiary,
+            title: const Text('Export Complete'),
+            content: Text('Profiles exported to:\n${file.path}'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: ${_safeError(e)}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _importProfiles() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgTertiary,
+        title: const Text('Import Profiles'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: TextField(
+            controller: controller,
+            maxLines: 12,
+            style: const TextStyle(color: AppColors.textPrimary, fontFamily: 'monospace', fontSize: 12),
+            decoration: const InputDecoration(
+              hintText: 'Paste exported JSON here',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Import'),
+          ),
+        ],
+      ),
+    );
+    if (result == null) return;
+    final text = result.trim();
+    if (text.isEmpty) return;
+
+    final repo = ref.read(profileRepoProvider);
+    try {
+      final count = await repo.importProfilesJson(text);
+      await _loadProfiles();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Imported $count profiles. Please edit each to re-enter API keys.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid JSON')),
+        );
+      }
+    }
   }
 
   // ========== Test Connection ==========

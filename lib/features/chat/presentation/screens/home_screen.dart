@@ -23,14 +23,30 @@ final totalCorrectionCountProvider = FutureProvider<int>((ref) async {
   return repo.getCorrectionCount();
 });
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  bool _promptedForActiveSession = false;
+
+  @override
+  Widget build(BuildContext context) {
     final activeSession = ref.watch(activeSessionProvider);
     final dueCount = ref.watch(dueCorrectionCountProvider);
     final totalCount = ref.watch(totalCorrectionCountProvider);
+
+    activeSession.whenData((session) {
+      if (session != null && !_promptedForActiveSession && mounted) {
+        _promptedForActiveSession = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _showContinueDialog(session);
+        });
+      }
+    });
 
     return Scaffold(
       body: Container(
@@ -179,7 +195,7 @@ class HomeScreen extends ConsumerWidget {
                         title: 'Free Talk',
                         subtitle: 'Start a conversation about anything',
                         color: AppColors.accentPrimary,
-                        onTap: () => _startNewSession(context, ref),
+                        onTap: () => _startNewSession(context),
                       ).animate().fadeIn(delay: 300.ms).slideX(begin: -0.1),
                       const SizedBox(height: AppSpacing.md),
                       _QuickActionCard(
@@ -228,12 +244,36 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _startNewSession(BuildContext context, WidgetRef ref) async {
+  Future<void> _startNewSession(BuildContext context) async {
     final repo = ref.read(chatRepoProvider);
     final session = await repo.createSession(topic: 'Free Talk');
     if (context.mounted) {
       context.push('/chat/${session.id}');
     }
+  }
+
+  void _showContinueDialog(ChatSession session) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgTertiary,
+        title: const Text('Welcome back!'),
+        content: Text('Continue your conversation about "${session.topic ?? 'Free Talk'}" or start a new topic?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('New Topic'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.push('/chat/${session.id}');
+            },
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

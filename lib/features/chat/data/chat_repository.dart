@@ -101,6 +101,26 @@ class ChatRepository {
     return (result.first['count'] as int?) ?? 0;
   }
 
+  Future<Map<String, ({int count, DateTime lastPracticedAt})>> getScenarioStats() async {
+    final db = await DatabaseHelper.database;
+    final results = await db.rawQuery('''
+      SELECT scenario_id, COUNT(*) as cnt, MAX(updated_at) as last_at
+      FROM chat_sessions
+      WHERE scenario_id IS NOT NULL
+      GROUP BY scenario_id
+    ''');
+    final stats = <String, ({int count, DateTime lastPracticedAt})>{};
+    for (final row in results) {
+      final sid = row['scenario_id'] as String?;
+      if (sid == null) continue;
+      final cnt = (row['cnt'] as int?) ?? 0;
+      final lastStr = row['last_at'] as String?;
+      if (lastStr == null) continue;
+      stats[sid] = (count: cnt, lastPracticedAt: DateTime.parse(lastStr));
+    }
+    return stats;
+  }
+
   // ========== Scenarios ==========
 
   Future<List<Scenario>> getAllScenarios() async {

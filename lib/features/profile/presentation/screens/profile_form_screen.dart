@@ -28,6 +28,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   bool _isLoading = false;
   bool _isLoadingExisting = false;
   bool _isFetchingModels = false;
+  double _selectedSpeed = 1.0;
   // Track whether we have an existing API key (so user can keep it unchanged)
   bool _hasExistingKey = false;
 
@@ -99,6 +100,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
             _selectedTtsProvider = p.provider;
             _keyController.text = p.apiKey;
             _hasExistingKey = p.apiKey.isNotEmpty;
+            _selectedSpeed = p.speed;
           }
           break;
       }
@@ -212,6 +214,22 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
                         }).toList(),
                         onChanged: (v) => setState(() => _selectedTtsProvider = v),
                         validator: (v) => v == null ? 'Required' : null,
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      Text('TTS Speed', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: AppSpacing.xs),
+                      DropdownButtonFormField<double>(
+                        initialValue: _selectedSpeed,
+                        dropdownColor: AppColors.bgTertiary,
+                        style: const TextStyle(color: AppColors.textPrimary),
+                        decoration: const InputDecoration(hintText: 'Select TTS speed'),
+                        items: const [
+                          DropdownMenuItem(value: 0.75, child: Text('0.75x (Slower)')),
+                          DropdownMenuItem(value: 1.0, child: Text('1.0x (Normal)')),
+                          DropdownMenuItem(value: 1.25, child: Text('1.25x (Faster)')),
+                          DropdownMenuItem(value: 1.5, child: Text('1.5x (Fastest)')),
+                        ],
+                        onChanged: (v) => setState(() => _selectedSpeed = v ?? 1.0),
                       ),
                     ],
 
@@ -409,6 +427,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
             name: _nameController.text,
             provider: _selectedTtsProvider!,
             apiKey: apiKey,
+            speed: _selectedSpeed,
           );
           await repo.saveTtsProfile(profile);
           break;

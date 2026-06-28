@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../../../core/database/database_helper.dart';
 import '../../../core/services/secure_storage_service.dart';
@@ -202,5 +203,84 @@ class ProfileRepository {
 
   Future<void> setUserLevel(String level) async {
     await setSetting('user_level', level);
+  }
+
+  // ========== Import / Export ==========
+
+  Future<String> exportAllProfilesJson() async {
+    final llm = await getAllLlmProfiles();
+    final stt = await getAllSttProfiles();
+    final tts = await getAllTtsProfiles();
+    String maskKey(String k) {
+      if (k.length <= 8) return '****';
+      return '${k.substring(0, 4)}****${k.substring(k.length - 4)}';
+    }
+    final data = {
+      'version': 1,
+      'exported_at': DateTime.now().toIso8601String(),
+      'llm': llm.map((p) => {...p.toMap(), 'api_key': maskKey(p.apiKey)}).toList(),
+      'stt': stt.map((p) => {...p.toMap(), 'api_key': maskKey(p.apiKey)}).toList(),
+      'tts': tts.map((p) => {...p.toMap(), 'api_key': maskKey(p.apiKey)}).toList(),
+    };
+    return jsonEncode(data);
+  }
+
+  Future<int> importProfilesJson(String jsonStr) async {
+    final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+    int count = 0;
+    if (data['llm'] is List) {
+      for (final m in data['llm'] as List) {
+        final map = Map<String, dynamic>.from(m as Map);
+        final profile = LlmProfile(
+          name: '${map['name'] ?? ''} (imported)',
+          baseUrl: map['base_url'] as String? ?? '',
+          apiKey: map['api_key'] as String? ?? '',
+          model: map['model'] as String? ?? '',
+        );
+        await saveLlmProfile(profile);
+        count++;
+      }
+    }
+    if (data['stt'] is List) {
+      for (final m in data['stt'] as List) {
+        final map = Map<String, dynamic>.from(m as Map);
+        SttProvider provider;
+        try {
+          provider = SttProvider.values.byName(map['provider'] as String? ?? 'deepgram');
+        } catch (_) {
+          provider = SttProvider.deepgram;
+        }
+        final profile = SttProfile(
+          name: '${map['name'] ?? ''} (imported)',
+          provider: provider,
+          apiKey: map['api_key'] as String? ?? '',
+          extraConfig: map['extra_config'] as String?,
+        );
+        await saveSttProfile(profile);
+        count++;
+      }
+    }
+    if (data['tts'] is List) {
+      for (final m in data['tts'] as List) {
+        final map = Map<String, dynamic>.from(m as Map);
+        TtsProvider provider;
+        try {
+          provider = TtsProvider.values.byName(map['provider'] as String? ?? 'fishAudio');
+        } catch (_) {
+          provider = TtsProvider.fishAudio;
+        }
+        final profile = TtsProfile(
+          name: '${map['name'] ?? ''} (imported)',
+          provider: provider,
+          apiKey: map['api_key'] as String? ?? '',
+          voiceId: map['voice_id'] as String?,
+          voiceName: map['voice_name'] as String?,
+          speed: (map['speed'] as num?)?.toDouble() ?? 1.0,
+        );
+        await saveTtsProfile(profile);
+        count++;
+      }
+    }
+    return count;
   }
 }

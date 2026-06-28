@@ -26,8 +26,10 @@ class _VirtualCharacterState extends State<VirtualCharacter>
     with TickerProviderStateMixin {
   late AnimationController _breathingController;
   late AnimationController _glowController;
+  late AnimationController _mouthController;
   late Animation<double> _breathingAnimation;
   late Animation<double> _glowAnimation;
+  late Animation<double> _mouthAnimation;
 
   @override
   void initState() {
@@ -52,12 +54,37 @@ class _VirtualCharacterState extends State<VirtualCharacter>
       CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
     );
     _glowController.repeat(reverse: true);
+
+    // Mouth / speaking animation — simulates lip movement while speaking.
+    // Real amplitude visualization would require a platform visualizer; this
+    // gives the visual cue the spec asks for.
+    _mouthController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+    _mouthAnimation = Tween<double>(begin: 0.85, end: 1.15).animate(
+      CurvedAnimation(parent: _mouthController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant VirtualCharacter oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.state == CharacterState.speaking &&
+        oldWidget.state != CharacterState.speaking) {
+      _mouthController.repeat(reverse: true);
+    } else if (widget.state != CharacterState.speaking &&
+        oldWidget.state == CharacterState.speaking) {
+      _mouthController.stop();
+      _mouthController.value = 0.0;
+    }
   }
 
   @override
   void dispose() {
     _breathingController.dispose();
     _glowController.dispose();
+    _mouthController.dispose();
     super.dispose();
   }
 
@@ -90,7 +117,7 @@ class _VirtualCharacterState extends State<VirtualCharacter>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_breathingController, _glowController]),
+      animation: Listenable.merge([_breathingController, _glowController, _mouthController]),
       builder: (context, child) {
         return Container(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -128,9 +155,14 @@ class _VirtualCharacterState extends State<VirtualCharacter>
                       ),
                     ),
                     child: Center(
-                      child: Text(
-                        widget.tutorAvatar,
-                        style: const TextStyle(fontSize: 48),
+                      child: Transform.scale(
+                        scale: widget.state == CharacterState.speaking
+                            ? _mouthAnimation.value
+                            : 1.0,
+                        child: Text(
+                          widget.tutorAvatar,
+                          style: const TextStyle(fontSize: 48),
+                        ),
                       ),
                     ),
                   ),

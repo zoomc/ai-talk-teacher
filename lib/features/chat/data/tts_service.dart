@@ -32,6 +32,7 @@ class TtsService {
         'text': text,
         'reference_id': profile.voiceId ?? 'default',
         'format': 'mp3',
+        'speed': profile.speed,
       }),
     ).timeout(const Duration(seconds: 30));
 
@@ -50,6 +51,7 @@ class TtsService {
         'xi-api-key': profile.apiKey,
         'Content-Type': 'application/json',
       },
+      // ElevenLabs voice_settings has no direct speed control; speed is not applied here.
       body: jsonEncode({
         'text': text,
         'model_id': 'eleven_monolingual_v1',

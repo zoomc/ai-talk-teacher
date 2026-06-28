@@ -334,11 +334,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (mounted) setState(() => _playingMessageId = messageId);
 
       final ttsService = TtsService(ttsProfile);
-      final audioBytes = await ttsService.synthesize(text);
 
       _attachPlayerStateListener(messageId);
 
-      await _ttsPlaybackService.playAudio(audioBytes);
+      await _ttsPlaybackService.playCached(text, () => ttsService.synthesize(text));
     } catch (e) {
       // Auto-play failures should not interrupt the conversation flow.
       debugPrint('Auto TTS failed: $e');
@@ -382,10 +381,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
 
       final ttsService = TtsService(ttsProfile);
-      final audioBytes = await ttsService.synthesize(text);
 
       _attachPlayerStateListener(messageId);
-      await _ttsPlaybackService.playAudio(audioBytes);
+      await _ttsPlaybackService.playCached(text, () => ttsService.synthesize(text));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

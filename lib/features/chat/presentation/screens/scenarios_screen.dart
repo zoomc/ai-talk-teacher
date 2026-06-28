@@ -12,11 +12,46 @@ final scenariosProvider = FutureProvider<List<Scenario>>((ref) async {
   return repo.getAllScenarios();
 });
 
-class ScenariosScreen extends ConsumerWidget {
+typedef ScenarioStats = ({int count, DateTime lastPracticedAt});
+
+class ScenariosScreen extends ConsumerStatefulWidget {
   const ScenariosScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ScenariosScreen> createState() => _ScenariosScreenState();
+}
+
+class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
+  Map<String, ScenarioStats> _stats = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    final stats = await ref.read(chatRepoProvider).getScenarioStats();
+    if (mounted) {
+      setState(() {
+        _stats = stats;
+      });
+    }
+  }
+
+  Future<void> _startScenario(Scenario scenario) async {
+    final repo = ref.read(chatRepoProvider);
+    final session = await repo.createSession(
+      topic: scenario.name,
+      scenarioId: scenario.id,
+    );
+    if (mounted) {
+      context.push('/chat/${session.id}');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final scenarios = ref.watch(scenariosProvider);
 
     return Scaffold(
@@ -25,7 +60,6 @@ class ScenariosScreen extends ConsumerWidget {
         child: SafeArea(
           child: scenarios.when(
             data: (list) {
-              // Group by category
               final grouped = <String, List<Scenario>>{};
               for (final s in list) {
                 grouped.putIfAbsent(s.category, () => []).add(s);
@@ -71,7 +105,7 @@ class ScenariosScreen extends ConsumerWidget {
                             ),
                           ),
                           SizedBox(
-                            height: 160,
+                            height: 184,
                             child: ListView.builder(
                               scrollDirection: Axis.horizontal,
                               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
@@ -80,7 +114,8 @@ class ScenariosScreen extends ConsumerWidget {
                                 final scenario = scenarios[index];
                                 return _ScenarioCard(
                                   scenario: scenario,
-                                  onTap: () => _startScenario(context, ref, scenario),
+                                  stats: _stats[scenario.id],
+                                  onTap: () => _startScenario(scenario),
                                 );
                               },
                             ),
@@ -101,24 +136,18 @@ class ScenariosScreen extends ConsumerWidget {
       ),
     );
   }
-
-  Future<void> _startScenario(BuildContext context, WidgetRef ref, Scenario scenario) async {
-    final repo = ref.read(chatRepoProvider);
-    final session = await repo.createSession(
-      topic: scenario.name,
-      scenarioId: scenario.id,
-    );
-    if (context.mounted) {
-      context.push('/chat/${session.id}');
-    }
-  }
 }
 
 class _ScenarioCard extends StatelessWidget {
   final Scenario scenario;
+  final ScenarioStats? stats;
   final VoidCallback onTap;
 
-  const _ScenarioCard({required this.scenario, required this.onTap});
+  const _ScenarioCard({
+    required this.scenario,
+    required this.stats,
+    required this.onTap,
+  });
 
   Color _difficultyColor(String difficulty) {
     switch (difficulty) {
@@ -131,6 +160,14 @@ class _ScenarioCard extends StatelessWidget {
       default:
         return AppColors.accentSecondary;
     }
+  }
+
+  String _relativeTime(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inHours < 24) return 'today';
+    if (diff.inDays == 1) return 'yesterday';
+    if (diff.inDays < 7) return '${diff.inDays} days ago';
+    return '${dt.month}/${dt.day}';
   }
 
   @override
@@ -171,6 +208,50 @@ class _ScenarioCard extends StatelessWidget {
                   style: TextStyle(color: diffColor, fontSize: 11, fontWeight: FontWeight.w600),
                 ),
               ),
+              if (stats != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline,
+                      size: 12,
+                      color: AppColors.textMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'Practiced ${stats!.count} times',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.history,
+                      size: 12,
+                      color: AppColors.textMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'Last: ${_relativeTime(stats!.lastPracticedAt)}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
