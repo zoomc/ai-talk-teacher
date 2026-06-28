@@ -48,7 +48,7 @@ class LlmService {
     }
 
     // Parse corrections from the response
-    final corrections = _extractCorrections(content);
+    final corrections = extractCorrections(content);
 
     return LlmResponse(
       content: _cleanResponse(content),
@@ -104,7 +104,7 @@ If there were no errors, do not include the corrections block.''',
   }
 
   /// Extract corrections from the response
-  List<Correction> _extractCorrections(String content) {
+  List<Correction> extractCorrections(String content) {
     final corrections = <Correction>[];
 
     // Find corrections JSON block
