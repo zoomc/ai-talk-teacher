@@ -5,7 +5,6 @@ import 'dart:io';
 
 class TtsPlaybackService {
   final AudioPlayer _player = AudioPlayer();
-  String? _currentAudioPath;
   int _fileCounter = 0;
 
   /// Play TTS audio from bytes
@@ -17,7 +16,6 @@ class TtsPlaybackService {
       final file = File('${tempDir.path}/tts_$_fileCounter.mp3');
 
       await file.writeAsBytes(audioBytes);
-      _currentAudioPath = file.path;
 
       // Play the audio
       await player.setFilePath(file.path);

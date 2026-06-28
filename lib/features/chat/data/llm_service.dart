@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../profile/domain/profile_models.dart';
 import '../domain/chat_models.dart';
@@ -142,7 +143,7 @@ If there were no errors, do not include the corrections block.''',
         }
       } catch (e) {
         // Log parsing error - response still returned, just without corrections
-        print('Warning: Failed to parse corrections block: $e');
+        debugPrint('Warning: Failed to parse corrections block: $e');
       }
     }
 

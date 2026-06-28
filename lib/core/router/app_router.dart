@@ -6,6 +6,7 @@ import '../../features/chat/presentation/screens/chat_screen.dart';
 import '../../features/chat/presentation/screens/scenarios_screen.dart';
 import '../../features/chat/presentation/screens/review_screen.dart';
 import '../../features/chat/presentation/screens/progress_screen.dart';
+import '../../features/chat/presentation/screens/history_screen.dart';
 import '../../features/chat/presentation/screens/tutor_selection_screen.dart';
 import '../../features/profile/presentation/screens/service_config_screen.dart';
 import '../../features/profile/presentation/screens/profile_form_screen.dart';
@@ -95,6 +96,10 @@ class AppRouter {
       GoRoute(
         path: '/progress',
         builder: (context, state) => const ProgressScreen(),
+      ),
+      GoRoute(
+        path: '/history',
+        builder: (context, state) => const HistoryScreen(),
       ),
       GoRoute(
         path: '/tutor-selection',

@@ -138,15 +138,35 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     }
   }
 
-  Widget _buildResultScreen() {
-    // Determine level based on answers
-    String level = 'Intermediate';
-    final firstAnswer = _answers.isNotEmpty ? _answers[0] : '';
-    if (firstAnswer == 'Beginner' || firstAnswer == 'Elementary') {
-      level = 'Beginner';
-    } else if (firstAnswer == 'Advanced') {
-      level = 'Advanced';
+  String _computeLevel() {
+    if (_answers.length < _questions.length) return 'intermediate';
+
+    final indices = <int>[];
+    for (var i = 0; i < _questions.length; i++) {
+      final options = (_questions[i]['options'] as List<String>);
+      final idx = options.indexOf(_answers[i]);
+      indices.add(idx < 0 ? 2 : idx);
     }
+
+    final q1Weight = 0.5;
+    final otherWeight = 0.5 / (_questions.length - 1);
+    double score = indices[0] * q1Weight;
+    for (var i = 1; i < indices.length; i++) {
+      score += indices[i] * otherWeight;
+    }
+
+    final q1Answer = _answers[0];
+    if (q1Answer == 'Beginner' || q1Answer == 'Elementary') {
+      return 'beginner';
+    }
+    if (score < 1.5) return 'beginner';
+    if (score < 3.0) return 'intermediate';
+    return 'advanced';
+  }
+
+  Widget _buildResultScreen() {
+    final String level = _computeLevel();
+    final String displayLevel = level[0].toUpperCase() + level.substring(1);
 
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
@@ -174,7 +194,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  'Your level: $level',
+                  'Your level: $displayLevel',
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     color: AppColors.accentSecondary,
                   ),
@@ -208,13 +228,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     final chatRepo = ref.read(chatRepoProvider);
 
     // Save level
-    final firstAnswer = _answers.isNotEmpty ? _answers[0] : 'Intermediate';
-    String level = 'intermediate';
-    if (firstAnswer == 'Beginner' || firstAnswer == 'Elementary') {
-      level = 'beginner';
-    } else if (firstAnswer == 'Advanced') {
-      level = 'advanced';
-    }
+    final String level = _computeLevel();
     await repo.setUserLevel(level);
     await repo.setPlacementCompleted();
 

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
-import '../../../../shared/providers.dart';
 import '../../data/learning_stats_service.dart';
 
 final statsProvider = FutureProvider<LearningStats>((ref) async {

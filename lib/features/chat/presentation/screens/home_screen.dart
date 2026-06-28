@@ -125,7 +125,7 @@ class HomeScreen extends ConsumerWidget {
                       return const SizedBox.shrink();
                     },
                     loading: () => const ShimmerBox(width: double.infinity, height: 80),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
                   ),
                 ),
               ),
@@ -140,7 +140,7 @@ class HomeScreen extends ConsumerWidget {
                         child: _StatCard(
                           icon: Icons.error_outline,
                           label: 'Due for Review',
-                          value: dueCount.when(data: (v) => '$v', loading: () => '...', error: (_, __) => '0'),
+                          value: dueCount.when(data: (v) => '$v', loading: () => '...', error: (_, _) => '0'),
                           color: AppColors.warning,
                         ),
                       ),
@@ -149,7 +149,7 @@ class HomeScreen extends ConsumerWidget {
                         child: _StatCard(
                           icon: Icons.check_circle_outline,
                           label: 'Total Corrections',
-                          value: totalCount.when(data: (v) => '$v', loading: () => '...', error: (_, __) => '0'),
+                          value: totalCount.when(data: (v) => '$v', loading: () => '...', error: (_, _) => '0'),
                           color: AppColors.success,
                         ),
                       ),
@@ -205,6 +205,14 @@ class HomeScreen extends ConsumerWidget {
                         color: AppColors.warning,
                         onTap: () => context.push('/progress'),
                       ).animate().fadeIn(delay: 750.ms).slideX(begin: -0.1),
+                      const SizedBox(height: AppSpacing.md),
+                      _QuickActionCard(
+                        icon: Icons.history,
+                        title: 'Chat History',
+                        subtitle: 'Browse past conversations',
+                        color: AppColors.info,
+                        onTap: () => context.push('/history'),
+                      ).animate().fadeIn(delay: 900.ms).slideX(begin: -0.1),
                     ],
                   ),
                 ),

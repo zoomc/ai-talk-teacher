@@ -1,5 +1,4 @@
 import '../../../core/database/database_helper.dart';
-import '../domain/chat_models.dart';
 
 class LearningStats {
   final int totalSessions;
