@@ -156,7 +156,8 @@ class DatabaseHelper {
         'icon': '💬',
         'difficulty': 'all',
         'category': 'general',
-        'system_prompt': 'You are a friendly English tutor. Have a natural conversation with the student. Correct their errors naturally by restating the correct version in your reply without interrupting the flow. Keep responses concise and engaging.',
+        'system_prompt':
+            'You are a friendly English tutor. Have a natural conversation with the student. Correct their errors naturally by restating the correct version in your reply without interrupting the flow. Keep responses concise and engaging.',
       },
       {
         'id': 'restaurant',
@@ -165,7 +166,8 @@ class DatabaseHelper {
         'icon': '🍽️',
         'difficulty': 'beginner',
         'category': 'daily',
-        'system_prompt': 'You are a friendly English tutor. The student is practicing ordering food at a restaurant. You play the role of the waiter/waitress. Correct their errors naturally by restating the correct version in your reply.',
+        'system_prompt':
+            'You are a friendly English tutor. The student is practicing ordering food at a restaurant. You play the role of the waiter/waitress. Correct their errors naturally by restating the correct version in your reply.',
       },
       {
         'id': 'airport',
@@ -174,7 +176,8 @@ class DatabaseHelper {
         'icon': '✈️',
         'difficulty': 'beginner',
         'category': 'travel',
-        'system_prompt': 'You are a friendly English tutor. The student is practicing airport scenarios. You play various roles (check-in agent, security, etc). Correct errors naturally.',
+        'system_prompt':
+            'You are a friendly English tutor. The student is practicing airport scenarios. You play various roles (check-in agent, security, etc). Correct errors naturally.',
       },
       {
         'id': 'job_interview',
@@ -183,7 +186,8 @@ class DatabaseHelper {
         'icon': '💼',
         'difficulty': 'intermediate',
         'category': 'career',
-        'system_prompt': 'You are a friendly English tutor. The student is practicing for a job interview. You play the interviewer. Ask common interview questions and correct errors naturally.',
+        'system_prompt':
+            'You are a friendly English tutor. The student is practicing for a job interview. You play the interviewer. Ask common interview questions and correct errors naturally.',
       },
       {
         'id': 'business_meeting',
@@ -192,7 +196,8 @@ class DatabaseHelper {
         'icon': '📊',
         'difficulty': 'advanced',
         'category': 'career',
-        'system_prompt': 'You are a friendly English tutor. The student is practicing business English in a meeting context. Correct errors naturally while keeping the meeting flowing.',
+        'system_prompt':
+            'You are a friendly English tutor. The student is practicing business English in a meeting context. Correct errors naturally while keeping the meeting flowing.',
       },
       {
         'id': 'shopping',
@@ -201,7 +206,8 @@ class DatabaseHelper {
         'icon': '🛍️',
         'difficulty': 'beginner',
         'category': 'daily',
-        'system_prompt': 'You are a friendly English tutor. The student is practicing shopping scenarios. You play the store clerk. Correct errors naturally.',
+        'system_prompt':
+            'You are a friendly English tutor. The student is practicing shopping scenarios. You play the store clerk. Correct errors naturally.',
       },
       {
         'id': 'doctor',
@@ -210,7 +216,8 @@ class DatabaseHelper {
         'icon': '🏥',
         'difficulty': 'intermediate',
         'category': 'daily',
-        'system_prompt': 'You are a friendly English tutor. The student is practicing describing symptoms to a doctor. You play the doctor. Correct errors naturally.',
+        'system_prompt':
+            'You are a friendly English tutor. The student is practicing describing symptoms to a doctor. You play the doctor. Correct errors naturally.',
       },
       {
         'id': 'date',
@@ -219,7 +226,8 @@ class DatabaseHelper {
         'icon': '💕',
         'difficulty': 'intermediate',
         'category': 'social',
-        'system_prompt': 'You are a friendly English tutor. The student is practicing casual English conversation on a date. Be warm and engaging. Correct errors naturally.',
+        'system_prompt':
+            'You are a friendly English tutor. The student is practicing casual English conversation on a date. Be warm and engaging. Correct errors naturally.',
       },
     ];
 
@@ -237,47 +245,107 @@ class DatabaseHelper {
   /// - Remaps the legacy closed-enum `provider` column values to catalog ids and
   ///   back-fills `base_url` / `model` from the catalog defaults so existing users
   ///   keep working without reconfiguring.
-  static Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+  static Future<void> _onUpgrade(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
     if (oldVersion < 2) {
       final batch = db.batch();
 
       // llm_profiles: add provider_id
-      batch.execute("ALTER TABLE llm_profiles ADD COLUMN provider_id TEXT NOT NULL DEFAULT 'custom'");
+      batch.execute(
+        "ALTER TABLE llm_profiles ADD COLUMN provider_id TEXT NOT NULL DEFAULT 'custom'",
+      );
 
       // stt_profiles: add new columns (extra_config already exists in v1)
-      batch.execute("ALTER TABLE stt_profiles ADD COLUMN provider_id TEXT NOT NULL DEFAULT 'custom'");
-      batch.execute("ALTER TABLE stt_profiles ADD COLUMN base_url TEXT NOT NULL DEFAULT ''");
-      batch.execute("ALTER TABLE stt_profiles ADD COLUMN model TEXT NOT NULL DEFAULT ''");
-      batch.execute("ALTER TABLE stt_profiles ADD COLUMN language TEXT NOT NULL DEFAULT 'en-US'");
+      batch.execute(
+        "ALTER TABLE stt_profiles ADD COLUMN provider_id TEXT NOT NULL DEFAULT 'custom'",
+      );
+      batch.execute(
+        "ALTER TABLE stt_profiles ADD COLUMN base_url TEXT NOT NULL DEFAULT ''",
+      );
+      batch.execute(
+        "ALTER TABLE stt_profiles ADD COLUMN model TEXT NOT NULL DEFAULT ''",
+      );
+      batch.execute(
+        "ALTER TABLE stt_profiles ADD COLUMN language TEXT NOT NULL DEFAULT 'en-US'",
+      );
 
       // tts_profiles: add new columns (extra_config did NOT exist in v1)
-      batch.execute("ALTER TABLE tts_profiles ADD COLUMN provider_id TEXT NOT NULL DEFAULT 'custom'");
-      batch.execute("ALTER TABLE tts_profiles ADD COLUMN base_url TEXT NOT NULL DEFAULT ''");
-      batch.execute("ALTER TABLE tts_profiles ADD COLUMN model TEXT NOT NULL DEFAULT ''");
+      batch.execute(
+        "ALTER TABLE tts_profiles ADD COLUMN provider_id TEXT NOT NULL DEFAULT 'custom'",
+      );
+      batch.execute(
+        "ALTER TABLE tts_profiles ADD COLUMN base_url TEXT NOT NULL DEFAULT ''",
+      );
+      batch.execute(
+        "ALTER TABLE tts_profiles ADD COLUMN model TEXT NOT NULL DEFAULT ''",
+      );
       batch.execute('ALTER TABLE tts_profiles ADD COLUMN extra_config TEXT');
 
       await batch.commit();
 
       // Remap legacy `provider` enum values to catalog ids + defaults.
       // STT mapping (matches SttProfile.fromMap backward-compat):
-      await _remapLegacyStt(db, 'deepgram', 'deepgram',
-          'https://api.deepgram.com', 'nova-3');
-      await _remapLegacyStt(db, 'openaiWhisper', 'openai_whisper',
-          'https://api.openai.com/v1', 'whisper-1');
-      await _remapLegacyStt(db, 'googleCloud', 'google',
-          'https://speech.googleapis.com', '');
-      await _remapLegacyStt(db, 'azure', 'azure',
-          'https://{region}.stt.speech.microsoft.com', '');
+      await _remapLegacyStt(
+        db,
+        'deepgram',
+        'deepgram',
+        'https://api.deepgram.com',
+        'nova-3',
+      );
+      await _remapLegacyStt(
+        db,
+        'openaiWhisper',
+        'openai_whisper',
+        'https://api.openai.com/v1',
+        'whisper-1',
+      );
+      await _remapLegacyStt(
+        db,
+        'googleCloud',
+        'google',
+        'https://speech.googleapis.com',
+        '',
+      );
+      await _remapLegacyStt(
+        db,
+        'azure',
+        'azure',
+        'https://{region}.stt.speech.microsoft.com',
+        '',
+      );
 
       // TTS mapping (matches TtsProfile.fromMap backward-compat):
-      await _remapLegacyTts(db, 'fishAudio', 'fish_audio',
-          'https://api.fish.audio', 's1');
-      await _remapLegacyTts(db, 'elevenLabs', 'elevenlabs',
-          'https://api.elevenlabs.io', 'eleven_multilingual_v2');
-      await _remapLegacyTts(db, 'openaiTts', 'openai_tts',
-          'https://api.openai.com/v1', 'gpt-4o-mini-tts');
-      await _remapLegacyTts(db, 'azure', 'azure_tts',
-          'https://{region}.tts.speech.microsoft.com', '');
+      await _remapLegacyTts(
+        db,
+        'fishAudio',
+        'fish_audio',
+        'https://api.fish.audio',
+        's1',
+      );
+      await _remapLegacyTts(
+        db,
+        'elevenLabs',
+        'elevenlabs',
+        'https://api.elevenlabs.io',
+        'eleven_multilingual_v2',
+      );
+      await _remapLegacyTts(
+        db,
+        'openaiTts',
+        'openai_tts',
+        'https://api.openai.com/v1',
+        'gpt-4o-mini-tts',
+      );
+      await _remapLegacyTts(
+        db,
+        'azure',
+        'azure_tts',
+        'https://{region}.tts.speech.microsoft.com',
+        '',
+      );
 
       // LLM profiles created before v2 default to 'custom' provider_id, which is
       // correct since they already carry their own base_url + model.
@@ -293,11 +361,7 @@ class DatabaseHelper {
   ) async {
     await db.update(
       'stt_profiles',
-      {
-        'provider_id': providerId,
-        'base_url': baseUrl,
-        'model': model,
-      },
+      {'provider_id': providerId, 'base_url': baseUrl, 'model': model},
       where: 'provider = ?',
       whereArgs: [legacyEnum],
     );
@@ -312,11 +376,7 @@ class DatabaseHelper {
   ) async {
     await db.update(
       'tts_profiles',
-      {
-        'provider_id': providerId,
-        'base_url': baseUrl,
-        'model': model,
-      },
+      {'provider_id': providerId, 'base_url': baseUrl, 'model': model},
       where: 'provider = ?',
       whereArgs: [legacyEnum],
     );

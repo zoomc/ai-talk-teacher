@@ -17,22 +17,26 @@ class LlmService {
   }) async {
     final messages = _buildMessages(history, systemPrompt, userMessage);
 
-    final response = await http.post(
-      Uri.parse(openAiEndpoint(profile.baseUrl, 'chat/completions')),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${profile.apiKey}',
-      },
-      body: jsonEncode({
-        'model': profile.model,
-        'messages': messages,
-        'temperature': 0.7,
-        'max_tokens': 1000,
-      }),
-    ).timeout(const Duration(seconds: 60));
+    final response = await http
+        .post(
+          Uri.parse(openAiEndpoint(profile.baseUrl, 'chat/completions')),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${profile.apiKey}',
+          },
+          body: jsonEncode({
+            'model': profile.model,
+            'messages': messages,
+            'temperature': 0.7,
+            'max_tokens': 1000,
+          }),
+        )
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode != 200) {
-      throw LlmException('API error: ${response.statusCode} - ${response.body}');
+      throw LlmException(
+        'API error: ${response.statusCode} - ${response.body}',
+      );
     }
 
     final data = jsonDecode(response.body);
@@ -134,12 +138,14 @@ If there were no errors, do not include the corrections block.''',
                 type = CorrectionType.grammar;
             }
 
-            corrections.add(Correction(
-              original: item['original'] as String,
-              corrected: item['corrected'] as String,
-              type: type,
-              explanation: item['explanation'] as String?,
-            ));
+            corrections.add(
+              Correction(
+                original: item['original'] as String,
+                corrected: item['corrected'] as String,
+                type: type,
+                explanation: item['explanation'] as String?,
+              ),
+            );
           }
         }
       } catch (e) {
@@ -160,12 +166,12 @@ If there were no errors, do not include the corrections block.''',
   /// Fetch available models from the server (OpenAI-compatible /v1/models).
   Future<List<String>> fetchModels() async {
     try {
-      final response = await http.get(
-        Uri.parse(openAiEndpoint(profile.baseUrl, 'models')),
-        headers: {
-          'Authorization': 'Bearer ${profile.apiKey}',
-        },
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .get(
+            Uri.parse(openAiEndpoint(profile.baseUrl, 'models')),
+            headers: {'Authorization': 'Bearer ${profile.apiKey}'},
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
         return [];
@@ -199,12 +205,16 @@ If there were no errors, do not include the corrections block.''',
         .timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 401 || response.statusCode == 403) {
-      throw LlmException('Authentication failed (${response.statusCode}). '
-          'Check your API key.');
+      throw LlmException(
+        'Authentication failed (${response.statusCode}). '
+        'Check your API key.',
+      );
     }
     if (response.statusCode != 200) {
-      throw LlmException('Server returned ${response.statusCode}: '
-          '${response.body.length > 200 ? response.body.substring(0, 200) : response.body}');
+      throw LlmException(
+        'Server returned ${response.statusCode}: '
+        '${response.body.length > 200 ? response.body.substring(0, 200) : response.body}',
+      );
     }
 
     final data = jsonDecode(response.body);
@@ -221,21 +231,14 @@ class LlmResponse {
   final List<Correction> corrections;
   final LlmUsage? usage;
 
-  LlmResponse({
-    required this.content,
-    required this.corrections,
-    this.usage,
-  });
+  LlmResponse({required this.content, required this.corrections, this.usage});
 }
 
 class LlmUsage {
   final int promptTokens;
   final int completionTokens;
 
-  LlmUsage({
-    required this.promptTokens,
-    required this.completionTokens,
-  });
+  LlmUsage({required this.promptTokens, required this.completionTokens});
 }
 
 class LlmException implements Exception {

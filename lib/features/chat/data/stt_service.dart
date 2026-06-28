@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../../../core/util/openai_endpoint.dart';
 import '../../profile/domain/profile_models.dart';
+import '../../profile/domain/provider_catalog.dart';
 
 /// Speech-to-text service.
 ///
@@ -49,25 +50,25 @@ class SttService {
     request.fields['model'] = model;
     request.fields['language'] = _toShortLangCode(language);
     request.fields['response_format'] = 'json';
-    request.files.add(http.MultipartFile.fromBytes(
-      'file',
-      audioData,
-      filename: 'audio.wav',
-    ));
+    request.files.add(
+      http.MultipartFile.fromBytes('file', audioData, filename: 'audio.wav'),
+    );
 
-    final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
+    final streamedResponse = await request.send().timeout(
+      const Duration(seconds: 60),
+    );
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode != 200) {
-      throw SttException('${profile.providerDisplayName} error: '
-          '${response.statusCode} - ${response.body}');
+      throw SttException(
+        '${profile.providerDisplayName} error: '
+        '${response.statusCode} - ${response.body}',
+      );
     }
 
     final data = jsonDecode(response.body);
     // OpenAI returns {"text": "..."}; some relays wrap differently.
-    return (data['text'] as String?) ??
-        (data['transcript'] as String?) ??
-        '';
+    return (data['text'] as String?) ?? (data['transcript'] as String?) ?? '';
   }
 
   // ── Deepgram ─────────────────────────────────────────────────────────────
@@ -79,19 +80,24 @@ class SttService {
         ? 'https://api.deepgram.com'
         : profile.baseUrl;
     final url = Uri.parse(
-        '$base/v1/listen?model=$model&language=$lang&smart_format=true');
+      '$base/v1/listen?model=$model&language=$lang&smart_format=true',
+    );
 
-    final response = await http.post(
-      url,
-      headers: {
-        'Authorization': 'Token ${profile.apiKey}',
-        'Content-Type': 'audio/wav',
-      },
-      body: audioData,
-    ).timeout(const Duration(seconds: 60));
+    final response = await http
+        .post(
+          url,
+          headers: {
+            'Authorization': 'Token ${profile.apiKey}',
+            'Content-Type': 'audio/wav',
+          },
+          body: audioData,
+        )
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode != 200) {
-      throw SttException('Deepgram error: ${response.statusCode} - ${response.body}');
+      throw SttException(
+        'Deepgram error: ${response.statusCode} - ${response.body}',
+      );
     }
 
     final data = jsonDecode(response.body);
@@ -118,18 +124,24 @@ class SttService {
         ? 'https://$region.stt.speech.microsoft.com'
         : profile.baseUrl.replaceAll('{region}', region);
 
-    final response = await http.post(
-      Uri.parse('$base/speech/recognition/conversation/cognitiveservices/v1?language=$lang'),
-      headers: {
-        'Ocp-Apim-Subscription-Key': profile.apiKey,
-        'Content-Type': 'audio/wav; codecs=audio/pcm; samplerate=16000',
-        'Accept': 'application/json',
-      },
-      body: audioData,
-    ).timeout(const Duration(seconds: 60));
+    final response = await http
+        .post(
+          Uri.parse(
+            '$base/speech/recognition/conversation/cognitiveservices/v1?language=$lang',
+          ),
+          headers: {
+            'Ocp-Apim-Subscription-Key': profile.apiKey,
+            'Content-Type': 'audio/wav; codecs=audio/pcm; samplerate=16000',
+            'Accept': 'application/json',
+          },
+          body: audioData,
+        )
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode != 200) {
-      throw SttException('Azure STT error: ${response.statusCode} - ${response.body}');
+      throw SttException(
+        'Azure STT error: ${response.statusCode} - ${response.body}',
+      );
     }
 
     final data = jsonDecode(response.body);
@@ -142,23 +154,25 @@ class SttService {
     final base = profile.baseUrl.isEmpty
         ? 'https://speech.googleapis.com'
         : profile.baseUrl;
-    final response = await http.post(
-      Uri.parse('$base/v1/speech:recognize?key=${profile.apiKey}'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'config': {
-          'encoding': 'LINEAR16',
-          'sampleRateHertz': 16000,
-          'languageCode': profile.language,
-        },
-        'audio': {
-          'content': base64Encode(audioData),
-        },
-      }),
-    ).timeout(const Duration(seconds: 60));
+    final response = await http
+        .post(
+          Uri.parse('$base/v1/speech:recognize?key=${profile.apiKey}'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'config': {
+              'encoding': 'LINEAR16',
+              'sampleRateHertz': 16000,
+              'languageCode': profile.language,
+            },
+            'audio': {'content': base64Encode(audioData)},
+          }),
+        )
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode != 200) {
-      throw SttException('Google STT error: ${response.statusCode} - ${response.body}');
+      throw SttException(
+        'Google STT error: ${response.statusCode} - ${response.body}',
+      );
     }
 
     final data = jsonDecode(response.body);
@@ -196,17 +210,21 @@ class SttService {
             final base = profile.baseUrl.isEmpty
                 ? 'https://api.deepgram.com'
                 : profile.baseUrl;
-            final r = await http.get(
-              Uri.parse('$base/v1/projects'),
-              headers: {'Authorization': 'Token ${profile.apiKey}'},
-            ).timeout(const Duration(seconds: 15));
+            final r = await http
+                .get(
+                  Uri.parse('$base/v1/projects'),
+                  headers: {'Authorization': 'Token ${profile.apiKey}'},
+                )
+                .timeout(const Duration(seconds: 15));
             _checkAuth(r, 'Deepgram');
             break;
           case 'azure':
           case 'google':
             // No safe read-only probe; validate region/URL parse instead.
             if (profile.baseUrl.isEmpty && profile.providerId == 'azure') {
-              throw SttException('Azure region is required. Set it in the form.');
+              throw SttException(
+                'Azure region is required. Set it in the form.',
+              );
             }
             break;
           default:
@@ -218,7 +236,9 @@ class SttService {
 
   void _checkAuth(http.Response response, String label) {
     if (response.statusCode == 401 || response.statusCode == 403) {
-      throw SttException('$label rejected the API key (${response.statusCode}).');
+      throw SttException(
+        '$label rejected the API key (${response.statusCode}).',
+      );
     }
     if (response.statusCode >= 500) {
       throw SttException('$label server error (${response.statusCode}).');

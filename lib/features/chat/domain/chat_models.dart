@@ -33,8 +33,8 @@ class Correction {
     this.intervalDays = 0,
     this.nextReviewAt,
     DateTime? createdAt,
-  })  : id = id ?? _uuid.v4(),
-        createdAt = createdAt ?? DateTime.now();
+  }) : id = id ?? _uuid.v4(),
+       createdAt = createdAt ?? DateTime.now();
 
   Correction copyWith({
     String? original,
@@ -60,7 +60,9 @@ class Correction {
       reviewCount: reviewCount ?? this.reviewCount,
       easinessFactor: easinessFactor ?? this.easinessFactor,
       intervalDays: intervalDays ?? this.intervalDays,
-      nextReviewAt: clearNextReviewAt ? null : (nextReviewAt ?? this.nextReviewAt),
+      nextReviewAt: clearNextReviewAt
+          ? null
+          : (nextReviewAt ?? this.nextReviewAt),
       createdAt: createdAt,
     );
   }
@@ -119,8 +121,8 @@ class ChatMessage {
     this.corrections = const [],
     this.audioPath,
     DateTime? createdAt,
-  })  : id = id ?? _uuid.v4(),
-        createdAt = createdAt ?? DateTime.now();
+  }) : id = id ?? _uuid.v4(),
+       createdAt = createdAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
     return {
@@ -164,9 +166,9 @@ class ChatSession {
     this.levelTag,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : id = id ?? _uuid.v4(),
-        createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+  }) : id = id ?? _uuid.v4(),
+       createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   ChatSession copyWith({
     String? topic,

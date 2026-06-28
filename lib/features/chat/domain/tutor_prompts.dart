@@ -45,16 +45,18 @@ class TutorPromptBuilder {
       buffer.writeln('You are role-playing the scenario "${scenario.name}".');
       buffer.writeln(scenario.systemPrompt);
       buffer.writeln(
-          'Stay in character. Keep the situation grounded; introduce small, '
-          'realistic twists (a complication, a follow-up question, a mild '
-          'misunderstanding) so the student has to respond, not just listen.');
+        'Stay in character. Keep the situation grounded; introduce small, '
+        'realistic twists (a complication, a follow-up question, a mild '
+        'misunderstanding) so the student has to respond, not just listen.',
+      );
     } else if (sessionTopic != null && sessionTopic.trim().isNotEmpty) {
       buffer.writeln();
       buffer.writeln('## Topic');
       buffer.writeln('The student wants to talk about: "$sessionTopic".');
       buffer.writeln(
-          'Explore it from a few angles so the conversation has depth, but '
-          'follow the student\'s lead if they steer elsewhere.');
+        'Explore it from a few angles so the conversation has depth, but '
+        'follow the student\'s lead if they steer elsewhere.',
+      );
     }
 
     // 4. Review context.
@@ -62,17 +64,19 @@ class TutorPromptBuilder {
       buffer.writeln();
       buffer.writeln('## Review focus');
       buffer.writeln(
-          'The student is here to practice previous mistakes. Drive the '
-          'conversation so they naturally get to use these corrected forms. '
-          'Do NOT list the corrections or quiz them directly — engineer the '
-          'dialogue so the target language comes up in context. If they make '
-          'the same mistake again, correct it gently and reuse the right form '
-          'in your next turn.');
+        'The student is here to practice previous mistakes. Drive the '
+        'conversation so they naturally get to use these corrected forms. '
+        'Do NOT list the corrections or quiz them directly — engineer the '
+        'dialogue so the target language comes up in context. If they make '
+        'the same mistake again, correct it gently and reuse the right form '
+        'in your next turn.',
+      );
       buffer.writeln('Mistakes to weave in:');
       for (final c in dueCorrections) {
         buffer.writeln(
-            '- They said: "${c.original}" → correct: "${c.corrected}" '
-            '(${c.type.name}). ${c.explanation ?? ''}');
+          '- They said: "${c.original}" → correct: "${c.corrected}" '
+          '(${c.type.name}). ${c.explanation ?? ''}',
+        );
       }
     }
 

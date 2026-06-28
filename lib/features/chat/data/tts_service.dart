@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../../../core/util/openai_endpoint.dart';
 import '../../profile/domain/profile_models.dart';
+import '../../profile/domain/provider_catalog.dart';
 
 /// Text-to-speech service.
 ///
@@ -45,24 +46,28 @@ class TtsService {
         ? profile.voiceId!
         : (profile.providerDef.defaultVoice ?? 'alloy');
 
-    final response = await http.post(
-      Uri.parse(openAiEndpoint(profile.baseUrl, 'audio/speech')),
-      headers: {
-        'Authorization': 'Bearer ${profile.apiKey}',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'model': model,
-        'input': text,
-        'voice': voice,
-        'response_format': 'mp3',
-        'speed': profile.speed,
-      }),
-    ).timeout(const Duration(seconds: 60));
+    final response = await http
+        .post(
+          Uri.parse(openAiEndpoint(profile.baseUrl, 'audio/speech')),
+          headers: {
+            'Authorization': 'Bearer ${profile.apiKey}',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'model': model,
+            'input': text,
+            'voice': voice,
+            'response_format': 'mp3',
+            'speed': profile.speed,
+          }),
+        )
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode != 200) {
-      throw TtsException('${profile.providerDisplayName} error: '
-          '${response.statusCode} - ${response.body}');
+      throw TtsException(
+        '${profile.providerDisplayName} error: '
+        '${response.statusCode} - ${response.body}',
+      );
     }
     return response.bodyBytes;
   }
@@ -74,23 +79,27 @@ class TtsService {
         ? 'https://api.fish.audio'
         : profile.baseUrl;
     final model = profile.model.isEmpty ? 's1' : profile.model;
-    final response = await http.post(
-      Uri.parse('$base/api/open/tts'),
-      headers: {
-        'Authorization': 'Bearer ${profile.apiKey}',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'text': text,
-        'reference_id': profile.voiceId ?? '',
-        'format': 'mp3',
-        'speed': profile.speed,
-        if (model.isNotEmpty) 'model': model,
-      }),
-    ).timeout(const Duration(seconds: 60));
+    final response = await http
+        .post(
+          Uri.parse('$base/api/open/tts'),
+          headers: {
+            'Authorization': 'Bearer ${profile.apiKey}',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'text': text,
+            'reference_id': profile.voiceId ?? '',
+            'format': 'mp3',
+            'speed': profile.speed,
+            if (model.isNotEmpty) 'model': model,
+          }),
+        )
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode != 200) {
-      throw TtsException('Fish Audio error: ${response.statusCode} - ${response.body}');
+      throw TtsException(
+        'Fish Audio error: ${response.statusCode} - ${response.body}',
+      );
     }
     return response.bodyBytes;
   }
@@ -108,25 +117,26 @@ class TtsService {
         ? 'eleven_multilingual_v2'
         : profile.model;
 
-    final response = await http.post(
-      Uri.parse('$base/v1/text-to-speech/$voiceId'),
-      headers: {
-        'xi-api-key': profile.apiKey,
-        'Content-Type': 'application/json',
-        'Accept': 'audio/mpeg',
-      },
-      body: jsonEncode({
-        'text': text,
-        'model_id': model,
-        'voice_settings': {
-          'stability': 0.5,
-          'similarity_boost': 0.75,
-        },
-      }),
-    ).timeout(const Duration(seconds: 60));
+    final response = await http
+        .post(
+          Uri.parse('$base/v1/text-to-speech/$voiceId'),
+          headers: {
+            'xi-api-key': profile.apiKey,
+            'Content-Type': 'application/json',
+            'Accept': 'audio/mpeg',
+          },
+          body: jsonEncode({
+            'text': text,
+            'model_id': model,
+            'voice_settings': {'stability': 0.5, 'similarity_boost': 0.75},
+          }),
+        )
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode != 200) {
-      throw TtsException('ElevenLabs error: ${response.statusCode} - ${response.body}');
+      throw TtsException(
+        'ElevenLabs error: ${response.statusCode} - ${response.body}',
+      );
     }
     return response.bodyBytes;
   }
@@ -142,25 +152,30 @@ class TtsService {
         : (profile.providerDef.defaultVoice ?? 'en-US-JennyNeural');
     final rate = _speedToSsmlRate(profile.speed);
 
-    final ssml = '''
+    final ssml =
+        '''
 <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
   <voice name="$voice">
     <prosody rate="$rate">${_escapeXml(text)}</prosody>
   </voice>
 </speak>''';
 
-    final response = await http.post(
-      Uri.parse('$base/cognitiveservices/v1'),
-      headers: {
-        'Ocp-Apim-Subscription-Key': profile.apiKey,
-        'Content-Type': 'application/ssml+xml',
-        'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
-      },
-      body: ssml,
-    ).timeout(const Duration(seconds: 60));
+    final response = await http
+        .post(
+          Uri.parse('$base/cognitiveservices/v1'),
+          headers: {
+            'Ocp-Apim-Subscription-Key': profile.apiKey,
+            'Content-Type': 'application/ssml+xml',
+            'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
+          },
+          body: ssml,
+        )
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode != 200) {
-      throw TtsException('Azure TTS error: ${response.statusCode} - ${response.body}');
+      throw TtsException(
+        'Azure TTS error: ${response.statusCode} - ${response.body}',
+      );
     }
     return response.bodyBytes;
   }
@@ -175,24 +190,28 @@ class TtsService {
         ? profile.voiceId!
         : (profile.providerDef.defaultVoice ?? 'en-US-Journey-F');
 
-    final response = await http.post(
-      Uri.parse('$base/v1/text:synthesize?key=${profile.apiKey}'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'input': {'text': text},
-        'voice': {
-          'languageCode': voice.split('-').take(2).join('-'),
-          'name': voice,
-        },
-        'audioConfig': {
-          'audioEncoding': 'MP3',
-          'speakingRate': profile.speed,
-        },
-      }),
-    ).timeout(const Duration(seconds: 60));
+    final response = await http
+        .post(
+          Uri.parse('$base/v1/text:synthesize?key=${profile.apiKey}'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'input': {'text': text},
+            'voice': {
+              'languageCode': voice.split('-').take(2).join('-'),
+              'name': voice,
+            },
+            'audioConfig': {
+              'audioEncoding': 'MP3',
+              'speakingRate': profile.speed,
+            },
+          }),
+        )
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode != 200) {
-      throw TtsException('Google TTS error: ${response.statusCode} - ${response.body}');
+      throw TtsException(
+        'Google TTS error: ${response.statusCode} - ${response.body}',
+      );
     }
 
     final data = jsonDecode(response.body);
@@ -214,27 +233,31 @@ class TtsService {
         ? profile.voiceId!
         : (profile.providerDef.defaultVoice ?? 'longxiaocheng');
 
-    final response = await http.post(
-      Uri.parse('$base/api/v1/services/audio/tts/SpeechSynthesizer'),
-      headers: {
-        'Authorization': 'Bearer ${profile.apiKey}',
-        'Content-Type': 'application/json',
-        'X-DashScope-DataInspection': 'enable',
-      },
-      body: jsonEncode({
-        'model': model,
-        'input': {'text': text},
-        'parameters': {
-          'voice': voice,
-          'format': 'mp3',
-          'sample_rate': 16000,
-          if (profile.speed != 1.0) 'speed': profile.speed,
-        },
-      }),
-    ).timeout(const Duration(seconds: 60));
+    final response = await http
+        .post(
+          Uri.parse('$base/api/v1/services/audio/tts/SpeechSynthesizer'),
+          headers: {
+            'Authorization': 'Bearer ${profile.apiKey}',
+            'Content-Type': 'application/json',
+            'X-DashScope-DataInspection': 'enable',
+          },
+          body: jsonEncode({
+            'model': model,
+            'input': {'text': text},
+            'parameters': {
+              'voice': voice,
+              'format': 'mp3',
+              'sample_rate': 16000,
+              if (profile.speed != 1.0) 'speed': profile.speed,
+            },
+          }),
+        )
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode != 200) {
-      throw TtsException('Aliyun CosyVoice error: ${response.statusCode} - ${response.body}');
+      throw TtsException(
+        'Aliyun CosyVoice error: ${response.statusCode} - ${response.body}',
+      );
     }
 
     final data = jsonDecode(response.body);
@@ -251,7 +274,9 @@ class TtsService {
     }
 
     // Download the audio from the returned URL.
-    final dl = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 60));
+    final dl = await http
+        .get(Uri.parse(url))
+        .timeout(const Duration(seconds: 60));
     if (dl.statusCode != 200) {
       throw TtsException('Aliyun audio download failed: ${dl.statusCode}');
     }
@@ -299,25 +324,31 @@ class TtsService {
             final base = profile.baseUrl.isEmpty
                 ? 'https://api.fish.audio'
                 : profile.baseUrl;
-            final r = await http.get(
-              Uri.parse('$base/api/open/v1/model/list?page_size=1'),
-              headers: {'Authorization': 'Bearer ${profile.apiKey}'},
-            ).timeout(const Duration(seconds: 15));
+            final r = await http
+                .get(
+                  Uri.parse('$base/api/open/v1/model/list?page_size=1'),
+                  headers: {'Authorization': 'Bearer ${profile.apiKey}'},
+                )
+                .timeout(const Duration(seconds: 15));
             _checkAuth(r, 'Fish Audio');
             break;
           case 'elevenlabs':
             final base = profile.baseUrl.isEmpty
                 ? 'https://api.elevenlabs.io'
                 : profile.baseUrl;
-            final r = await http.get(
-              Uri.parse('$base/v1/voices'),
-              headers: {'xi-api-key': profile.apiKey},
-            ).timeout(const Duration(seconds: 15));
+            final r = await http
+                .get(
+                  Uri.parse('$base/v1/voices'),
+                  headers: {'xi-api-key': profile.apiKey},
+                )
+                .timeout(const Duration(seconds: 15));
             _checkAuth(r, 'ElevenLabs');
             break;
           case 'azure_tts':
             if (profile.region.isEmpty) {
-              throw TtsException('Azure region is required. Set it in the form.');
+              throw TtsException(
+                'Azure region is required. Set it in the form.',
+              );
             }
             break;
           case 'google_tts':
@@ -360,18 +391,22 @@ class TtsService {
     final base = profile.baseUrl.isEmpty
         ? 'https://api.elevenlabs.io'
         : profile.baseUrl;
-    final response = await http.get(
-      Uri.parse('$base/v1/voices'),
-      headers: {'xi-api-key': profile.apiKey},
-    ).timeout(const Duration(seconds: 15));
+    final response = await http
+        .get(
+          Uri.parse('$base/v1/voices'),
+          headers: {'xi-api-key': profile.apiKey},
+        )
+        .timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) return [];
     final data = jsonDecode(response.body);
     final voices = data['voices'] as List? ?? [];
     return voices
-        .map((v) => VoiceOption(
-              id: v['voice_id'] as String,
-              name: v['name'] as String? ?? v['voice_id'] as String,
-            ))
+        .map(
+          (v) => VoiceOption(
+            id: v['voice_id'] as String,
+            name: v['name'] as String? ?? v['voice_id'] as String,
+          ),
+        )
         .toList();
   }
 
@@ -379,19 +414,24 @@ class TtsService {
     final base = profile.baseUrl.isEmpty
         ? 'https://api.fish.audio'
         : profile.baseUrl;
-    final response = await http.get(
-      Uri.parse('$base/api/open/v1/model/list?page_size=100'),
-      headers: {'Authorization': 'Bearer ${profile.apiKey}'},
-    ).timeout(const Duration(seconds: 15));
+    final response = await http
+        .get(
+          Uri.parse('$base/api/open/v1/model/list?page_size=100'),
+          headers: {'Authorization': 'Bearer ${profile.apiKey}'},
+        )
+        .timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) return [];
     final data = jsonDecode(response.body);
-    final items = (data['data']?['items'] as List?) ?? (data['items'] as List?) ?? [];
+    final items =
+        (data['data']?['items'] as List?) ?? (data['items'] as List?) ?? [];
     return items
         .whereType<Map<String, dynamic>>()
-        .map((v) => VoiceOption(
-              id: v['_id'] as String? ?? v['id'] as String? ?? '',
-              name: v['title'] as String? ?? v['name'] as String? ?? 'Untitled',
-            ))
+        .map(
+          (v) => VoiceOption(
+            id: v['_id'] as String? ?? v['id'] as String? ?? '',
+            name: v['title'] as String? ?? v['name'] as String? ?? 'Untitled',
+          ),
+        )
         .where((v) => v.id.isNotEmpty)
         .toList();
   }
@@ -399,32 +439,40 @@ class TtsService {
   Future<List<VoiceOption>> _fetchAzureVoices() async {
     final region = profile.region;
     final tokenUri = Uri.parse(
-        'https://${region}.api.cognitive.microsoft.com/sts/v1.0/issueToken');
-    final tokenResp = await http.post(
-      tokenUri,
-      headers: {'Ocp-Apim-Subscription-Key': profile.apiKey},
-    ).timeout(const Duration(seconds: 15));
+      'https://${region}.api.cognitive.microsoft.com/sts/v1.0/issueToken',
+    );
+    final tokenResp = await http
+        .post(tokenUri, headers: {'Ocp-Apim-Subscription-Key': profile.apiKey})
+        .timeout(const Duration(seconds: 15));
     if (tokenResp.statusCode != 200) return [];
     final accessToken = tokenResp.body;
-    final listResp = await http.get(
-      Uri.parse('https://$region.tts.speech.microsoft.com/cognitiveservices/voices/list'),
-      headers: {'Authorization': 'Bearer $accessToken'},
-    ).timeout(const Duration(seconds: 15));
+    final listResp = await http
+        .get(
+          Uri.parse(
+            'https://$region.tts.speech.microsoft.com/cognitiveservices/voices/list',
+          ),
+          headers: {'Authorization': 'Bearer $accessToken'},
+        )
+        .timeout(const Duration(seconds: 15));
     if (listResp.statusCode != 200) return [];
     final List<dynamic> items = jsonDecode(listResp.body) as List;
     return items
         .whereType<Map<String, dynamic>>()
         .where((v) => (v['Locale'] as String?)?.startsWith('en') ?? false)
-        .map((v) => VoiceOption(
-              id: v['ShortName'] as String,
-              name: '${v['DisplayName']} (${v['LocaleName']})',
-            ))
+        .map(
+          (v) => VoiceOption(
+            id: v['ShortName'] as String,
+            name: '${v['DisplayName']} (${v['LocaleName']})',
+          ),
+        )
         .toList();
   }
 
   void _checkAuth(http.Response response, String label) {
     if (response.statusCode == 401 || response.statusCode == 403) {
-      throw TtsException('$label rejected the API key (${response.statusCode}).');
+      throw TtsException(
+        '$label rejected the API key (${response.statusCode}).',
+      );
     }
     if (response.statusCode >= 500) {
       throw TtsException('$label server error (${response.statusCode}).');

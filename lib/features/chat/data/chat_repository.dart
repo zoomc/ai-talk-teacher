@@ -12,20 +12,39 @@ class ChatRepository {
 
   Future<ChatSession?> getActiveSession() async {
     final db = await DatabaseHelper.database;
-    final maps = await db.query('chat_sessions', where: 'status = ?', whereArgs: ['active'], orderBy: 'updated_at DESC', limit: 1);
+    final maps = await db.query(
+      'chat_sessions',
+      where: 'status = ?',
+      whereArgs: ['active'],
+      orderBy: 'updated_at DESC',
+      limit: 1,
+    );
     if (maps.isEmpty) return null;
     return ChatSession.fromMap(maps.first);
   }
 
   Future<ChatSession?> getSession(String id) async {
     final db = await DatabaseHelper.database;
-    final maps = await db.query('chat_sessions', where: 'id = ?', whereArgs: [id], limit: 1);
+    final maps = await db.query(
+      'chat_sessions',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
     if (maps.isEmpty) return null;
     return ChatSession.fromMap(maps.first);
   }
 
-  Future<ChatSession> createSession({String? topic, String? scenarioId, String? levelTag}) async {
-    final session = ChatSession(topic: topic, scenarioId: scenarioId, levelTag: levelTag);
+  Future<ChatSession> createSession({
+    String? topic,
+    String? scenarioId,
+    String? levelTag,
+  }) async {
+    final session = ChatSession(
+      topic: topic,
+      scenarioId: scenarioId,
+      levelTag: levelTag,
+    );
     final db = await DatabaseHelper.database;
     await db.insert('chat_sessions', session.toMap());
     return session;
@@ -33,19 +52,34 @@ class ChatRepository {
 
   Future<void> updateSession(ChatSession session) async {
     final db = await DatabaseHelper.database;
-    await db.update('chat_sessions', session.toMap(), where: 'id = ?', whereArgs: [session.id]);
+    await db.update(
+      'chat_sessions',
+      session.toMap(),
+      where: 'id = ?',
+      whereArgs: [session.id],
+    );
   }
 
   Future<void> archiveSession(String id) async {
     final db = await DatabaseHelper.database;
-    await db.update('chat_sessions', {'status': 'archived', 'updated_at': DateTime.now().toIso8601String()}, where: 'id = ?', whereArgs: [id]);
+    await db.update(
+      'chat_sessions',
+      {'status': 'archived', 'updated_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // ========== Messages ==========
 
   Future<List<ChatMessage>> getMessages(String sessionId) async {
     final db = await DatabaseHelper.database;
-    final maps = await db.query('chat_messages', where: 'session_id = ?', whereArgs: [sessionId], orderBy: 'created_at ASC');
+    final maps = await db.query(
+      'chat_messages',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'created_at ASC',
+    );
     return maps.map((m) => ChatMessage.fromMap(m)).toList();
   }
 
@@ -82,12 +116,19 @@ class ChatRepository {
 
   Future<void> updateCorrection(Correction correction) async {
     final db = await DatabaseHelper.database;
-    await db.update('corrections', correction.toMap(), where: 'id = ?', whereArgs: [correction.id]);
+    await db.update(
+      'corrections',
+      correction.toMap(),
+      where: 'id = ?',
+      whereArgs: [correction.id],
+    );
   }
 
   Future<int> getCorrectionCount() async {
     final db = await DatabaseHelper.database;
-    final result = await db.rawQuery('SELECT COUNT(*) as count FROM corrections');
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM corrections',
+    );
     return (result.first['count'] as int?) ?? 0;
   }
 
@@ -101,7 +142,8 @@ class ChatRepository {
     return (result.first['count'] as int?) ?? 0;
   }
 
-  Future<Map<String, ({int count, DateTime lastPracticedAt})>> getScenarioStats() async {
+  Future<Map<String, ({int count, DateTime lastPracticedAt})>>
+  getScenarioStats() async {
     final db = await DatabaseHelper.database;
     final results = await db.rawQuery('''
       SELECT scenario_id, COUNT(*) as cnt, MAX(updated_at) as last_at
@@ -131,7 +173,12 @@ class ChatRepository {
 
   Future<Scenario?> getScenario(String id) async {
     final db = await DatabaseHelper.database;
-    final maps = await db.query('scenarios', where: 'id = ?', whereArgs: [id], limit: 1);
+    final maps = await db.query(
+      'scenarios',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
     if (maps.isEmpty) return null;
     return Scenario.fromMap(maps.first);
   }

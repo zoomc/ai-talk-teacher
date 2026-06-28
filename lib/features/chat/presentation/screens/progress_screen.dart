@@ -32,12 +32,12 @@ class ProgressScreen extends ConsumerWidget {
             maxWidth: Responsive.contentMaxWidth(context),
           ),
           child: Container(
-        decoration: const BoxDecoration(gradient: AppColors.gradientBg),
-        child: statsAsync.when(
-          data: (stats) => _buildContent(context, stats),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Error: $e')),
-        ),
+            decoration: const BoxDecoration(gradient: AppColors.gradientBg),
+            child: statsAsync.when(
+              data: (stats) => _buildContent(context, stats),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+            ),
           ),
         ),
       ),
@@ -57,61 +57,87 @@ class ProgressScreen extends ConsumerWidget {
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Track your English learning journey',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: AppSpacing.xl),
 
           // Overview cards
           Row(
             children: [
-              Expanded(child: _StatCard(
-                icon: Icons.chat,
-                label: 'Sessions',
-                value: '${stats.totalSessions}',
-                color: AppColors.accentPrimary,
-              )),
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.chat,
+                  label: 'Sessions',
+                  value: '${stats.totalSessions}',
+                  color: AppColors.accentPrimary,
+                ),
+              ),
               const SizedBox(width: AppSpacing.md),
-              Expanded(child: _StatCard(
-                icon: Icons.message,
-                label: 'Messages',
-                value: '${stats.totalMessages}',
-                color: AppColors.accentSecondary,
-              )),
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.message,
+                  label: 'Messages',
+                  value: '${stats.totalMessages}',
+                  color: AppColors.accentSecondary,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
-              Expanded(child: _StatCard(
-                icon: Icons.check_circle,
-                label: 'Mastered',
-                value: '${stats.masteredCount}',
-                color: AppColors.success,
-              )),
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.check_circle,
+                  label: 'Mastered',
+                  value: '${stats.masteredCount}',
+                  color: AppColors.success,
+                ),
+              ),
               const SizedBox(width: AppSpacing.md),
-              Expanded(child: _StatCard(
-                icon: Icons.schedule,
-                label: 'Due for Review',
-                value: '${stats.dueForReview}',
-                color: AppColors.warning,
-              )),
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.schedule,
+                  label: 'Due for Review',
+                  value: '${stats.dueForReview}',
+                  color: AppColors.warning,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
 
           // Mastery breakdown
-          Text('Mastery Breakdown', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            'Mastery Breakdown',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: AppSpacing.md),
           GlassCard(
             child: Column(
               children: [
-                _MasteryRow(label: 'New', count: stats.newCount, total: stats.totalCorrections, color: AppColors.error),
+                _MasteryRow(
+                  label: 'New',
+                  count: stats.newCount,
+                  total: stats.totalCorrections,
+                  color: AppColors.error,
+                ),
                 const SizedBox(height: AppSpacing.sm),
-                _MasteryRow(label: 'Learning', count: stats.learningCount, total: stats.totalCorrections, color: AppColors.warning),
+                _MasteryRow(
+                  label: 'Learning',
+                  count: stats.learningCount,
+                  total: stats.totalCorrections,
+                  color: AppColors.warning,
+                ),
                 const SizedBox(height: AppSpacing.sm),
-                _MasteryRow(label: 'Mastered', count: stats.masteredCount, total: stats.totalCorrections, color: AppColors.success),
+                _MasteryRow(
+                  label: 'Mastered',
+                  count: stats.masteredCount,
+                  total: stats.totalCorrections,
+                  color: AppColors.success,
+                ),
               ],
             ),
           ),
@@ -159,7 +185,9 @@ class ProgressScreen extends ConsumerWidget {
                         ),
                         Text(
                           '${entry.value}',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(color: color),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleMedium?.copyWith(color: color),
                         ),
                       ],
                     ),
@@ -210,14 +238,16 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Text(
             value,
-            style: Theme.of(context).textTheme.headlineLarge?.copyWith(color: color),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineLarge?.copyWith(color: color),
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
             label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -265,7 +295,9 @@ class _MasteryRow extends StatelessWidget {
           child: Text(
             '$count',
             textAlign: TextAlign.right,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: color),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: color),
           ),
         ),
       ],

@@ -31,7 +31,8 @@ class AppRouter {
       final isPlacement = state.matchedLocation == '/placement';
 
       // Check if onboarding is completed
-      final hasCompletedOnboarding = await _profileRepo.hasCompletedOnboarding();
+      final hasCompletedOnboarding = await _profileRepo
+          .hasCompletedOnboarding();
 
       if (!hasCompletedOnboarding && !isOnboarding) {
         return '/onboarding';
@@ -39,7 +40,8 @@ class AppRouter {
 
       if (hasCompletedOnboarding) {
         // Check if placement is completed
-        final hasCompletedPlacement = await _profileRepo.hasCompletedPlacement();
+        final hasCompletedPlacement = await _profileRepo
+            .hasCompletedPlacement();
         if (!hasCompletedPlacement && !isPlacement && !isOnboarding) {
           return '/placement';
         }
@@ -62,35 +64,30 @@ class AppRouter {
         routes: [
           GoRoute(
             path: '/',
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: HomeScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: HomeScreen()),
           ),
           GoRoute(
             path: '/scenarios',
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: ScenariosScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ScenariosScreen()),
           ),
           GoRoute(
             path: '/review',
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: ReviewScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ReviewScreen()),
           ),
           GoRoute(
             path: '/settings',
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: SettingsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SettingsScreen()),
           ),
         ],
       ),
       GoRoute(
         path: '/chat/:sessionId',
-        builder: (context, state) => ChatScreen(
-          sessionId: state.pathParameters['sessionId']!,
-        ),
+        builder: (context, state) =>
+            ChatScreen(sessionId: state.pathParameters['sessionId']!),
       ),
       GoRoute(
         path: '/service-config',
@@ -226,10 +223,26 @@ class _SideNavRail extends StatelessWidget {
   });
 
   static const _items = <_NavItem>[
-    _NavItem(icon: Icons.chat_bubble_outline, activeIcon: Icons.chat_bubble, label: 'Practice'),
-    _NavItem(icon: Icons.grid_view_outlined, activeIcon: Icons.grid_view, label: 'Scenarios'),
-    _NavItem(icon: Icons.refresh_outlined, activeIcon: Icons.refresh, label: 'Review'),
-    _NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings, label: 'Settings'),
+    _NavItem(
+      icon: Icons.chat_bubble_outline,
+      activeIcon: Icons.chat_bubble,
+      label: 'Practice',
+    ),
+    _NavItem(
+      icon: Icons.grid_view_outlined,
+      activeIcon: Icons.grid_view,
+      label: 'Scenarios',
+    ),
+    _NavItem(
+      icon: Icons.refresh_outlined,
+      activeIcon: Icons.refresh,
+      label: 'Review',
+    ),
+    _NavItem(
+      icon: Icons.settings_outlined,
+      activeIcon: Icons.settings,
+      label: 'Settings',
+    ),
   ];
 
   @override
@@ -312,7 +325,9 @@ class _SideNavItem extends StatelessWidget {
     final color = selected ? AppColors.accentPrimary : AppColors.textSecondary;
     return Padding(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm, vertical: AppSpacing.xxs),
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs,
+      ),
       child: Material(
         color: selected
             ? AppColors.accentPrimary.withValues(alpha: 0.12)
@@ -331,10 +346,17 @@ class _SideNavItem extends StatelessWidget {
                   ? MainAxisAlignment.start
                   : MainAxisAlignment.center,
               children: [
-                Icon(selected ? item.activeIcon : item.icon, color: color, size: 22),
+                Icon(
+                  selected ? item.activeIcon : item.icon,
+                  color: color,
+                  size: 22,
+                ),
                 if (extended) ...[
                   const SizedBox(width: AppSpacing.md),
-                  Text(item.label, style: TextStyle(color: color, fontWeight: FontWeight.w500)),
+                  Text(
+                    item.label,
+                    style: TextStyle(color: color, fontWeight: FontWeight.w500),
+                  ),
                 ],
               ],
             ),

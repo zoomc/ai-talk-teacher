@@ -36,7 +36,10 @@ class TtsPlaybackService {
   /// Play TTS audio for [text], caching by text hash so repeated playback of
   /// the same AI reply reuses the synthesized bytes/file. [synthesize] should
   /// produce fresh bytes on a cache miss.
-  Future<void> playCached(String text, Future<Uint8List> Function() synthesize) async {
+  Future<void> playCached(
+    String text,
+    Future<Uint8List> Function() synthesize,
+  ) async {
     try {
       final key = _keyOf(text);
       Uint8List bytes;
@@ -109,7 +112,8 @@ class TtsPlaybackService {
       final tempDir = await getTemporaryDirectory();
       final files = tempDir.listSync();
       for (final file in files) {
-        if (file is File && (file.path.contains('tts_') || file.path.contains('tts_cache'))) {
+        if (file is File &&
+            (file.path.contains('tts_') || file.path.contains('tts_cache'))) {
           await file.delete();
         }
       }

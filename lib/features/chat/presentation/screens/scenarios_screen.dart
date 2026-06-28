@@ -73,13 +73,15 @@ class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Scenarios', style: Theme.of(context).textTheme.displayLarge),
+                          Text(
+                            'Scenarios',
+                            style: Theme.of(context).textTheme.displayLarge,
+                          ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
                             'Choose a real-life scenario to practice',
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(color: AppColors.textSecondary),
                           ),
                         ],
                       ),
@@ -99,16 +101,17 @@ class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
                             ),
                             child: Text(
                               category[0].toUpperCase() + category.substring(1),
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(color: AppColors.textSecondary),
                             ),
                           ),
                           SizedBox(
                             height: 184,
                             child: ListView.builder(
                               scrollDirection: Axis.horizontal,
-                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.lg,
+                              ),
                               itemCount: scenarios.length,
                               itemBuilder: (context, index) {
                                 final scenario = scenarios[index];
@@ -125,7 +128,9 @@ class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
                       ),
                     );
                   }),
-                  const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: AppSpacing.xxl),
+                  ),
                 ],
               );
             },
@@ -204,8 +209,13 @@ class _ScenarioCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
                 child: Text(
-                  scenario.difficulty[0].toUpperCase() + scenario.difficulty.substring(1),
-                  style: TextStyle(color: diffColor, fontSize: 11, fontWeight: FontWeight.w600),
+                  scenario.difficulty[0].toUpperCase() +
+                      scenario.difficulty.substring(1),
+                  style: TextStyle(
+                    color: diffColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               if (stats != null) ...[
@@ -233,11 +243,7 @@ class _ScenarioCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    Icon(
-                      Icons.history,
-                      size: 12,
-                      color: AppColors.textMuted,
-                    ),
+                    Icon(Icons.history, size: 12, color: AppColors.textMuted),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(

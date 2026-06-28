@@ -129,7 +129,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     // Auto-scroll when messages change.
-    ref.listen(_messagesProvider(widget.sessionId), (_, _) => _scrollToBottom());
+    ref.listen(
+      _messagesProvider(widget.sessionId),
+      (_, _) => _scrollToBottom(),
+    );
 
     final isWide = Responsive.isWide(context);
 
@@ -140,75 +143,72 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Focus(
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
-      backgroundColor: AppColors.bgPrimary,
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Back to home',
-          icon: const Icon(Icons.arrow_back_ios_new),
-          onPressed: () => context.go('/'),
-        ),
-        title: Row(
-          children: [
-            Text(_tutorAvatar, style: const TextStyle(fontSize: 20)),
-            const SizedBox(width: AppSpacing.sm),
-            Flexible(
-              child: Text(
-                _tutorName,
-                overflow: TextOverflow.ellipsis,
+        backgroundColor: AppColors.bgPrimary,
+        appBar: AppBar(
+          leading: IconButton(
+            tooltip: 'Back to home',
+            icon: const Icon(Icons.arrow_back_ios_new),
+            onPressed: () => context.go('/'),
+          ),
+          title: Row(
+            children: [
+              Text(_tutorAvatar, style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: AppSpacing.sm),
+              Flexible(
+                child: Text(_tutorName, overflow: TextOverflow.ellipsis),
               ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              tooltip: 'Pick a tutor',
+              icon: const Icon(Icons.swap_horiz),
+              onPressed: () => context.push('/tutor-selection'),
+            ),
+            IconButton(
+              tooltip: 'More options',
+              icon: const Icon(Icons.more_vert),
+              onPressed: () => _showSessionOptions(context),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Pick a tutor',
-            icon: const Icon(Icons.swap_horiz),
-            onPressed: () => context.push('/tutor-selection'),
-          ),
-          IconButton(
-            tooltip: 'More options',
-            icon: const Icon(Icons.more_vert),
-            onPressed: () => _showSessionOptions(context),
-          ),
-        ],
+        // resizeToAvoidBottomInset keeps the input bar visible when the
+        // soft keyboard appears on mobile / web.
+        resizeToAvoidBottomInset: true,
+        body: SafeArea(
+          top: false,
+          // On wide screens (tablet/desktop/browser), put the character panel
+          // beside the chat. On mobile, stack them vertically.
+          child: isWide
+              ? Row(
+                  children: [
+                    _CharacterPanel(
+                      state: _characterState,
+                      tutorName: _tutorName,
+                      tutorAvatar: _tutorAvatar,
+                      panelWidth: Responsive.sidePanelWidth(context),
+                    ),
+                    const VerticalDivider(
+                      width: 1,
+                      color: AppColors.glassBorder,
+                    ),
+                    Expanded(child: _chatColumn(context)),
+                  ],
+                )
+              : Column(
+                  children: [
+                    _CharacterPanel(
+                      state: _characterState,
+                      tutorName: _tutorName,
+                      tutorAvatar: _tutorAvatar,
+                      panelHeight: Responsive.characterPanelHeight(context),
+                      compact: true,
+                    ),
+                    Expanded(child: _chatColumn(context)),
+                  ],
+                ),
+        ),
       ),
-      // resizeToAvoidBottomInset keeps the input bar visible when the
-      // soft keyboard appears on mobile / web.
-      resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        top: false,
-        // On wide screens (tablet/desktop/browser), put the character panel
-        // beside the chat. On mobile, stack them vertically.
-        child: isWide
-            ? Row(
-                children: [
-                  _CharacterPanel(
-                    state: _characterState,
-                    tutorName: _tutorName,
-                    tutorAvatar: _tutorAvatar,
-                    panelWidth: Responsive.sidePanelWidth(context),
-                  ),
-                  const VerticalDivider(
-                    width: 1,
-                    color: AppColors.glassBorder,
-                  ),
-                  Expanded(child: _chatColumn(context)),
-                ],
-              )
-            : Column(
-                children: [
-                  _CharacterPanel(
-                    state: _characterState,
-                    tutorName: _tutorName,
-                    tutorAvatar: _tutorAvatar,
-                    panelHeight: Responsive.characterPanelHeight(context),
-                    compact: true,
-                  ),
-                  Expanded(child: _chatColumn(context)),
-                ],
-              ),
-      ),
-    ),
     );
   }
 
@@ -309,7 +309,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       // Detect review / practice sessions (topics created by ReviewScreen).
       final topic = session?.topic;
-      final isReviewSession = topic != null &&
+      final isReviewSession =
+          topic != null &&
           (topic.startsWith('AI Review Session') ||
               topic.startsWith('Practice:'));
       List<Correction> dueCorrections = const [];
@@ -343,10 +344,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       // Save corrections tied to the AI message
       for (final correction in response.corrections) {
-        await repo.saveCorrection(correction.copyWith(
-          messageId: aiResponse.id,
-          sessionId: widget.sessionId,
-        ));
+        await repo.saveCorrection(
+          correction.copyWith(
+            messageId: aiResponse.id,
+            sessionId: widget.sessionId,
+          ),
+        );
       }
 
       // Refresh UI
@@ -356,9 +359,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       await _autoplayTts(aiResponse.id, response.content);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${_safeError(e)}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${_safeError(e)}')));
       }
     } finally {
       if (mounted) {
@@ -382,9 +385,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         final audioData = await _recordingService.stopRecording();
         if (audioData == null || audioData.isEmpty) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('No audio recorded')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('No audio recorded')));
             _setCharacterState(CharacterState.idle);
           }
           return;
@@ -460,7 +463,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       _attachPlayerStateListener(messageId);
 
-      await _ttsPlaybackService.playCached(text, () => ttsService.synthesize(text));
+      await _ttsPlaybackService.playCached(
+        text,
+        () => ttsService.synthesize(text),
+      );
     } catch (e) {
       // Auto-play failures should not interrupt the conversation flow.
       debugPrint('Auto TTS failed: $e');
@@ -506,12 +512,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final ttsService = TtsService(ttsProfile);
 
       _attachPlayerStateListener(messageId);
-      await _ttsPlaybackService.playCached(text, () => ttsService.synthesize(text));
+      await _ttsPlaybackService.playCached(
+        text,
+        () => ttsService.synthesize(text),
+      );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('TTS error: ${_safeError(e)}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('TTS error: ${_safeError(e)}')));
         setState(() => _playingMessageId = null);
         _setCharacterState(CharacterState.idle);
       }
@@ -522,7 +531,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // Cancel any prior subscription so we never stack listeners (memory leak
     // fix — previously every play call added a new permanent listener).
     _playerStateSub?.cancel();
-    _playerStateSub = _ttsPlaybackService.player.playerStateStream.listen((state) {
+    _playerStateSub = _ttsPlaybackService.player.playerStateStream.listen((
+      state,
+    ) {
       if (state.processingState == ProcessingState.completed) {
         if (!mounted) return;
         setState(() => _playingMessageId = null);
@@ -563,8 +574,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       context: context,
       backgroundColor: AppColors.bgTertiary,
       shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
       builder: (context) => Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -572,8 +582,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading:
-                  const Icon(Icons.archive, color: AppColors.textSecondary),
+              leading: const Icon(
+                Icons.archive,
+                color: AppColors.textSecondary,
+              ),
               title: const Text('Archive Session'),
               onTap: () async {
                 final repo = ref.read(chatRepoProvider);
@@ -586,8 +598,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.delete, color: AppColors.error),
-              title: const Text('Delete Session',
-                  style: TextStyle(color: AppColors.error)),
+              title: const Text(
+                'Delete Session',
+                style: TextStyle(color: AppColors.error),
+              ),
               onTap: () => Navigator.pop(context),
             ),
           ],
@@ -632,24 +646,24 @@ class _ChatMessageList extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.chat_bubble_outline,
-                    size: 48,
-                    color: AppColors.textMuted.withValues(alpha: 0.3)),
+                Icon(
+                  Icons.chat_bubble_outline,
+                  size: 48,
+                  color: AppColors.textMuted.withValues(alpha: 0.3),
+                ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
                   'Start a conversation!',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyLarge
-                      ?.copyWith(color: AppColors.textMuted),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: AppColors.textMuted),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   'Type a message or tap the mic button',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: AppColors.textMuted),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
                 ),
               ],
             ),
@@ -693,7 +707,8 @@ class _ChatMessageList extends ConsumerWidget {
   }
 
   Future<Map<String, List<Correction>>> _loadCorrectionsByMessage(
-      WidgetRef ref) async {
+    WidgetRef ref,
+  ) async {
     final repo = ref.read(chatRepoProvider);
     final all = await repo.getAllCorrections();
     final map = <String, List<Correction>>{};
@@ -706,8 +721,10 @@ class _ChatMessageList extends ConsumerWidget {
   }
 }
 
-final _messagesProvider =
-    FutureProvider.family<List<ChatMessage>, String>((ref, sessionId) async {
+final _messagesProvider = FutureProvider.family<List<ChatMessage>, String>((
+  ref,
+  sessionId,
+) async {
   final repo = ref.watch(chatRepoProvider);
   return repo.getMessages(sessionId);
 });
@@ -747,7 +764,9 @@ class _TypingBubbleState extends State<_TypingBubble>
       child: Container(
         margin: const EdgeInsets.only(bottom: AppSpacing.sm),
         padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md, vertical: AppSpacing.md),
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
         decoration: BoxDecoration(
           color: AppColors.bubbleAi,
           borderRadius: const BorderRadius.only(
@@ -778,8 +797,7 @@ class _TypingBubbleState extends State<_TypingBubble>
                     width: 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color:
-                          AppColors.accentPrimary.withValues(alpha: 0.6),
+                      color: AppColors.accentPrimary.withValues(alpha: 0.6),
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -811,11 +829,8 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bubbleColor =
-        isUser ? AppColors.bubbleUser : AppColors.bubbleAi;
-    final accent = isUser
-        ? AppColors.accentSecondary
-        : AppColors.accentPrimary;
+    final bubbleColor = isUser ? AppColors.bubbleUser : AppColors.bubbleAi;
+    final accent = isUser ? AppColors.accentSecondary : AppColors.accentPrimary;
 
     // LayoutBuilder gives us the actual chat-column width (which on desktop
     // is constrained to contentMaxWidth), so bubbles stay readable instead
@@ -829,27 +844,28 @@ class _ChatBubble extends StatelessWidget {
           child: Container(
             margin: const EdgeInsets.only(bottom: AppSpacing.sm),
             padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
             constraints: BoxConstraints(maxWidth: maxWidth),
             decoration: BoxDecoration(
               color: bubbleColor,
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(AppRadius.lg),
                 topRight: const Radius.circular(AppRadius.lg),
-                bottomLeft:
-                    Radius.circular(isUser ? AppRadius.lg : AppRadius.xs),
-                bottomRight:
-                    Radius.circular(isUser ? AppRadius.xs : AppRadius.lg),
+                bottomLeft: Radius.circular(
+                  isUser ? AppRadius.lg : AppRadius.xs,
+                ),
+                bottomRight: Radius.circular(
+                  isUser ? AppRadius.xs : AppRadius.lg,
+                ),
               ),
               border: Border.all(color: accent.withValues(alpha: 0.2)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  message,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
+                Text(message, style: Theme.of(context).textTheme.bodyLarge),
                 // Inline corrections for AI messages.
                 if (!isUser && corrections.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.sm),
@@ -875,14 +891,14 @@ class _ChatBubble extends StatelessWidget {
                           minHeight: 36,
                         ),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.xs, vertical: 4),
+                          horizontal: AppSpacing.xs,
+                          vertical: 4,
+                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              isPlaying
-                                  ? Icons.stop_circle
-                                  : Icons.play_circle,
+                              isPlaying ? Icons.stop_circle : Icons.play_circle,
                               color: AppColors.accentSecondary,
                               size: 20,
                             ),
@@ -943,12 +959,16 @@ class _CorrectionInline extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(top: AppSpacing.xs),
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         color: AppColors.bubbleCorrection,
         borderRadius: BorderRadius.circular(AppRadius.sm),
         border: Border.all(
-            color: AppColors.success.withValues(alpha: 0.3), width: 1),
+          color: AppColors.success.withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -957,7 +977,9 @@ class _CorrectionInline extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xs, vertical: 1),
+                  horizontal: AppSpacing.xs,
+                  vertical: 1,
+                ),
                 decoration: BoxDecoration(
                   color: typeColor.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(AppRadius.xs),
@@ -982,9 +1004,9 @@ class _CorrectionInline extends StatelessWidget {
                 child: Text(
                   correction.original,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.error,
-                        decoration: TextDecoration.lineThrough,
-                      ),
+                    color: AppColors.error,
+                    decoration: TextDecoration.lineThrough,
+                  ),
                 ),
               ),
             ],
@@ -997,9 +1019,9 @@ class _CorrectionInline extends StatelessWidget {
                 child: Text(
                   correction.corrected,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.success,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    color: AppColors.success,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -1009,9 +1031,9 @@ class _CorrectionInline extends StatelessWidget {
             const SizedBox(height: AppSpacing.xxs),
             Text(
               correction.explanation!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
           ],
         ],
@@ -1054,9 +1076,7 @@ class _ChatInputBar extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: AppColors.bgSecondary,
-        border: Border(
-          top: BorderSide(color: AppColors.glassBorder),
-        ),
+        border: Border(top: BorderSide(color: AppColors.glassBorder)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -1085,10 +1105,11 @@ class _ChatInputBar extends StatelessWidget {
                         : AppColors.accentSecondary,
                     boxShadow: [
                       BoxShadow(
-                        color: (isRecording
-                                ? AppColors.error
-                                : AppColors.accentSecondary)
-                            .withValues(alpha: 0.3),
+                        color:
+                            (isRecording
+                                    ? AppColors.error
+                                    : AppColors.accentSecondary)
+                                .withValues(alpha: 0.3),
                         blurRadius: isRecording ? 20 : 10,
                       ),
                     ],
@@ -1129,7 +1150,9 @@ class _ChatInputBar extends StatelessWidget {
                   hintStyle: TextStyle(color: AppColors.textMuted),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md, vertical: AppSpacing.sm + 4),
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm + 4,
+                  ),
                 ),
                 onSubmitted: (_) {
                   if (canSend) onSend();
@@ -1239,7 +1262,9 @@ class _CharacterPanel extends StatelessWidget {
       return Container(
         height: panelHeight,
         margin: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
         child: GlassCard(
           glowColor: AppColors.accentPrimary,
           padding: EdgeInsets.zero,

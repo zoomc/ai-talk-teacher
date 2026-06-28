@@ -17,7 +17,13 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   final List<Map<String, dynamic>> _questions = [
     {
       'question': 'How would you describe your English speaking level?',
-      'options': ['Beginner', 'Elementary', 'Intermediate', 'Upper-Intermediate', 'Advanced'],
+      'options': [
+        'Beginner',
+        'Elementary',
+        'Intermediate',
+        'Upper-Intermediate',
+        'Advanced',
+      ],
     },
     {
       'question': 'How often do you speak English?',
@@ -25,11 +31,23 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     },
     {
       'question': 'What\'s your biggest challenge?',
-      'options': ['Vocabulary', 'Grammar', 'Pronunciation', 'Confidence', 'Understanding native speakers'],
+      'options': [
+        'Vocabulary',
+        'Grammar',
+        'Pronunciation',
+        'Confidence',
+        'Understanding native speakers',
+      ],
     },
     {
       'question': 'What topics interest you most?',
-      'options': ['Daily life', 'Travel', 'Business', 'Technology', 'Culture & Entertainment'],
+      'options': [
+        'Daily life',
+        'Travel',
+        'Business',
+        'Technology',
+        'Culture & Entertainment',
+      ],
     },
   ];
 
@@ -59,7 +77,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                       height: 4,
                       margin: const EdgeInsets.symmetric(horizontal: 2),
                       decoration: BoxDecoration(
-                        color: i <= _currentQuestion ? AppColors.accentPrimary : AppColors.bgTertiary,
+                        color: i <= _currentQuestion
+                            ? AppColors.accentPrimary
+                            : AppColors.bgTertiary,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -75,9 +95,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
               const SizedBox(height: AppSpacing.sm),
               Text(
                 'Question ${_currentQuestion + 1} of ${_questions.length}',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: AppSpacing.xl),
 
@@ -89,9 +109,13 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
 
               Expanded(
                 child: ListView.builder(
-                  itemCount: (_questions[_currentQuestion]['options'] as List<String>).length,
+                  itemCount:
+                      (_questions[_currentQuestion]['options'] as List<String>)
+                          .length,
                   itemBuilder: (context, index) {
-                    final option = (_questions[_currentQuestion]['options'] as List<String>)[index];
+                    final option =
+                        (_questions[_currentQuestion]['options']
+                            as List<String>)[index];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                       child: GlassCard(
@@ -102,18 +126,28 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                               width: 32,
                               height: 32,
                               decoration: BoxDecoration(
-                                border: Border.all(color: AppColors.glassBorder),
-                                borderRadius: BorderRadius.circular(AppRadius.sm),
+                                border: Border.all(
+                                  color: AppColors.glassBorder,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.sm,
+                                ),
                               ),
                               child: Center(
                                 child: Text(
                                   String.fromCharCode(65 + index),
-                                  style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ),
                             const SizedBox(width: AppSpacing.md),
-                            Text(option, style: Theme.of(context).textTheme.bodyLarge),
+                            Text(
+                              option,
+                              style: Theme.of(context).textTheme.bodyLarge,
+                            ),
                           ],
                         ),
                       ),
@@ -184,7 +218,11 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                     color: AppColors.success.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(AppRadius.xxl),
                   ),
-                  child: const Icon(Icons.check_circle, color: AppColors.success, size: 50),
+                  child: const Icon(
+                    Icons.check_circle,
+                    color: AppColors.success,
+                    size: 50,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 Text(
@@ -233,7 +271,10 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     await repo.setPlacementCompleted();
 
     // Create first session
-    final session = await chatRepo.createSession(topic: 'Free Talk', levelTag: level);
+    final session = await chatRepo.createSession(
+      topic: 'Free Talk',
+      levelTag: level,
+    );
 
     if (mounted) {
       context.go('/chat/${session.id}');

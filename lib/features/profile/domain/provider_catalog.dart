@@ -19,6 +19,7 @@
 enum ProviderKind {
   /// OpenAI-compatible REST surface.
   openaiCompatible,
+
   /// Vendor-specific REST adapter (handled in the service layer).
   vendor,
 }
@@ -38,6 +39,7 @@ class ProviderDef {
   final String? note;
   final bool apiKeyRequired;
   final ProviderRegion region;
+
   /// Static voice list for TTS (when the vendor doesn't offer a list endpoint).
   final List<String> voices;
 
@@ -94,7 +96,8 @@ class LlmProviderCatalog {
       defaultBaseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
       defaultModel: 'qwen-plus',
       docsUrl: 'https://bailian.console.aliyun.com',
-      note: 'Qwen via DashScope OpenAI-compatible mode. CN users: use https://dashscope.aliyuncs.com/compatible-mode/v1',
+      note:
+          'Qwen via DashScope OpenAI-compatible mode. CN users: use https://dashscope.aliyuncs.com/compatible-mode/v1',
       region: ProviderRegion.cn,
     ),
     ProviderDef(
@@ -103,7 +106,8 @@ class LlmProviderCatalog {
       defaultBaseUrl: 'https://api.siliconflow.cn/v1',
       defaultModel: 'deepseek-ai/DeepSeek-V3',
       docsUrl: 'https://siliconflow.cn',
-      note: 'Aggregator/relay with many open models. Great fallback for domestic users.',
+      note:
+          'Aggregator/relay with many open models. Great fallback for domestic users.',
       region: ProviderRegion.cn,
     ),
     ProviderDef(
@@ -165,7 +169,8 @@ class LlmProviderCatalog {
       defaultBaseUrl: '',
       defaultModel: '',
       docsUrl: '',
-      note: 'Any service exposing /chat/completions: relay stations (中转站), vLLM, LocalAI, etc.',
+      note:
+          'Any service exposing /chat/completions: relay stations (中转站), vLLM, LocalAI, etc.',
       apiKeyRequired: false,
       region: ProviderRegion.global,
     ),
@@ -250,7 +255,8 @@ class SttProviderCatalog {
       defaultBaseUrl: '',
       defaultModel: 'whisper-1',
       docsUrl: '',
-      note: 'Any /audio/transcriptions endpoint: relay stations, whisper.cpp server, faster-whisper-server, etc.',
+      note:
+          'Any /audio/transcriptions endpoint: relay stations, whisper.cpp server, faster-whisper-server, etc.',
       apiKeyRequired: false,
       region: ProviderRegion.global,
     ),
@@ -270,16 +276,35 @@ class TtsProviderCatalog {
 
   /// OpenAI built-in voices.
   static const List<String> _openaiVoices = [
-    'alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer',
+    'alloy',
+    'ash',
+    'ballad',
+    'coral',
+    'echo',
+    'fable',
+    'nova',
+    'onyx',
+    'sage',
+    'shimmer',
   ];
 
   static const List<String> _googleVoices = [
-    'en-US-Journey-F', 'en-US-Journey-D', 'en-US-Neural2-F', 'en-US-Neural2-A',
-    'en-US-Standard-A', 'en-US-Standard-B', 'en-GB-Neural2-A', 'en-GB-Neural2-F',
+    'en-US-Journey-F',
+    'en-US-Journey-D',
+    'en-US-Neural2-F',
+    'en-US-Neural2-A',
+    'en-US-Standard-A',
+    'en-US-Standard-B',
+    'en-GB-Neural2-A',
+    'en-GB-Neural2-F',
   ];
 
   static const List<String> _aliyunVoices = [
-    'longxiaocheng', 'longxiaoxia', 'longanyang', 'longshu', 'longcheng',
+    'longxiaocheng',
+    'longxiaoxia',
+    'longanyang',
+    'longshu',
+    'longcheng',
   ];
 
   static const List<ProviderDef> all = [
@@ -302,7 +327,8 @@ class TtsProviderCatalog {
       defaultModel: 's1',
       defaultVoice: '',
       docsUrl: 'https://fish.audio',
-      note: 'Rich Chinese/English voices, voice clone. Fetch voice models after entering key.',
+      note:
+          'Rich Chinese/English voices, voice clone. Fetch voice models after entering key.',
       region: ProviderRegion.cn,
     ),
     ProviderDef(
@@ -347,7 +373,8 @@ class TtsProviderCatalog {
       defaultVoice: 'longxiaocheng',
       docsUrl: 'https://help.aliyun.com/zh/model-studio/cosyvoice-tts-http-api',
       voices: _aliyunVoices,
-      note: 'DashScope key. Non-streaming returns a download URL (handled automatically).',
+      note:
+          'DashScope key. Non-streaming returns a download URL (handled automatically).',
       region: ProviderRegion.cn,
     ),
     ProviderDef(
@@ -369,7 +396,8 @@ class TtsProviderCatalog {
       defaultModel: 'tts-1',
       defaultVoice: 'alloy',
       docsUrl: '',
-      note: 'Any /audio/speech endpoint: relay stations, local OpenAI-compatible TTS servers, etc.',
+      note:
+          'Any /audio/speech endpoint: relay stations, local OpenAI-compatible TTS servers, etc.',
       apiKeyRequired: false,
       region: ProviderRegion.global,
       voices: _openaiVoices,

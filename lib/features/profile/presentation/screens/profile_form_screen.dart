@@ -218,15 +218,16 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
                         _buildTypeSpecificFields(),
                         const SizedBox(height: AppSpacing.lg),
                         _buildApiKeyField(),
-                    const SizedBox(height: AppSpacing.lg),
-                    _buildTestButton(),
-                    const SizedBox(height: AppSpacing.xxl),
-                    _buildSaveCancel(),
-                  ],
+                        const SizedBox(height: AppSpacing.lg),
+                        _buildTestButton(),
+                        const SizedBox(height: AppSpacing.xxl),
+                        _buildSaveCancel(),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-                ),
-              ),
+            ),
     );
   }
 
@@ -272,9 +273,9 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
           const SizedBox(height: AppSpacing.xs),
           Text(
             'Docs: ${_providerDef.docsUrl}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.accentSecondary,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.accentSecondary),
           ),
         ],
       ],
@@ -310,23 +311,24 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     for (final region in order) {
       final list = byRegion[region];
       if (list == null || list.isEmpty) continue;
-      items.add(DropdownMenuItem<String>(
-        enabled: false,
-        value: '_header_${region.name}',
-        child: Text(
-          _regionLabel(region),
-          style: TextStyle(
-            color: AppColors.accentSecondary,
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
+      items.add(
+        DropdownMenuItem<String>(
+          enabled: false,
+          value: '_header_${region.name}',
+          child: Text(
+            _regionLabel(region),
+            style: TextStyle(
+              color: AppColors.accentSecondary,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
           ),
         ),
-      ));
+      );
       for (final d in list) {
-        items.add(DropdownMenuItem<String>(
-          value: d.id,
-          child: Text(d.displayName),
-        ));
+        items.add(
+          DropdownMenuItem<String>(value: d.id, child: Text(d.displayName)),
+        );
       }
     }
     return items;
@@ -349,7 +351,9 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
       decoration: BoxDecoration(
         color: AppColors.accentPrimary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: AppColors.accentPrimary.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: AppColors.accentPrimary.withValues(alpha: 0.2),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,9 +364,9 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
             child: Text(
               note,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                    height: 1.4,
-                  ),
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
             ),
           ),
         ],
@@ -387,15 +391,21 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _labelField('API Base URL', _urlController, 'https://api.deepseek.com/v1',
-            required: true),
-        const SizedBox(height: AppSpacing.lg),
-        _labelField('Model', _modelController, 'deepseek-v4-flash', required: true),
-        const SizedBox(height: AppSpacing.sm),
-        _fetchButton(
-          label: 'Fetch available models',
-          onPressed: _fetchModels,
+        _labelField(
+          'API Base URL',
+          _urlController,
+          'https://api.deepseek.com/v1',
+          required: true,
         ),
+        const SizedBox(height: AppSpacing.lg),
+        _labelField(
+          'Model',
+          _modelController,
+          'deepseek-v4-flash',
+          required: true,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _fetchButton(label: 'Fetch available models', onPressed: _fetchModels),
       ],
     );
   }
@@ -403,19 +413,28 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   Widget _buildSttFields() {
     final def = _providerDef;
     final showUrl = def.kind == ProviderKind.openaiCompatible;
-    final showModel = def.kind == ProviderKind.openaiCompatible ||
-        _providerId == 'deepgram';
+    final showModel =
+        def.kind == ProviderKind.openaiCompatible || _providerId == 'deepgram';
     final showRegion = _providerId == 'azure';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showUrl)
-          _labelField('API Base URL', _urlController, 'https://api.openai.com/v1',
-              required: true)
+          _labelField(
+            'API Base URL',
+            _urlController,
+            'https://api.openai.com/v1',
+            required: true,
+          )
         else if (_providerId == 'custom')
-          _labelField('API Base URL', _urlController, 'https://my-relay.example/v1',
-              required: true),
-        if (showUrl || _providerId == 'custom') const SizedBox(height: AppSpacing.lg),
+          _labelField(
+            'API Base URL',
+            _urlController,
+            'https://my-relay.example/v1',
+            required: true,
+          ),
+        if (showUrl || _providerId == 'custom')
+          const SizedBox(height: AppSpacing.lg),
         if (showModel) ...[
           _labelField('Model', _modelController, 'whisper-1'),
           const SizedBox(height: AppSpacing.lg),
@@ -423,7 +442,12 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         _labelField('Language (BCP-47)', _languageController, 'en-US'),
         const SizedBox(height: AppSpacing.lg),
         if (showRegion) ...[
-          _labelField('Azure Region', _regionController, 'eastus', required: true),
+          _labelField(
+            'Azure Region',
+            _regionController,
+            'eastus',
+            required: true,
+          ),
           const SizedBox(height: AppSpacing.lg),
         ],
       ],
@@ -432,7 +456,8 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
 
   Widget _buildTtsFields() {
     final def = _providerDef;
-    final showUrl = def.kind == ProviderKind.openaiCompatible ||
+    final showUrl =
+        def.kind == ProviderKind.openaiCompatible ||
         _providerId == 'custom' ||
         _providerId == 'fish_audio' ||
         _providerId == 'elevenlabs' ||
@@ -440,15 +465,20 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         _providerId == 'google_tts' ||
         _providerId == 'aliyun_cosyvoice';
     final showRegion = _providerId == 'azure_tts';
-    final canFetchVoices = _providerId == 'elevenlabs' ||
+    final canFetchVoices =
+        _providerId == 'elevenlabs' ||
         _providerId == 'fish_audio' ||
         _providerId == 'azure_tts';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showUrl)
-          _labelField('API Base URL', _urlController, def.defaultBaseUrl,
-              required: true),
+          _labelField(
+            'API Base URL',
+            _urlController,
+            def.defaultBaseUrl,
+            required: true,
+          ),
         if (showUrl) const SizedBox(height: AppSpacing.lg),
         _labelField('Model', _modelController, def.defaultModel ?? ''),
         const SizedBox(height: AppSpacing.lg),
@@ -471,7 +501,12 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         ],
         const SizedBox(height: AppSpacing.lg),
         if (showRegion) ...[
-          _labelField('Azure Region', _regionController, 'eastus', required: true),
+          _labelField(
+            'Azure Region',
+            _regionController,
+            'eastus',
+            required: true,
+          ),
           const SizedBox(height: AppSpacing.lg),
         ],
         Text('TTS Speed', style: Theme.of(context).textTheme.titleMedium),
@@ -511,8 +546,12 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     );
   }
 
-  Widget _labelField(String label, TextEditingController controller, String hint,
-      {bool required = false}) {
+  Widget _labelField(
+    String label,
+    TextEditingController controller,
+    String hint, {
+    bool required = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -537,7 +576,9 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          def.apiKeyRequired ? 'API Key' : 'API Key (optional for this provider)',
+          def.apiKeyRequired
+              ? 'API Key'
+              : 'API Key (optional for this provider)',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: AppSpacing.xs),
@@ -546,7 +587,9 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
           style: const TextStyle(color: AppColors.textPrimary),
           obscureText: true,
           decoration: InputDecoration(
-            hintText: _hasExistingKey ? 'Enter new key to replace existing' : 'sk-...',
+            hintText: _hasExistingKey
+                ? 'Enter new key to replace existing'
+                : 'sk-...',
           ),
           validator: (v) {
             if (!def.apiKeyRequired) return null;
@@ -590,7 +633,10 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
             onPressed: _isLoading ? null : _saveProfile,
             child: _isLoading
                 ? const SizedBox(
-                    width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Text('Save'),
           ),
         ),
@@ -598,7 +644,10 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     );
   }
 
-  Widget _fetchButton({required String label, required VoidCallback onPressed}) {
+  Widget _fetchButton({
+    required String label,
+    required VoidCallback onPressed,
+  }) {
     return TextButton.icon(
       onPressed: _isFetching ? null : onPressed,
       icon: _isFetching
@@ -726,7 +775,11 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
               return ListTile(
                 title: Text(m),
                 trailing: current == m
-                    ? const Icon(Icons.check, color: AppColors.accentPrimary, size: 18)
+                    ? const Icon(
+                        Icons.check,
+                        color: AppColors.accentPrimary,
+                        size: 18,
+                      )
                     : null,
                 onTap: () => Navigator.pop(ctx, m),
               );
@@ -734,7 +787,10 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
         ],
       ),
     );
@@ -770,7 +826,8 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
                 : _modelController.text.trim(),
           );
           final count = await LlmService(tempProfile).testConnection();
-          result = '✓ Connected (${stopwatch.elapsedMilliseconds}ms, $count models)';
+          result =
+              '✓ Connected (${stopwatch.elapsedMilliseconds}ms, $count models)';
           break;
         case 'stt':
           final tempProfile = SttProfile(
@@ -809,13 +866,16 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     switch (widget.type) {
       case 'llm':
         final all = await repo.getAllLlmProfiles();
-        return all.where((x) => x.id == widget.profileId).firstOrNull?.apiKey ?? '';
+        return all.where((x) => x.id == widget.profileId).firstOrNull?.apiKey ??
+            '';
       case 'stt':
         final all = await repo.getAllSttProfiles();
-        return all.where((x) => x.id == widget.profileId).firstOrNull?.apiKey ?? '';
+        return all.where((x) => x.id == widget.profileId).firstOrNull?.apiKey ??
+            '';
       case 'tts':
         final all = await repo.getAllTtsProfiles();
-        return all.where((x) => x.id == widget.profileId).firstOrNull?.apiKey ?? '';
+        return all.where((x) => x.id == widget.profileId).firstOrNull?.apiKey ??
+            '';
       default:
         return '';
     }
@@ -837,43 +897,49 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
 
       switch (widget.type) {
         case 'llm':
-          await repo.saveLlmProfile(LlmProfile(
-            id: widget.profileId,
-            name: _nameController.text,
-            providerId: _providerId,
-            baseUrl: _urlController.text.trim(),
-            apiKey: apiKey,
-            model: _modelController.text.trim(),
-          ));
+          await repo.saveLlmProfile(
+            LlmProfile(
+              id: widget.profileId,
+              name: _nameController.text,
+              providerId: _providerId,
+              baseUrl: _urlController.text.trim(),
+              apiKey: apiKey,
+              model: _modelController.text.trim(),
+            ),
+          );
           break;
         case 'stt':
-          await repo.saveSttProfile(SttProfile(
-            id: widget.profileId,
-            name: _nameController.text,
-            providerId: _providerId,
-            baseUrl: _urlController.text.trim(),
-            apiKey: apiKey,
-            model: _modelController.text.trim(),
-            language: _languageController.text.trim().isEmpty
-                ? 'en-US'
-                : _languageController.text.trim(),
-            extraConfig: regionJson,
-          ));
+          await repo.saveSttProfile(
+            SttProfile(
+              id: widget.profileId,
+              name: _nameController.text,
+              providerId: _providerId,
+              baseUrl: _urlController.text.trim(),
+              apiKey: apiKey,
+              model: _modelController.text.trim(),
+              language: _languageController.text.trim().isEmpty
+                  ? 'en-US'
+                  : _languageController.text.trim(),
+              extraConfig: regionJson,
+            ),
+          );
           break;
         case 'tts':
-          await repo.saveTtsProfile(TtsProfile(
-            id: widget.profileId,
-            name: _nameController.text,
-            providerId: _providerId,
-            baseUrl: _urlController.text.trim(),
-            apiKey: apiKey,
-            model: _modelController.text.trim(),
-            voiceId: _voiceIdController.text.trim().isEmpty
-                ? _providerDef.defaultVoice
-                : _voiceIdController.text.trim(),
-            speed: _selectedSpeed,
-            extraConfig: regionJson,
-          ));
+          await repo.saveTtsProfile(
+            TtsProfile(
+              id: widget.profileId,
+              name: _nameController.text,
+              providerId: _providerId,
+              baseUrl: _urlController.text.trim(),
+              apiKey: apiKey,
+              model: _modelController.text.trim(),
+              voiceId: _voiceIdController.text.trim().isEmpty
+                  ? _providerDef.defaultVoice
+                  : _voiceIdController.text.trim(),
+              speed: _selectedSpeed,
+              extraConfig: regionJson,
+            ),
+          );
           break;
       }
       if (mounted) {

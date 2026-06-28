@@ -128,7 +128,11 @@ class _VirtualCharacterState extends State<VirtualCharacter>
   Widget build(BuildContext context) {
     final avatarFontSize = widget.size * 0.42;
     return AnimatedBuilder(
-      animation: Listenable.merge([_breathingController, _glowController, _mouthController]),
+      animation: Listenable.merge([
+        _breathingController,
+        _glowController,
+        _mouthController,
+      ]),
       builder: (context, child) {
         return Container(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -146,9 +150,13 @@ class _VirtualCharacterState extends State<VirtualCharacter>
                   color: _stateColor.withValues(alpha: 0.1),
                   boxShadow: [
                     BoxShadow(
-                      color: _stateColor.withValues(alpha: _glowAnimation.value),
+                      color: _stateColor.withValues(
+                        alpha: _glowAnimation.value,
+                      ),
                       blurRadius: 30,
-                      spreadRadius: widget.state == CharacterState.listening ? 10 : 0,
+                      spreadRadius: widget.state == CharacterState.listening
+                          ? 10
+                          : 0,
                     ),
                   ],
                 ),
@@ -187,8 +195,8 @@ class _VirtualCharacterState extends State<VirtualCharacter>
                 Text(
                   widget.tutorName,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
+                    color: AppColors.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
 
@@ -247,9 +255,4 @@ class _VirtualCharacterState extends State<VirtualCharacter>
   }
 }
 
-enum CharacterState {
-  idle,
-  listening,
-  thinking,
-  speaking,
-}
+enum CharacterState { idle, listening, thinking, speaking }

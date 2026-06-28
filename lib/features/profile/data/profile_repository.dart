@@ -23,7 +23,11 @@ class ProfileRepository {
 
   Future<LlmProfile?> getActiveLlmProfile() async {
     final db = await DatabaseHelper.database;
-    final maps = await db.query('llm_profiles', where: 'is_active = 1', limit: 1);
+    final maps = await db.query(
+      'llm_profiles',
+      where: 'is_active = 1',
+      limit: 1,
+    );
     if (maps.isEmpty) return null;
     final profile = LlmProfile.fromMap(maps.first);
     final apiKey = await SecureStorageService.getApiKey(profile.id);
@@ -47,14 +51,24 @@ class ProfileRepository {
     final db = await DatabaseHelper.database;
     await db.transaction((txn) async {
       await txn.update('llm_profiles', {'is_active': 0});
-      await txn.update('llm_profiles', {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()}, where: 'id = ?', whereArgs: [id]);
+      await txn.update(
+        'llm_profiles',
+        {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     });
   }
 
   Future<void> deleteLlmProfile(String id) async {
     final db = await DatabaseHelper.database;
     // Check if active
-    final maps = await db.query('llm_profiles', where: 'id = ? AND is_active = 1', whereArgs: [id], limit: 1);
+    final maps = await db.query(
+      'llm_profiles',
+      where: 'id = ? AND is_active = 1',
+      whereArgs: [id],
+      limit: 1,
+    );
     if (maps.isNotEmpty) throw Exception('Cannot delete active profile');
     await SecureStorageService.deleteApiKey(id);
     await db.delete('llm_profiles', where: 'id = ?', whereArgs: [id]);
@@ -76,7 +90,11 @@ class ProfileRepository {
 
   Future<SttProfile?> getActiveSttProfile() async {
     final db = await DatabaseHelper.database;
-    final maps = await db.query('stt_profiles', where: 'is_active = 1', limit: 1);
+    final maps = await db.query(
+      'stt_profiles',
+      where: 'is_active = 1',
+      limit: 1,
+    );
     if (maps.isEmpty) return null;
     final profile = SttProfile.fromMap(maps.first);
     final apiKey = await SecureStorageService.getApiKey(profile.id);
@@ -99,13 +117,23 @@ class ProfileRepository {
     final db = await DatabaseHelper.database;
     await db.transaction((txn) async {
       await txn.update('stt_profiles', {'is_active': 0});
-      await txn.update('stt_profiles', {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()}, where: 'id = ?', whereArgs: [id]);
+      await txn.update(
+        'stt_profiles',
+        {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     });
   }
 
   Future<void> deleteSttProfile(String id) async {
     final db = await DatabaseHelper.database;
-    final maps = await db.query('stt_profiles', where: 'id = ? AND is_active = 1', whereArgs: [id], limit: 1);
+    final maps = await db.query(
+      'stt_profiles',
+      where: 'id = ? AND is_active = 1',
+      whereArgs: [id],
+      limit: 1,
+    );
     if (maps.isNotEmpty) throw Exception('Cannot delete active profile');
     await SecureStorageService.deleteApiKey(id);
     await db.delete('stt_profiles', where: 'id = ?', whereArgs: [id]);
@@ -127,7 +155,11 @@ class ProfileRepository {
 
   Future<TtsProfile?> getActiveTtsProfile() async {
     final db = await DatabaseHelper.database;
-    final maps = await db.query('tts_profiles', where: 'is_active = 1', limit: 1);
+    final maps = await db.query(
+      'tts_profiles',
+      where: 'is_active = 1',
+      limit: 1,
+    );
     if (maps.isEmpty) return null;
     final profile = TtsProfile.fromMap(maps.first);
     final apiKey = await SecureStorageService.getApiKey(profile.id);
@@ -150,13 +182,23 @@ class ProfileRepository {
     final db = await DatabaseHelper.database;
     await db.transaction((txn) async {
       await txn.update('tts_profiles', {'is_active': 0});
-      await txn.update('tts_profiles', {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()}, where: 'id = ?', whereArgs: [id]);
+      await txn.update(
+        'tts_profiles',
+        {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     });
   }
 
   Future<void> deleteTtsProfile(String id) async {
     final db = await DatabaseHelper.database;
-    final maps = await db.query('tts_profiles', where: 'id = ? AND is_active = 1', whereArgs: [id], limit: 1);
+    final maps = await db.query(
+      'tts_profiles',
+      where: 'id = ? AND is_active = 1',
+      whereArgs: [id],
+      limit: 1,
+    );
     if (maps.isNotEmpty) throw Exception('Cannot delete active profile');
     await SecureStorageService.deleteApiKey(id);
     await db.delete('tts_profiles', where: 'id = ?', whereArgs: [id]);
@@ -166,18 +208,22 @@ class ProfileRepository {
 
   Future<String?> getSetting(String key) async {
     final db = await DatabaseHelper.database;
-    final maps = await db.query('user_settings', where: 'key = ?', whereArgs: [key], limit: 1);
+    final maps = await db.query(
+      'user_settings',
+      where: 'key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
     if (maps.isEmpty) return null;
     return maps.first['value'] as String;
   }
 
   Future<void> setSetting(String key, String value) async {
     final db = await DatabaseHelper.database;
-    await db.insert(
-      'user_settings',
-      {'key': key, 'value': value},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('user_settings', {
+      'key': key,
+      'value': value,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<bool> hasCompletedOnboarding() async {
@@ -216,12 +262,19 @@ class ProfileRepository {
       if (k.length <= 8) return '****';
       return '${k.substring(0, 4)}****${k.substring(k.length - 4)}';
     }
+
     final data = {
       'version': 1,
       'exported_at': DateTime.now().toIso8601String(),
-      'llm': llm.map((p) => {...p.toMap(), 'api_key': maskKey(p.apiKey)}).toList(),
-      'stt': stt.map((p) => {...p.toMap(), 'api_key': maskKey(p.apiKey)}).toList(),
-      'tts': tts.map((p) => {...p.toMap(), 'api_key': maskKey(p.apiKey)}).toList(),
+      'llm': llm
+          .map((p) => {...p.toMap(), 'api_key': maskKey(p.apiKey)})
+          .toList(),
+      'stt': stt
+          .map((p) => {...p.toMap(), 'api_key': maskKey(p.apiKey)})
+          .toList(),
+      'tts': tts
+          .map((p) => {...p.toMap(), 'api_key': maskKey(p.apiKey)})
+          .toList(),
     };
     return jsonEncode(data);
   }
@@ -234,7 +287,8 @@ class ProfileRepository {
         final map = Map<String, dynamic>.from(m as Map);
         final profile = LlmProfile(
           name: '${map['name'] ?? ''} (imported)',
-          providerId: (map['provider_id'] as String?) ?? LlmProviderCatalog.customId,
+          providerId:
+              (map['provider_id'] as String?) ?? LlmProviderCatalog.customId,
           baseUrl: map['base_url'] as String? ?? '',
           apiKey: map['api_key'] as String? ?? '',
           model: map['model'] as String? ?? '',
@@ -247,7 +301,8 @@ class ProfileRepository {
       for (final m in data['stt'] as List) {
         final map = Map<String, dynamic>.from(m as Map);
         // Prefer provider_id; fall back to legacy `provider` enum string.
-        final providerId = (map['provider_id'] as String?) ??
+        final providerId =
+            (map['provider_id'] as String?) ??
             _legacySttEnumToId(map['provider'] as String?) ??
             SttProviderCatalog.customId;
         final profile = SttProfile(
@@ -266,7 +321,8 @@ class ProfileRepository {
     if (data['tts'] is List) {
       for (final m in data['tts'] as List) {
         final map = Map<String, dynamic>.from(m as Map);
-        final providerId = (map['provider_id'] as String?) ??
+        final providerId =
+            (map['provider_id'] as String?) ??
             _legacyTtsEnumToId(map['provider'] as String?) ??
             TtsProviderCatalog.customId;
         final profile = TtsProfile(

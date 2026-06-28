@@ -54,7 +54,9 @@ class GlassCard extends StatelessWidget {
                 color: isDark ? AppColors.glassBg : AppColors.lightGlassBg,
                 borderRadius: BorderRadius.circular(borderRadius),
                 border: Border.all(
-                  color: isDark ? AppColors.glassBorder : AppColors.lightGlassBorder,
+                  color: isDark
+                      ? AppColors.glassBorder
+                      : AppColors.lightGlassBorder,
                   width: 1,
                 ),
               ),
@@ -88,7 +90,8 @@ class GlowButton extends StatefulWidget {
   State<GlowButton> createState() => _GlowButtonState();
 }
 
-class _GlowButtonState extends State<GlowButton> with SingleTickerProviderStateMixin {
+class _GlowButtonState extends State<GlowButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _glowAnimation;
 
@@ -99,9 +102,10 @@ class _GlowButtonState extends State<GlowButton> with SingleTickerProviderStateM
       vsync: this,
       duration: const Duration(milliseconds: 2000),
     );
-    _glowAnimation = Tween<double>(begin: 0.3, end: 0.6).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _glowAnimation = Tween<double>(
+      begin: 0.3,
+      end: 0.6,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     _controller.repeat(reverse: true);
   }
 
@@ -171,7 +175,10 @@ class StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xxs),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: isActive ? 0.15 : 0.05),
         borderRadius: BorderRadius.circular(AppRadius.full),

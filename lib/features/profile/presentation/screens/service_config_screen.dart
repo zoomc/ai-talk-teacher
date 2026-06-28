@@ -17,7 +17,8 @@ class ServiceConfigScreen extends ConsumerStatefulWidget {
   const ServiceConfigScreen({super.key});
 
   @override
-  ConsumerState<ServiceConfigScreen> createState() => _ServiceConfigScreenState();
+  ConsumerState<ServiceConfigScreen> createState() =>
+      _ServiceConfigScreenState();
 }
 
 class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
@@ -71,77 +72,105 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  _buildSectionHeader(context, '🧠', 'AI Dialogue', 'Chat completion model'),
-                  const SizedBox(height: AppSpacing.sm),
-                  ..._llmProfiles.map((p) => _buildProfileCard(
+                      _buildSectionHeader(
                         context,
-                        type: 'llm',
-                        id: p.id,
-                        name: p.name,
-                        subtitle: '${p.model} • ${p.baseUrl}',
-                        isActive: p.isActive,
-                        onTap: () => _activateProfile('llm', p.id),
-                      )),
-                  _buildAddButton(context, 'llm'),
-
-                  const SizedBox(height: AppSpacing.xl),
-                  _buildSectionHeader(context, '🎤', 'Speech Recognition (STT)', 'Convert speech to text'),
-                  const SizedBox(height: AppSpacing.sm),
-                  ..._sttProfiles.map((p) => _buildProfileCard(
-                        context,
-                        type: 'stt',
-                        id: p.id,
-                        name: p.name,
-                        subtitle: p.providerDisplayName,
-                        isActive: p.isActive,
-                        onTap: () => _activateProfile('stt', p.id),
-                      )),
-                  _buildAddButton(context, 'stt'),
-
-                  const SizedBox(height: AppSpacing.xl),
-                  _buildSectionHeader(context, '🔊', 'Text-to-Speech (TTS)', 'Convert text to speech'),
-                  const SizedBox(height: AppSpacing.sm),
-                  ..._ttsProfiles.map((p) => _buildProfileCard(
-                        context,
-                        type: 'tts',
-                        id: p.id,
-                        name: p.name,
-                        subtitle: '${p.providerDisplayName}${p.voiceName != null ? ' • ${p.voiceName}' : ''}',
-                        isActive: p.isActive,
-                        onTap: () => _activateProfile('tts', p.id),
-                      )),
-                  _buildAddButton(context, 'tts'),
-
-                  const SizedBox(height: AppSpacing.xl),
-                  // Import/Export buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _importProfiles,
-                          icon: const Icon(Icons.download),
-                          label: const Text('Import All'),
+                        '🧠',
+                        'AI Dialogue',
+                        'Chat completion model',
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      ..._llmProfiles.map(
+                        (p) => _buildProfileCard(
+                          context,
+                          type: 'llm',
+                          id: p.id,
+                          name: p.name,
+                          subtitle: '${p.model} • ${p.baseUrl}',
+                          isActive: p.isActive,
+                          onTap: () => _activateProfile('llm', p.id),
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _exportProfiles,
-                          icon: const Icon(Icons.upload),
-                          label: const Text('Export All'),
+                      _buildAddButton(context, 'llm'),
+
+                      const SizedBox(height: AppSpacing.xl),
+                      _buildSectionHeader(
+                        context,
+                        '🎤',
+                        'Speech Recognition (STT)',
+                        'Convert speech to text',
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      ..._sttProfiles.map(
+                        (p) => _buildProfileCard(
+                          context,
+                          type: 'stt',
+                          id: p.id,
+                          name: p.name,
+                          subtitle: p.providerDisplayName,
+                          isActive: p.isActive,
+                          onTap: () => _activateProfile('stt', p.id),
                         ),
                       ),
+                      _buildAddButton(context, 'stt'),
+
+                      const SizedBox(height: AppSpacing.xl),
+                      _buildSectionHeader(
+                        context,
+                        '🔊',
+                        'Text-to-Speech (TTS)',
+                        'Convert text to speech',
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      ..._ttsProfiles.map(
+                        (p) => _buildProfileCard(
+                          context,
+                          type: 'tts',
+                          id: p.id,
+                          name: p.name,
+                          subtitle:
+                              '${p.providerDisplayName}${p.voiceName != null ? ' • ${p.voiceName}' : ''}',
+                          isActive: p.isActive,
+                          onTap: () => _activateProfile('tts', p.id),
+                        ),
+                      ),
+                      _buildAddButton(context, 'tts'),
+
+                      const SizedBox(height: AppSpacing.xl),
+                      // Import/Export buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _importProfiles,
+                              icon: const Icon(Icons.download),
+                              label: const Text('Import All'),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _exportProfiles,
+                              icon: const Icon(Icons.upload),
+                              label: const Text('Export All'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xxl),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.xxl),
-                ],
-              ),
                 ),
               ),
+            ),
     );
   }
 
-  Widget _buildSectionHeader(BuildContext context, String emoji, String title, String subtitle) {
+  Widget _buildSectionHeader(
+    BuildContext context,
+    String emoji,
+    String title,
+    String subtitle,
+  ) {
     return Row(
       children: [
         Text(emoji, style: const TextStyle(fontSize: 24)),
@@ -150,7 +179,12 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(title, style: Theme.of(context).textTheme.titleLarge),
-            Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
+            Text(
+              subtitle,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+            ),
           ],
         ),
       ],
@@ -203,28 +237,52 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                     if (isActive) ...[
                       const SizedBox(width: AppSpacing.xs),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: AppColors.accentPrimary.withValues(alpha: 0.15),
+                          color: AppColors.accentPrimary.withValues(
+                            alpha: 0.15,
+                          ),
                           borderRadius: BorderRadius.circular(AppRadius.sm),
                         ),
-                        child: const Text('Active',
-                            style: TextStyle(color: AppColors.accentPrimary, fontSize: 10, fontWeight: FontWeight.w600)),
+                        child: const Text(
+                          'Active',
+                          style: TextStyle(
+                            color: AppColors.accentPrimary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ],
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),
           if (isTesting)
-            const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
           else
             PopupMenuButton<String>(
               color: AppColors.bgSecondary,
-              icon: const Icon(Icons.more_vert, size: 20, color: AppColors.textMuted),
+              icon: const Icon(
+                Icons.more_vert,
+                size: 20,
+                color: AppColors.textMuted,
+              ),
               onSelected: (value) {
                 switch (value) {
                   case 'edit':
@@ -243,7 +301,11 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                   value: 'edit',
                   child: Row(
                     children: [
-                      Icon(Icons.edit, size: 18, color: AppColors.textSecondary),
+                      Icon(
+                        Icons.edit,
+                        size: 18,
+                        color: AppColors.textSecondary,
+                      ),
                       SizedBox(width: AppSpacing.sm),
                       Text('Edit'),
                     ],
@@ -253,7 +315,11 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                   value: 'test',
                   child: Row(
                     children: [
-                      Icon(Icons.network_check, size: 18, color: AppColors.textSecondary),
+                      Icon(
+                        Icons.network_check,
+                        size: 18,
+                        color: AppColors.textSecondary,
+                      ),
                       SizedBox(width: AppSpacing.sm),
                       Text('Test Connection'),
                     ],
@@ -263,7 +329,11 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                   value: 'delete',
                   child: Row(
                     children: [
-                      Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                      Icon(
+                        Icons.delete_outline,
+                        size: 18,
+                        color: AppColors.error,
+                      ),
                       SizedBox(width: AppSpacing.sm),
                       Text('Delete', style: TextStyle(color: AppColors.error)),
                     ],
@@ -316,7 +386,10 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
         dir = null;
       }
       dir ??= await getApplicationDocumentsDirectory();
-      final timestamp = DateTime.now().toIso8601String().replaceAll(RegExp(r'[:.]'), '-');
+      final timestamp = DateTime.now().toIso8601String().replaceAll(
+        RegExp(r'[:.]'),
+        '-',
+      );
       final file = File('${dir.path}/speakflow_profiles_$timestamp.json');
       await file.writeAsString(json);
       if (mounted) {
@@ -356,7 +429,11 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
           child: TextField(
             controller: controller,
             maxLines: 12,
-            style: const TextStyle(color: AppColors.textPrimary, fontFamily: 'monospace', fontSize: 12),
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontFamily: 'monospace',
+              fontSize: 12,
+            ),
             decoration: const InputDecoration(
               hintText: 'Paste exported JSON here',
               border: OutlineInputBorder(),
@@ -385,14 +462,18 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
       await _loadProfiles();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Imported $count profiles. Please edit each to re-enter API keys.')),
+          SnackBar(
+            content: Text(
+              'Imported $count profiles. Please edit each to re-enter API keys.',
+            ),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid JSON')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Invalid JSON')));
       }
     }
   }
@@ -408,19 +489,23 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
     try {
       if (type == 'llm') {
         final profile = _llmProfiles.firstWhere((p) => p.id == id);
-        final count = await LlmService(profile)
-            .testConnection()
-            .timeout(const Duration(seconds: 15));
+        final count = await LlmService(
+          profile,
+        ).testConnection().timeout(const Duration(seconds: 15));
         final ms = stopwatch.elapsedMilliseconds;
         result = '✓ Connected (${ms}ms, $count models)';
       } else if (type == 'stt') {
         final profile = _sttProfiles.firstWhere((p) => p.id == id);
-        await SttService(profile).testConnection().timeout(const Duration(seconds: 15));
+        await SttService(
+          profile,
+        ).testConnection().timeout(const Duration(seconds: 15));
         final ms = stopwatch.elapsedMilliseconds;
         result = '✓ Connected (${ms}ms)';
       } else {
         final profile = _ttsProfiles.firstWhere((p) => p.id == id);
-        await TtsService(profile).testConnection().timeout(const Duration(seconds: 15));
+        await TtsService(
+          profile,
+        ).testConnection().timeout(const Duration(seconds: 15));
         final ms = stopwatch.elapsedMilliseconds;
         result = '✓ Connected (${ms}ms)';
       }
@@ -430,7 +515,9 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
 
     if (mounted) {
       setState(() => _testingId = null);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result)));
     }
   }
 
@@ -449,7 +536,10 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: AppColors.error)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: AppColors.error),
+            ),
           ),
         ],
       ),
@@ -470,7 +560,9 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
           break;
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile deleted')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Profile deleted')));
         await _loadProfiles();
       }
     } catch (e) {
@@ -478,10 +570,16 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
         final msg = e.toString();
         if (msg.contains('Cannot delete active')) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Cannot delete the active profile. Switch to another profile first.')),
+            const SnackBar(
+              content: Text(
+                'Cannot delete the active profile. Switch to another profile first.',
+              ),
+            ),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_safeError(e))));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(_safeError(e))));
         }
       }
     }

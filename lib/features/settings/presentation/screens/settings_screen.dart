@@ -41,7 +41,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  String _capitalize(String s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+  String _capitalize(String s) =>
+      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +64,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Settings', style: Theme.of(context).textTheme.displayLarge),
+                Text(
+                  'Settings',
+                  style: Theme.of(context).textTheme.displayLarge,
+                ),
                 const SizedBox(height: AppSpacing.xl),
 
                 // Services section
@@ -103,7 +107,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       subtitle: 'English',
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Interface language switching coming in a future update')),
+                          const SnackBar(
+                            content: Text(
+                              'Interface language switching coming in a future update',
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -179,15 +187,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       await TtsPlaybackService().clearCache();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cache cleared')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Cache cleared')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to clear cache: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to clear cache: $e')));
       }
     }
   }
@@ -230,10 +238,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                await ref.read(profileRepoProvider).setSetting('correction_strength', local);
+                await ref
+                    .read(profileRepoProvider)
+                    .setSetting('correction_strength', local);
                 if (mounted) setState(() => _correctionStrength = local);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
@@ -285,10 +298,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                await ref.read(profileRepoProvider).setSetting('tts_speed', local);
+                await ref
+                    .read(profileRepoProvider)
+                    .setSetting('tts_speed', local);
                 if (mounted) setState(() => _ttsSpeed = local);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
@@ -335,7 +353,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               onPressed: () async {
                 await ref.read(profileRepoProvider).setSetting('theme', local);
@@ -363,17 +384,18 @@ class _SettingsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: AppSpacing.sm),
+          padding: const EdgeInsets.only(
+            left: AppSpacing.xs,
+            bottom: AppSpacing.sm,
+          ),
           child: Text(
             title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(color: AppColors.textSecondary),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(color: AppColors.textSecondary),
           ),
         ),
-        GlassCard(
-          child: Column(
-            children: children,
-          ),
-        ),
+        GlassCard(child: Column(children: children)),
       ],
     );
   }
@@ -410,11 +432,15 @@ class _SettingsTile extends StatelessWidget {
       ),
       subtitle: Text(
         subtitle,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
       ),
-      trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),
+      trailing: const Icon(
+        Icons.chevron_right,
+        color: AppColors.textMuted,
+        size: 20,
+      ),
     );
   }
 }

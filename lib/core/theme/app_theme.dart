@@ -54,7 +54,10 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.accentPrimary, width: 2),
+          borderSide: const BorderSide(
+            color: AppColors.accentPrimary,
+            width: 2,
+          ),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
@@ -98,9 +101,7 @@ class AppTheme {
         ),
       ),
       iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(
-          foregroundColor: AppColors.textSecondary,
-        ),
+        style: IconButton.styleFrom(foregroundColor: AppColors.textSecondary),
       ),
       dividerTheme: const DividerThemeData(
         color: AppColors.glassBorder,
@@ -109,7 +110,9 @@ class AppTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.bgTertiary,
-        contentTextStyle: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
+        contentTextStyle: AppTextStyles.caption.copyWith(
+          color: AppColors.textPrimary,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
         ),
@@ -134,18 +137,32 @@ class AppTheme {
         onError: AppColors.textOnAccent,
       ),
       textTheme: TextTheme(
-        displayLarge: AppTextStyles.display.copyWith(color: AppColors.lightTextPrimary),
-        headlineLarge: AppTextStyles.heading.copyWith(color: AppColors.lightTextPrimary),
-        titleLarge: AppTextStyles.title.copyWith(color: AppColors.lightTextPrimary),
-        bodyLarge: AppTextStyles.body.copyWith(color: AppColors.lightTextPrimary),
-        bodyMedium: AppTextStyles.caption.copyWith(color: AppColors.lightTextSecondary),
-        labelSmall: AppTextStyles.overline.copyWith(color: AppColors.lightTextSecondary),
+        displayLarge: AppTextStyles.display.copyWith(
+          color: AppColors.lightTextPrimary,
+        ),
+        headlineLarge: AppTextStyles.heading.copyWith(
+          color: AppColors.lightTextPrimary,
+        ),
+        titleLarge: AppTextStyles.title.copyWith(
+          color: AppColors.lightTextPrimary,
+        ),
+        bodyLarge: AppTextStyles.body.copyWith(
+          color: AppColors.lightTextPrimary,
+        ),
+        bodyMedium: AppTextStyles.caption.copyWith(
+          color: AppColors.lightTextSecondary,
+        ),
+        labelSmall: AppTextStyles.overline.copyWith(
+          color: AppColors.lightTextSecondary,
+        ),
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: AppTextStyles.title.copyWith(color: AppColors.lightTextPrimary),
+        titleTextStyle: AppTextStyles.title.copyWith(
+          color: AppColors.lightTextPrimary,
+        ),
         iconTheme: const IconThemeData(color: AppColors.lightTextPrimary),
       ),
     );

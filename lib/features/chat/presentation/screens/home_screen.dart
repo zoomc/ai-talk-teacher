@@ -62,147 +62,186 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               child: CustomScrollView(
                 slivers: [
-              // Header
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.gradientPrimary,
-                          borderRadius: BorderRadius.circular(AppRadius.lg),
-                        ),
-                        child: const Icon(Icons.mic, color: Colors.white, size: 24),
-                      )
-                          .animate()
-                          .fadeIn(duration: 600.ms)
-                          .scale(begin: const Offset(0.8, 0.8)),
-                      const SizedBox(width: AppSpacing.md),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  // Header
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: Row(
                         children: [
-                          Text(
-                            'SpeakFlow',
-                            style: Theme.of(context).textTheme.headlineLarge,
+                          Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  gradient: AppColors.gradientPrimary,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.lg,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.mic,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              )
+                              .animate()
+                              .fadeIn(duration: 600.ms)
+                              .scale(begin: const Offset(0.8, 0.8)),
+                          const SizedBox(width: AppSpacing.md),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'SpeakFlow',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineLarge,
+                              ),
+                              Text(
+                                'AI English Speaking Practice',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: AppColors.textSecondary),
+                              ),
+                            ],
                           ),
-                          Text(
-                            'AI English Speaking Practice',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textSecondary,
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Continue session card
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                      ),
+                      child: activeSession.when(
+                        data: (session) {
+                          if (session != null) {
+                            return GlassCard(
+                              glowColor: AppColors.accentPrimary,
+                              onTap: () => context.push('/chat/${session.id}'),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accentPrimary.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(
+                                        AppRadius.md,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.play_arrow,
+                                      color: AppColors.accentPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.md),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Continue your conversation',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.titleMedium,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          session.topic ?? 'Free Talk',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: AppColors.textSecondary,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 16,
+                                    color: AppColors.textMuted,
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                        loading: () => const ShimmerBox(
+                          width: double.infinity,
+                          height: 80,
+                        ),
+                        error: (_, _) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+
+                  // Stats cards
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _StatCard(
+                              icon: Icons.error_outline,
+                              label: 'Due for Review',
+                              value: dueCount.when(
+                                data: (v) => '$v',
+                                loading: () => '...',
+                                error: (_, _) => '0',
+                              ),
+                              color: AppColors.warning,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: _StatCard(
+                              icon: Icons.check_circle_outline,
+                              label: 'Total Corrections',
+                              value: totalCount.when(
+                                data: (v) => '$v',
+                                loading: () => '...',
+                                error: (_, _) => '0',
+                              ),
+                              color: AppColors.success,
                             ),
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
 
-              // Continue session card
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                  child: activeSession.when(
-                    data: (session) {
-                      if (session != null) {
-                        return GlassCard(
-                          glowColor: AppColors.accentPrimary,
-                          onTap: () => context.push('/chat/${session.id}'),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: AppColors.accentPrimary.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(AppRadius.md),
-                                ),
-                                child: const Icon(Icons.play_arrow, color: AppColors.accentPrimary),
-                              ),
-                              const SizedBox(width: AppSpacing.md),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Continue your conversation',
-                                      style: Theme.of(context).textTheme.titleMedium,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      session.topic ?? 'Free Talk',
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.textMuted),
-                            ],
-                          ),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
-                    loading: () => const ShimmerBox(width: double.infinity, height: 80),
-                    error: (_, _) => const SizedBox.shrink(),
-                  ),
-                ),
-              ),
-
-              // Stats cards
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _StatCard(
-                          icon: Icons.error_outline,
-                          label: 'Due for Review',
-                          value: dueCount.when(data: (v) => '$v', loading: () => '...', error: (_, _) => '0'),
-                          color: AppColors.warning,
-                        ),
+                  // Quick actions
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
                       ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: _StatCard(
-                          icon: Icons.check_circle_outline,
-                          label: 'Total Corrections',
-                          value: totalCount.when(data: (v) => '$v', loading: () => '...', error: (_, _) => '0'),
-                          color: AppColors.success,
-                        ),
+                      child: Text(
+                        'Quick Start',
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
 
-              // Quick actions
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                  child: Text(
-                    'Quick Start',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: _QuickActionGrid(),
+                    ),
                   ),
-                ),
-              ),
 
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: _QuickActionGrid(),
-                ),
-              ),
-
-              const SliverToBoxAdapter(
-                child: SizedBox(height: AppSpacing.xxl),
-              ),
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: AppSpacing.xxl),
+                  ),
                 ],
               ),
             ),
@@ -313,7 +352,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       children: [
         for (final a in actions)
           SizedBox(
-            width: (MediaQuery.of(context).size.width -
+            width:
+                (MediaQuery.of(context).size.width -
                     Responsive.screenHorizontalPadding(context) * 2 -
                     AppSpacing.md * (cols - 1) -
                     AppSpacing.lg * 2) /
@@ -338,7 +378,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.bgTertiary,
         title: const Text('Welcome back!'),
-        content: Text('Continue your conversation about "${session.topic ?? 'Free Talk'}" or start a new topic?'),
+        content: Text(
+          'Continue your conversation about "${session.topic ?? 'Free Talk'}" or start a new topic?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -380,14 +422,16 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Text(
             value,
-            style: Theme.of(context).textTheme.headlineLarge?.copyWith(color: color),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineLarge?.copyWith(color: color),
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
             label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -432,7 +476,12 @@ class _QuickActionCard extends StatelessWidget {
               children: [
                 Text(title, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 2),
-                Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),

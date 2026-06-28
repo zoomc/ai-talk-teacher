@@ -126,9 +126,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             'relay station (中转站) or a self-hosted local model too.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.textSecondary,
-                  height: 1.6,
-                ),
+              color: AppColors.textSecondary,
+              height: 1.6,
+            ),
           ),
           const SizedBox(height: AppSpacing.xxl),
           ElevatedButton(
@@ -165,7 +165,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         TextFormField(
           controller: _llmUrlController,
           style: const TextStyle(color: AppColors.textPrimary),
-          decoration: const InputDecoration(hintText: 'https://api.deepseek.com/v1'),
+          decoration: const InputDecoration(
+            hintText: 'https://api.deepseek.com/v1',
+          ),
         ),
         const SizedBox(height: AppSpacing.md),
         Text('Model', style: Theme.of(context).textTheme.titleMedium),
@@ -183,7 +185,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return _buildServicePage(
       emoji: '🎤',
       title: 'Speech Recognition',
-      subtitle: 'Converts your speech to text. Cloud services handle accents far better than on-device options.',
+      subtitle:
+          'Converts your speech to text. Cloud services handle accents far better than on-device options.',
       providerId: _sttProviderId,
       onProviderChanged: (v) => setState(() => _sttProviderId = v),
       providers: SttProviderCatalog.all,
@@ -220,8 +223,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     bool isLast = false,
     VoidCallback? onNext,
   }) {
-    final def = providers.firstWhere((p) => p.id == providerId,
-        orElse: () => providers.first);
+    final def = providers.firstWhere(
+      (p) => p.id == providerId,
+      orElse: () => providers.first,
+    );
     final keyRequired = def.apiKeyRequired;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -254,9 +259,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           Text(
             subtitle,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.textSecondary,
-                  height: 1.6,
-                ),
+              color: AppColors.textSecondary,
+              height: 1.6,
+            ),
           ),
           const SizedBox(height: AppSpacing.xl),
 
@@ -278,18 +283,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             Text(
               def.note!,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                    height: 1.4,
-                  ),
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
             ),
           ],
           if (def.docsUrl.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xs),
             Text(
               'Docs: ${def.docsUrl}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.accentSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.accentSecondary),
             ),
           ],
           const SizedBox(height: AppSpacing.lg),
@@ -314,10 +319,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           Row(
             children: [
               if (_currentPage > 0)
-                TextButton(
-                  onPressed: _back,
-                  child: const Text('Back'),
-                ),
+                TextButton(onPressed: _back, child: const Text('Back')),
               const Spacer(),
               ElevatedButton(
                 onPressed: _isSaving ? null : (onNext ?? _next),
@@ -325,7 +327,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2))
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : Text(isLast ? 'Start Learning' : 'Next'),
               ),
             ],
@@ -349,23 +352,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     for (final region in order) {
       final list = byRegion[region];
       if (list == null || list.isEmpty) continue;
-      items.add(DropdownMenuItem<String>(
-        enabled: false,
-        value: '_header_${region.name}',
-        child: Text(
-          _regionLabel(region),
-          style: TextStyle(
-            color: AppColors.accentSecondary,
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
+      items.add(
+        DropdownMenuItem<String>(
+          enabled: false,
+          value: '_header_${region.name}',
+          child: Text(
+            _regionLabel(region),
+            style: TextStyle(
+              color: AppColors.accentSecondary,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
           ),
         ),
-      ));
+      );
       for (final d in list) {
-        items.add(DropdownMenuItem<String>(
-          value: d.id,
-          child: Text(d.displayName),
-        ));
+        items.add(
+          DropdownMenuItem<String>(value: d.id, child: Text(d.displayName)),
+        );
       }
     }
     return items;
@@ -502,9 +506,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);

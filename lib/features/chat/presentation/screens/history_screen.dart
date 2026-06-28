@@ -81,9 +81,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
     if (confirmed == true && mounted) {
       // deleteSession is not implemented in ChatRepository yet.
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Delete not implemented')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Delete not implemented')));
     }
   }
 
@@ -103,10 +103,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             maxWidth: Responsive.contentMaxWidth(context),
           ),
           child: Container(
-        decoration: const BoxDecoration(gradient: AppColors.gradientBg),
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _sessions.isEmpty
+            decoration: const BoxDecoration(gradient: AppColors.gradientBg),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _sessions.isEmpty
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -122,9 +122,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           Text(
                             'No conversations yet. Start your first practice from the Home screen!',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(color: AppColors.textSecondary),
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           ElevatedButton(
@@ -145,78 +144,87 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                             children: [
                               Text(
                                 'Chat History',
-                                style: Theme.of(context).textTheme.headlineMedium,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineMedium,
                               ),
                               const SizedBox(height: AppSpacing.xxs),
                               Text(
                                 '${_sessions.length} conversation${_sessions.length == 1 ? '' : 's'}',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      color: AppColors.textSecondary,
-                                    ),
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: AppColors.textSecondary),
                               ),
                             ],
                           ),
                         ),
                       ),
                       SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final session = _sessions[index];
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.lg,
-                                vertical: AppSpacing.xs,
-                              ),
-                              child: GestureDetector(
-                                onLongPress: () => _confirmDelete(session),
-                                child: GlassCard(
-                                  onTap: () => context.push('/chat/${session.id}'),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 44,
-                                        height: 44,
-                                        decoration: BoxDecoration(
-                                          color: AppColors.accentPrimary.withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(AppRadius.md),
-                                        ),
-                                        child: const Icon(
-                                          Icons.chat_bubble_outline,
-                                          color: AppColors.accentPrimary,
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final session = _sessions[index];
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.lg,
+                              vertical: AppSpacing.xs,
+                            ),
+                            child: GestureDetector(
+                              onLongPress: () => _confirmDelete(session),
+                              child: GlassCard(
+                                onTap: () =>
+                                    context.push('/chat/${session.id}'),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.accentPrimary
+                                            .withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(
+                                          AppRadius.md,
                                         ),
                                       ),
-                                      const SizedBox(width: AppSpacing.md),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              session.topic ?? 'Free Talk',
-                                              style: Theme.of(context).textTheme.titleMedium,
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              _formatTime(session.updatedAt),
-                                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                    color: AppColors.textSecondary,
-                                                  ),
-                                            ),
-                                          ],
-                                        ),
+                                      child: const Icon(
+                                        Icons.chat_bubble_outline,
+                                        color: AppColors.accentPrimary,
                                       ),
-                                      const Icon(
-                                        Icons.arrow_forward_ios,
-                                        size: 16,
-                                        color: AppColors.textMuted,
+                                    ),
+                                    const SizedBox(width: AppSpacing.md),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            session.topic ?? 'Free Talk',
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.titleMedium,
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            _formatTime(session.updatedAt),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                    const Icon(
+                                      Icons.arrow_forward_ios,
+                                      size: 16,
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ],
                                 ),
                               ),
-                            );
-                          },
-                          childCount: _sessions.length,
-                        ),
+                            ),
+                          );
+                        }, childCount: _sessions.length),
                       ),
                       const SliverToBoxAdapter(
                         child: SizedBox(height: AppSpacing.xxl),

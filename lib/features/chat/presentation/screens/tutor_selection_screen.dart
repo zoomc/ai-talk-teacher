@@ -27,38 +27,40 @@ class TutorSelectionScreen extends ConsumerWidget {
             maxWidth: Responsive.contentMaxWidth(context),
           ),
           child: Container(
-        decoration: const BoxDecoration(gradient: AppColors.gradientBg),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'AI Tutors',
-                style: Theme.of(context).textTheme.displayLarge,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Choose a tutor that matches your learning style',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
+            decoration: const BoxDecoration(gradient: AppColors.gradientBg),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'AI Tutors',
+                    style: Theme.of(context).textTheme.displayLarge,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Choose a tutor that matches your learning style',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
 
-              // Tutor grid
-              ...TutorRepository.tutors.map((tutor) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                child: _TutorCard(
-                  tutor: tutor,
-                  onTap: () => _selectTutor(context, tutor),
-                ),
-              )),
+                  // Tutor grid
+                  ...TutorRepository.tutors.map(
+                    (tutor) => Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                      child: _TutorCard(
+                        tutor: tutor,
+                        onTap: () => _selectTutor(context, tutor),
+                      ),
+                    ),
+                  ),
 
-              const SizedBox(height: AppSpacing.xxl),
-            ],
-          ),
-        ),
+                  const SizedBox(height: AppSpacing.xxl),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -133,10 +135,7 @@ class _TutorCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppRadius.lg),
             ),
             child: Center(
-              child: Text(
-                tutor.avatar,
-                style: const TextStyle(fontSize: 36),
-              ),
+              child: Text(tutor.avatar, style: const TextStyle(fontSize: 36)),
             ),
           ),
           const SizedBox(width: AppSpacing.md),
@@ -191,7 +190,11 @@ class _TutorCard extends StatelessWidget {
             ),
           ),
 
-          const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.textMuted),
+          const Icon(
+            Icons.arrow_forward_ios,
+            size: 16,
+            color: AppColors.textMuted,
+          ),
         ],
       ),
     );

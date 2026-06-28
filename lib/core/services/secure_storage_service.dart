@@ -11,10 +11,7 @@ class SecureStorageService {
 
   /// Store an API key
   static Future<void> storeApiKey(String profileId, String apiKey) async {
-    await _storage.write(
-      key: '$_keyPrefix$profileId',
-      value: apiKey,
-    );
+    await _storage.write(key: '$_keyPrefix$profileId', value: apiKey);
   }
 
   /// Retrieve an API key

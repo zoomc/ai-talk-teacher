@@ -41,16 +41,22 @@ class LearningStatsService {
     final db = await DatabaseHelper.database;
 
     // Total sessions
-    final sessionResult = await db.rawQuery('SELECT COUNT(*) as count FROM chat_sessions');
+    final sessionResult = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM chat_sessions',
+    );
     final totalSessions = (sessionResult.first['count'] as int?) ?? 0;
 
     // Total messages
-    final messageResult = await db.rawQuery('SELECT COUNT(*) as count FROM chat_messages');
+    final messageResult = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM chat_messages',
+    );
     final totalMessages = (messageResult.first['count'] as int?) ?? 0;
 
     // Corrections by status
     final now = DateTime.now().toIso8601String();
-    final correctionResult = await db.rawQuery('SELECT COUNT(*) as count FROM corrections');
+    final correctionResult = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM corrections',
+    );
     final totalCorrections = (correctionResult.first['count'] as int?) ?? 0;
 
     final masteredResult = await db.rawQuery(
@@ -94,11 +100,13 @@ class LearningStatsService {
 
     final dailyActivity = <DailyActivity>[];
     for (final row in dailyResults) {
-      dailyActivity.add(DailyActivity(
-        date: DateTime.parse(row['date'] as String),
-        messages: (row['count'] as int?) ?? 0,
-        corrections: 0, // Could be enhanced
-      ));
+      dailyActivity.add(
+        DailyActivity(
+          date: DateTime.parse(row['date'] as String),
+          messages: (row['count'] as int?) ?? 0,
+          corrections: 0, // Could be enhanced
+        ),
+      );
     }
 
     return LearningStats(

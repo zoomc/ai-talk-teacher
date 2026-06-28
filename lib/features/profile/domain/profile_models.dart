@@ -11,6 +11,7 @@ enum ProfileType { llm, stt, tts }
 class LlmProfile {
   final String id;
   final String name;
+
   /// Catalog provider id (see [LlmProviderCatalog]). Defaults to 'custom'.
   final String providerId;
   final String baseUrl;
@@ -30,9 +31,9 @@ class LlmProfile {
     this.isActive = false,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : id = id ?? _uuid.v4(),
-        createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+  }) : id = id ?? _uuid.v4(),
+       createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   ProviderDef get providerDef => LlmProviderCatalog.byId(providerId);
 
@@ -77,7 +78,8 @@ class LlmProfile {
     return LlmProfile(
       id: map['id'] as String,
       name: map['name'] as String,
-      providerId: (map['provider_id'] as String?) ?? LlmProviderCatalog.customId,
+      providerId:
+          (map['provider_id'] as String?) ?? LlmProviderCatalog.customId,
       baseUrl: map['base_url'] as String? ?? '',
       apiKey: map['api_key'] as String? ?? '',
       model: map['model'] as String? ?? '',
@@ -92,15 +94,19 @@ class LlmProfile {
 class SttProfile {
   final String id;
   final String name;
+
   /// Catalog provider id (see [SttProviderCatalog]).
   final String providerId;
+
   /// Base URL. For openai-compatible providers, includes the version prefix.
   /// For vendor providers, the host (region placeholder replaced at runtime).
   final String baseUrl;
   final String apiKey;
   final String model;
+
   /// BCP-47 language code, e.g. en-US. Defaults to en-US.
   final String language;
+
   /// Extra JSON config (e.g. {"region":"eastus"} for Azure).
   final String? extraConfig;
   final bool isActive;
@@ -119,9 +125,9 @@ class SttProfile {
     this.isActive = false,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : id = id ?? _uuid.v4(),
-        createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+  }) : id = id ?? _uuid.v4(),
+       createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   ProviderDef get providerDef => SttProviderCatalog.byId(providerId);
 
@@ -225,17 +231,21 @@ class SttProfile {
 class TtsProfile {
   final String id;
   final String name;
+
   /// Catalog provider id (see [TtsProviderCatalog]).
   final String providerId;
   final String baseUrl;
   final String apiKey;
   final String model;
+
   /// Voice id used in the API request (e.g. OpenAI voice name, ElevenLabs voice_id,
   /// Fish Audio reference_id, Azure voice name).
   final String? voiceId;
+
   /// Human-readable voice name for display only.
   final String? voiceName;
   final double speed;
+
   /// Extra JSON config (e.g. {"region":"eastus"} for Azure).
   final String? extraConfig;
   final bool isActive;
@@ -256,9 +266,9 @@ class TtsProfile {
     this.isActive = false,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : id = id ?? _uuid.v4(),
-        createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+  }) : id = id ?? _uuid.v4(),
+       createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   ProviderDef get providerDef => TtsProviderCatalog.byId(providerId);
 

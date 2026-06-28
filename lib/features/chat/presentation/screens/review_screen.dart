@@ -43,8 +43,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _corrections.isEmpty
-                  ? _buildEmptyState(context)
-                  : _buildReviewList(context),
+              ? _buildEmptyState(context)
+              : _buildReviewList(context),
         ),
       ),
     );
@@ -62,7 +62,11 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               color: AppColors.success.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(AppRadius.xl),
             ),
-            child: const Icon(Icons.check_circle, color: AppColors.success, size: 40),
+            child: const Icon(
+              Icons.check_circle,
+              color: AppColors.success,
+              size: 40,
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
@@ -73,9 +77,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           Text(
             'No errors due for review right now.\nKeep practicing!',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: AppSpacing.xl),
           ElevatedButton.icon(
@@ -103,13 +107,15 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Review', style: Theme.of(context).textTheme.displayLarge),
+                        Text(
+                          'Review',
+                          style: Theme.of(context).textTheme.displayLarge,
+                        ),
                         const SizedBox(height: AppSpacing.xs),
                         Text(
                           '${_corrections.length} errors due for review',
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(color: AppColors.textSecondary),
                         ),
                       ],
                     ),
@@ -126,31 +132,28 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                 const SizedBox(height: AppSpacing.lg),
                 Text(
                   'Tap an error to practice it in a conversation',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textMuted,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
                 ),
               ],
             ),
           ),
         ),
         SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              final correction = _corrections[index];
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.xs,
-                ),
-                child: _CorrectionCard(
-                  correction: correction,
-                  onTap: () => _practiceCorrection(context, correction),
-                ),
-              );
-            },
-            childCount: _corrections.length,
-          ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final correction = _corrections[index];
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.xs,
+              ),
+              child: _CorrectionCard(
+                correction: correction,
+                onTap: () => _practiceCorrection(context, correction),
+              ),
+            );
+          }, childCount: _corrections.length),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
       ],
@@ -165,7 +168,10 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     }
   }
 
-  Future<void> _practiceCorrection(BuildContext context, Correction correction) async {
+  Future<void> _practiceCorrection(
+    BuildContext context,
+    Correction correction,
+  ) async {
     final repo = ref.read(chatRepoProvider);
     final session = await repo.createSession(
       topic: 'Practice: ${correction.original} → ${correction.corrected}',
@@ -216,21 +222,33 @@ class _CorrectionCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xs,
+                  vertical: 2,
+                ),
                 decoration: BoxDecoration(
                   color: typeColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
                 child: Text(
                   _typeLabel(correction.type),
-                  style: TextStyle(color: typeColor, fontSize: 11, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: typeColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xs,
+                  vertical: 2,
+                ),
                 decoration: BoxDecoration(
-                  color: Color(Sm2Service.getMasteryColor(correction)).withValues(alpha: 0.15),
+                  color: Color(
+                    Sm2Service.getMasteryColor(correction),
+                  ).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
                 child: Text(
@@ -245,9 +263,9 @@ class _CorrectionCard extends StatelessWidget {
               const Spacer(),
               Text(
                 Sm2Service.getNextReviewText(correction),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textMuted,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
               ),
             ],
           ),
@@ -289,9 +307,9 @@ class _CorrectionCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(
               correction.explanation!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
           ],
         ],
