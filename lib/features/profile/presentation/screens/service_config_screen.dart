@@ -1,11 +1,11 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/util/responsive.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../domain/profile_models.dart';
@@ -61,11 +61,16 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+          : Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: Responsive.contentMaxWidth(context),
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   _buildSectionHeader(context, '🧠', 'AI Dialogue', 'Chat completion model'),
                   const SizedBox(height: AppSpacing.sm),
                   ..._llmProfiles.map((p) => _buildProfileCard(
@@ -131,7 +136,8 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                   const SizedBox(height: AppSpacing.xxl),
                 ],
               ),
-            ),
+                ),
+              ),
     );
   }
 
@@ -402,73 +408,30 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
     try {
       if (type == 'llm') {
         final profile = _llmProfiles.firstWhere((p) => p.id == id);
-        final models = await LlmService(profile).fetchModels().timeout(const Duration(seconds: 10));
+        final count = await LlmService(profile)
+            .testConnection()
+            .timeout(const Duration(seconds: 15));
         final ms = stopwatch.elapsedMilliseconds;
-        result = models.isNotEmpty
-            ? '✓ Connected (${ms}ms, ${models.length} models)'
-            : '✗ Failed: No models returned';
+        result = '✓ Connected (${ms}ms, $count models)';
       } else if (type == 'stt') {
         final profile = _sttProfiles.firstWhere((p) => p.id == id);
-        await SttService(profile).transcribe(_silentWav()).timeout(const Duration(seconds: 10));
+        await SttService(profile).testConnection().timeout(const Duration(seconds: 15));
         final ms = stopwatch.elapsedMilliseconds;
         result = '✓ Connected (${ms}ms)';
       } else {
         final profile = _ttsProfiles.firstWhere((p) => p.id == id);
-        final bytes = await TtsService(profile).synthesize('test').timeout(const Duration(seconds: 10));
+        await TtsService(profile).testConnection().timeout(const Duration(seconds: 15));
         final ms = stopwatch.elapsedMilliseconds;
-        result = bytes.isNotEmpty ? '✓ Connected (${ms}ms)' : '✗ Failed: Empty response';
+        result = '✓ Connected (${ms}ms)';
       }
     } catch (e) {
-      final msg = e.toString();
-      if ((type == 'stt' || type == 'tts') && (msg.contains('401') || msg.contains('403'))) {
-        result = '✗ Auth failed';
-      } else {
-        result = '✗ Failed: ${_safeError(e)}';
-      }
+      result = '✗ ${_safeError(e)}';
     }
 
     if (mounted) {
       setState(() => _testingId = null);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result)));
     }
-  }
-
-  Uint8List _silentWav() {
-    const sampleRate = 16000;
-    const numChannels = 1;
-    const bitsPerSample = 16;
-    const durationMs = 100;
-    final numSamples = sampleRate * numChannels * durationMs ~/ 1000;
-    final dataSize = numSamples * (bitsPerSample ~/ 8);
-    final totalSize = 44 + dataSize;
-
-    final bytes = ByteData(totalSize);
-    bytes.setUint8(0, 0x52); // R
-    bytes.setUint8(1, 0x49); // I
-    bytes.setUint8(2, 0x46); // F
-    bytes.setUint8(3, 0x46); // F
-    bytes.setUint32(4, totalSize - 8, Endian.little);
-    bytes.setUint8(8, 0x57); // W
-    bytes.setUint8(9, 0x41); // A
-    bytes.setUint8(10, 0x56); // V
-    bytes.setUint8(11, 0x45); // E
-    bytes.setUint8(12, 0x66); // f
-    bytes.setUint8(13, 0x6D); // m
-    bytes.setUint8(14, 0x74); // t
-    bytes.setUint8(15, 0x20); // (space)
-    bytes.setUint32(16, 16, Endian.little);
-    bytes.setUint16(20, 1, Endian.little);
-    bytes.setUint16(22, numChannels, Endian.little);
-    bytes.setUint32(24, sampleRate, Endian.little);
-    bytes.setUint32(28, sampleRate * numChannels * bitsPerSample ~/ 8, Endian.little);
-    bytes.setUint16(32, numChannels * bitsPerSample ~/ 8, Endian.little);
-    bytes.setUint16(34, bitsPerSample, Endian.little);
-    bytes.setUint8(36, 0x64); // d
-    bytes.setUint8(37, 0x61); // a
-    bytes.setUint8(38, 0x74); // t
-    bytes.setUint8(39, 0x61); // a
-    bytes.setUint32(40, dataSize, Endian.little);
-    return bytes.buffer.asUint8List();
   }
 
   // ========== Delete ==========

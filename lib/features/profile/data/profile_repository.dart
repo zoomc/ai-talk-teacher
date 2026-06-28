@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import '../../../core/database/database_helper.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../domain/profile_models.dart';
+import '../domain/provider_catalog.dart';
 
 class ProfileRepository {
   // ========== LLM Profiles ==========
@@ -233,6 +234,7 @@ class ProfileRepository {
         final map = Map<String, dynamic>.from(m as Map);
         final profile = LlmProfile(
           name: '${map['name'] ?? ''} (imported)',
+          providerId: (map['provider_id'] as String?) ?? LlmProviderCatalog.customId,
           baseUrl: map['base_url'] as String? ?? '',
           apiKey: map['api_key'] as String? ?? '',
           model: map['model'] as String? ?? '',
@@ -244,16 +246,17 @@ class ProfileRepository {
     if (data['stt'] is List) {
       for (final m in data['stt'] as List) {
         final map = Map<String, dynamic>.from(m as Map);
-        SttProvider provider;
-        try {
-          provider = SttProvider.values.byName(map['provider'] as String? ?? 'deepgram');
-        } catch (_) {
-          provider = SttProvider.deepgram;
-        }
+        // Prefer provider_id; fall back to legacy `provider` enum string.
+        final providerId = (map['provider_id'] as String?) ??
+            _legacySttEnumToId(map['provider'] as String?) ??
+            SttProviderCatalog.customId;
         final profile = SttProfile(
           name: '${map['name'] ?? ''} (imported)',
-          provider: provider,
+          providerId: providerId,
+          baseUrl: map['base_url'] as String? ?? '',
           apiKey: map['api_key'] as String? ?? '',
+          model: map['model'] as String? ?? '',
+          language: map['language'] as String? ?? 'en-US',
           extraConfig: map['extra_config'] as String?,
         );
         await saveSttProfile(profile);
@@ -263,24 +266,58 @@ class ProfileRepository {
     if (data['tts'] is List) {
       for (final m in data['tts'] as List) {
         final map = Map<String, dynamic>.from(m as Map);
-        TtsProvider provider;
-        try {
-          provider = TtsProvider.values.byName(map['provider'] as String? ?? 'fishAudio');
-        } catch (_) {
-          provider = TtsProvider.fishAudio;
-        }
+        final providerId = (map['provider_id'] as String?) ??
+            _legacyTtsEnumToId(map['provider'] as String?) ??
+            TtsProviderCatalog.customId;
         final profile = TtsProfile(
           name: '${map['name'] ?? ''} (imported)',
-          provider: provider,
+          providerId: providerId,
+          baseUrl: map['base_url'] as String? ?? '',
           apiKey: map['api_key'] as String? ?? '',
+          model: map['model'] as String? ?? '',
           voiceId: map['voice_id'] as String?,
           voiceName: map['voice_name'] as String?,
           speed: (map['speed'] as num?)?.toDouble() ?? 1.0,
+          extraConfig: map['extra_config'] as String?,
         );
         await saveTtsProfile(profile);
         count++;
       }
     }
     return count;
+  }
+
+  /// Maps a legacy closed-enum `provider` string (pre-v2 schema) to a catalog
+  /// id for STT profiles. Returns null for unknown/empty values.
+  static String? _legacySttEnumToId(String? legacy) {
+    switch (legacy) {
+      case 'deepgram':
+        return 'deepgram';
+      case 'openaiWhisper':
+        return 'openai_whisper';
+      case 'googleCloud':
+        return 'google';
+      case 'azure':
+        return 'azure';
+      default:
+        return null;
+    }
+  }
+
+  /// Maps a legacy closed-enum `provider` string (pre-v2 schema) to a catalog
+  /// id for TTS profiles. Returns null for unknown/empty values.
+  static String? _legacyTtsEnumToId(String? legacy) {
+    switch (legacy) {
+      case 'fishAudio':
+        return 'fish_audio';
+      case 'elevenLabs':
+        return 'elevenlabs';
+      case 'openaiTts':
+        return 'openai_tts';
+      case 'azure':
+        return 'azure_tts';
+      default:
+        return null;
+    }
   }
 }

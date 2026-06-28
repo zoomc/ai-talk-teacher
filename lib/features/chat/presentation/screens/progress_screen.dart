@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/util/responsive.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../data/learning_stats_service.dart';
 
@@ -25,12 +26,19 @@ class ProgressScreen extends ConsumerWidget {
         ),
         title: const Text('Learning Progress'),
       ),
-      body: Container(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: Responsive.contentMaxWidth(context),
+          ),
+          child: Container(
         decoration: const BoxDecoration(gradient: AppColors.gradientBg),
         child: statsAsync.when(
           data: (stats) => _buildContent(context, stats),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Error: $e')),
+        ),
+          ),
         ),
       ),
     );

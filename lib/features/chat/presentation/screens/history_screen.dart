@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/util/responsive.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../domain/chat_models.dart';
@@ -96,7 +97,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         ),
         title: const Text('Chat History'),
       ),
-      body: Container(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: Responsive.contentMaxWidth(context),
+          ),
+          child: Container(
         decoration: const BoxDecoration(gradient: AppColors.gradientBg),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -217,6 +223,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       ),
                     ],
                   ),
+          ),
+        ),
       ),
     );
   }

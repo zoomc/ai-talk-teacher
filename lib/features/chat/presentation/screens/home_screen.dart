@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/util/responsive.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../domain/chat_models.dart';
@@ -52,8 +53,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: Container(
         decoration: const BoxDecoration(gradient: AppColors.gradientBg),
         child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
+          child: Center(
+            // Constrain content on wide screens so cards / text stay
+            // readable on desktop browsers instead of stretching.
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: Responsive.contentMaxWidth(context),
+              ),
+              child: CustomScrollView(
+                slivers: [
               // Header
               SliverToBoxAdapter(
                 child: Padding(
@@ -188,59 +196,131 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Column(
-                    children: [
-                      _QuickActionCard(
-                        icon: Icons.chat_bubble_outline,
-                        title: 'Free Talk',
-                        subtitle: 'Start a conversation about anything',
-                        color: AppColors.accentPrimary,
-                        onTap: () => _startNewSession(context),
-                      ).animate().fadeIn(delay: 300.ms).slideX(begin: -0.1),
-                      const SizedBox(height: AppSpacing.md),
-                      _QuickActionCard(
-                        icon: Icons.grid_view,
-                        title: 'Scenario Practice',
-                        subtitle: 'Practice real-life situations',
-                        color: AppColors.accentSecondary,
-                        onTap: () => context.go('/scenarios'),
-                      ).animate().fadeIn(delay: 450.ms).slideX(begin: -0.1),
-                      const SizedBox(height: AppSpacing.md),
-                      _QuickActionCard(
-                        icon: Icons.refresh,
-                        title: 'Review Mistakes',
-                        subtitle: 'Practice your weak points',
-                        color: AppColors.success,
-                        onTap: () => context.go('/review'),
-                      ).animate().fadeIn(delay: 600.ms).slideX(begin: -0.1),
-                      const SizedBox(height: AppSpacing.md),
-                      _QuickActionCard(
-                        icon: Icons.bar_chart,
-                        title: 'Learning Progress',
-                        subtitle: 'View your statistics and achievements',
-                        color: AppColors.warning,
-                        onTap: () => context.push('/progress'),
-                      ).animate().fadeIn(delay: 750.ms).slideX(begin: -0.1),
-                      const SizedBox(height: AppSpacing.md),
-                      _QuickActionCard(
-                        icon: Icons.history,
-                        title: 'Chat History',
-                        subtitle: 'Browse past conversations',
-                        color: AppColors.info,
-                        onTap: () => context.push('/history'),
-                      ).animate().fadeIn(delay: 900.ms).slideX(begin: -0.1),
-                    ],
-                  ),
+                  child: _QuickActionGrid(),
                 ),
               ),
 
               const SliverToBoxAdapter(
                 child: SizedBox(height: AppSpacing.xxl),
               ),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _quickActionItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+    required int delayMs,
+  }) {
+    return _QuickActionCard(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      color: color,
+      onTap: onTap,
+    ).animate().fadeIn(delay: delayMs.ms).slideX(begin: -0.1);
+  }
+
+  Widget _QuickActionGrid() {
+    final actions = <Widget>[];
+
+    void add({
+      required IconData icon,
+      required String title,
+      required String subtitle,
+      required Color color,
+      required VoidCallback onTap,
+      required int delayMs,
+    }) {
+      actions.add(
+        _quickActionItem(
+          icon: icon,
+          title: title,
+          subtitle: subtitle,
+          color: color,
+          onTap: onTap,
+          delayMs: delayMs,
+        ),
+      );
+    }
+
+    add(
+      icon: Icons.chat_bubble_outline,
+      title: 'Free Talk',
+      subtitle: 'Start a conversation about anything',
+      color: AppColors.accentPrimary,
+      onTap: () => _startNewSession(context),
+      delayMs: 300,
+    );
+    add(
+      icon: Icons.grid_view,
+      title: 'Scenario Practice',
+      subtitle: 'Practice real-life situations',
+      color: AppColors.accentSecondary,
+      onTap: () => context.go('/scenarios'),
+      delayMs: 450,
+    );
+    add(
+      icon: Icons.refresh,
+      title: 'Review Mistakes',
+      subtitle: 'Practice your weak points',
+      color: AppColors.success,
+      onTap: () => context.go('/review'),
+      delayMs: 600,
+    );
+    add(
+      icon: Icons.bar_chart,
+      title: 'Learning Progress',
+      subtitle: 'View your statistics and achievements',
+      color: AppColors.warning,
+      onTap: () => context.push('/progress'),
+      delayMs: 750,
+    );
+    add(
+      icon: Icons.history,
+      title: 'Chat History',
+      subtitle: 'Browse past conversations',
+      color: AppColors.info,
+      onTap: () => context.push('/history'),
+      delayMs: 900,
+    );
+
+    // Phone: single column with vertical spacing (legacy look).
+    // Tablet/desktop: responsive grid with spacing between cells.
+    final cols = Responsive.gridColumnCount(context);
+    if (cols == 1) {
+      return Column(
+        children: [
+          for (int i = 0; i < actions.length; i++) ...[
+            actions[i],
+            if (i < actions.length - 1) const SizedBox(height: AppSpacing.md),
+          ],
+        ],
+      );
+    }
+
+    return Wrap(
+      spacing: AppSpacing.md,
+      runSpacing: AppSpacing.md,
+      children: [
+        for (final a in actions)
+          SizedBox(
+            width: (MediaQuery.of(context).size.width -
+                    Responsive.screenHorizontalPadding(context) * 2 -
+                    AppSpacing.md * (cols - 1) -
+                    AppSpacing.lg * 2) /
+                cols,
+            child: a,
+          ),
+      ],
     );
   }
 
