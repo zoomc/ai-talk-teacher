@@ -10,6 +10,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - Cloud sync (optional, deferred to future version)
 
+### Fixed
+- **Frontend compilation errors** (introduced in f59ca6c):
+  - `service_config_screen.dart`: build method was missing the closing `)`
+    for the `Center` widget, leaving an unbalanced bracket chain and an
+    "Expected to find ')'" analyzer error.
+  - `profile_form_screen.dart`: build method had a misaligned bracket chain
+    (Scaffold/Center/ConstrainedBox/SingleChildScrollView/Form/Column) and
+    was missing one `)` to close the `Center` widget; indentation re-aligned.
+  - `stt_service.dart` & `tts_service.dart`: `ProviderKind` was undefined
+    because `profile_models.dart` imports but does not re-export
+    `provider_catalog.dart` (Dart imports are non-transitive). Added the
+    explicit `import '../../profile/domain/provider_catalog.dart';` to both
+    services, resolving 10 `Undefined name 'ProviderKind'` errors.
+- After fixes, `dart analyze lib/` reports 0 errors / 0 warnings (only
+  pre-existing `info`-level lints remain).
+
+### Verified
+- Web: `flutter build web --release` succeeds (✓ Built build/web, ~87s).
+
 ---
 
 ## [0.8.0] - 2026-06-28
