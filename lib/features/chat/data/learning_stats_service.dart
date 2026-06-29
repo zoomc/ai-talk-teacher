@@ -89,8 +89,11 @@ class LearningStatsService {
       correctionsByType[row['type'] as String] = (row['count'] as int?) ?? 0;
     }
 
-    // Daily activity (last 7 days)
-    final dailyResults = await db.rawQuery('''
+    // Daily activity (last 7 days): messages + corrections per day.
+    // Previously `corrections` was hardcoded to 0, making the field dead
+    // data. Now we run a second query and merge by date so the progress
+    // chart can show both messages sent and errors logged per day.
+    final dailyMsgResults = await db.rawQuery('''
       SELECT DATE(created_at) as date, COUNT(*) as count
       FROM chat_messages
       WHERE created_at >= DATE('now', '-7 days')
@@ -98,13 +101,26 @@ class LearningStatsService {
       ORDER BY date ASC
     ''');
 
+    final dailyCorrResults = await db.rawQuery('''
+      SELECT DATE(last_seen_at) as date, COUNT(*) as count
+      FROM corrections
+      WHERE last_seen_at >= DATE('now', '-7 days')
+      GROUP BY DATE(last_seen_at)
+    ''');
+
+    final corrByDate = <String, int>{};
+    for (final row in dailyCorrResults) {
+      corrByDate[row['date'] as String] = (row['count'] as int?) ?? 0;
+    }
+
     final dailyActivity = <DailyActivity>[];
-    for (final row in dailyResults) {
+    for (final row in dailyMsgResults) {
+      final dateStr = row['date'] as String;
       dailyActivity.add(
         DailyActivity(
-          date: DateTime.parse(row['date'] as String),
+          date: DateTime.parse(dateStr),
           messages: (row['count'] as int?) ?? 0,
-          corrections: 0, // Could be enhanced
+          corrections: corrByDate[dateStr] ?? 0,
         ),
       );
     }

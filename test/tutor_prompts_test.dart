@@ -166,4 +166,77 @@ void main() {
       expect(reviewIdx, greaterThan(scenarioIdx));
     });
   });
+
+  group('TutorPromptBuilder.build — correctionStrength', () {
+    test('defaults to moderate when correctionStrength is omitted', () {
+      final prompt = TutorPromptBuilder.build();
+      // Spine always contains "How to correct" section now (the JSON
+      // contract was merged into the spine to avoid duplicate instructions
+      // previously appended by LlmService).
+      expect(prompt, contains('## How to correct'));
+      expect(prompt, contains('## Output format'));
+      // Default mode is moderate — the guidance line should call it out.
+      expect(prompt.toLowerCase(), contains('moderate'));
+    });
+
+    test('gentle mode flags only errors that block understanding', () {
+      final prompt = TutorPromptBuilder.build(correctionStrength: 'gentle');
+      expect(prompt.toLowerCase(), contains('gentle'));
+      // Gentle guidance says "only flag errors that clearly block
+      // understanding" — i.e., don't flag nitpicks.
+      expect(
+        prompt.toLowerCase(),
+        contains('block understanding'),
+      );
+      // Should explicitly tell the tutor to let minor slips go.
+      expect(
+        prompt.toLowerCase(),
+        anyOf(contains('let minor'), contains('slips go')),
+      );
+    });
+
+    test('strict mode flags every error', () {
+      final prompt = TutorPromptBuilder.build(correctionStrength: 'strict');
+      expect(prompt.toLowerCase(), contains('strict'));
+      expect(
+        prompt.toLowerCase(),
+        contains('every error'),
+      );
+    });
+
+    test('correction strength is case-insensitive', () {
+      final upper = TutorPromptBuilder.build(correctionStrength: 'STRICT');
+      final lower = TutorPromptBuilder.build(correctionStrength: 'strict');
+      expect(upper, lower);
+    });
+
+    test('unknown strength falls back to moderate', () {
+      final prompt = TutorPromptBuilder.build(correctionStrength: 'weird');
+      expect(prompt.toLowerCase(), contains('moderate'));
+    });
+
+    test('spine contains the corrections JSON contract once (not duplicated)', () {
+      final prompt = TutorPromptBuilder.build();
+      // The ```corrections fenced block should appear EXACTLY once —
+      // previously LlmService appended the JSON spec each turn on top of
+      // the spine's "How to correct" section, which doubled the
+      // instructions and could contradict the spine.
+      final fenceCount = '```corrections'.allMatches(prompt).length;
+      expect(fenceCount, 1);
+    });
+
+    test('spine tells the tutor NOT to speak the explanation aloud', () {
+      final prompt = TutorPromptBuilder.build();
+      // The spoken reply should stay natural — explanations only go in JSON.
+      // Spine uses "Do NOT" (not "don't").
+      expect(
+        prompt.toLowerCase(),
+        contains('do not'),
+      );
+      expect(
+        prompt.toLowerCase(),
+        contains('do not speak'),
+      );
+    });
+  });
 }

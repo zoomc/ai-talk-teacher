@@ -26,7 +26,12 @@ void main() {
       for (final p in LlmProviderCatalog.all) {
         expect(p.id, isNotEmpty);
         expect(p.displayName, isNotEmpty);
-        expect(p.defaultBaseUrl, isNotEmpty);
+        // The 'custom' entry is the user-configurable escape hatch — by design
+        // it has no default base URL / model / docs URL (the user supplies
+        // all three). All other entries must specify a base URL.
+        if (p.id == LlmProviderCatalog.customId) continue;
+        expect(p.defaultBaseUrl, isNotEmpty,
+            reason: '${p.id} should have a default base URL');
       }
     });
 

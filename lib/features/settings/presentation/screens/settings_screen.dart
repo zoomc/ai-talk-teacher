@@ -44,6 +44,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _capitalize(String s) =>
       s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 
+  ThemeMode _parseThemeMode(String s) {
+    switch (s) {
+      case 'dark':
+        return ThemeMode.dark;
+      case 'light':
+        return ThemeMode.light;
+      case 'system':
+      default:
+        return ThemeMode.system;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -104,7 +116,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     _SettingsTile(
                       icon: Icons.language,
                       title: 'Interface Language',
-                      subtitle: 'English',
+                      subtitle: 'English (coming soon)',
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -142,7 +154,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     _SettingsTile(
                       icon: Icons.download_outlined,
                       title: 'Export Learning Data',
-                      subtitle: 'Download your progress and corrections',
+                      subtitle: 'Download your progress and corrections (coming soon)',
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Export coming soon')),
@@ -360,6 +372,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ElevatedButton(
               onPressed: () async {
                 await ref.read(profileRepoProvider).setSetting('theme', local);
+                // Push the new theme into the global provider so
+                // MaterialApp rebuilds immediately (P1-8) — previously
+                // the change only took effect on next app restart.
+                ref.read(themeModeProvider.notifier).state =
+                    _parseThemeMode(local);
                 if (mounted) setState(() => _theme = local);
                 if (ctx.mounted) Navigator.pop(ctx);
               },

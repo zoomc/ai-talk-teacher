@@ -1,9 +1,43 @@
 # SpeakFlow — AI 口语练习应用
 
 > 跨平台 AI 英语口语练习应用
-> 更新日期：2026-06-28
+> 更新日期：2026-06-29
 > 技术栈：Flutter（Dart）
 > 目标平台：macOS · Web · iOS · Android
+
+---
+
+## 0. 当前状态（2026-06-29 综合评审后）
+
+经过对学习闭环 / UI / 配置 / AI 使用四个维度的全面 review，本次迭代完成了
+全部 P0 阻断项和 P1 关键项的修复（详见 `CHANGELOG.md` 的 `[Unreleased]` 段，
+以及临时记录文件 `tmp_review1_learning.md` ~ `tmp_review4_ai_usage.md` 和
+`tmp_modification_plan.md`）。
+
+### 已落地（本轮）
+
+- **学习闭环打通**：SM-2 调度从仅测试代码引用变为运行时实际驱动；
+  `ReviewScreen` 提供 Again/Hard/Good/Easy 评分 UI，correction 卡片状态
+  会随评分推进；`ProgressScreen` 新增 7 日活跃柱状图。
+- **关键交互修复**：删除会话、Tutor 选择持久化、DeepSeek/Kimi 默认模型
+  名、TTS 全局速度、主题即时切换、录音按钮脉冲动画。
+- **提示词与 token 效率**：`correction_strength` 真正进入 system prompt；
+  纠错协议从每轮重发（~180 tokens/轮）改为写入 spine（可被 provider
+  缓存）；`max_tokens` 1000 → 400；口语回复不再内联解释，结构化解释只
+  走 `corrections` JSON。
+- **性能**：输入按键不再触发整屏 rebuild；corrections 不再每次按键全表
+  查；历史默认截断 40 条防 O(N²) 增长；correction 写入按
+  `(original, corrected, type)` 去重并累加 `occurrenceCount`。
+
+### 仍未做（记录为后续工作，详见 `tmp_modification_plan.md` 的 P2 清单）
+
+- LLM Streaming（SSE）、Placement 重写为 AI 对话评估、i18n（中/英）、
+  `liquid_glass_widgets` 采用、reduce-motion 支持、发音音素级评分、
+  `chat_screen.dart` 拆分（~1300 行）、Retry 指数退避、LlmUsage 持久化、
+  请求取消（CancelToken）。
+- **编译验证**：本次沙箱未预装 Flutter 工具链，`flutter analyze` /
+  `flutter build web|apk` 未能在本会话内运行；下次有 Flutter 环境时需
+  补跑并在 release 前修复任何 analyzer findings。
 
 ---
 
@@ -555,34 +589,37 @@
 
 ## 七、开发计划
 
+> 进度状态更新于 2026-06-29（详见 `CHANGELOG.md` 的 `[Unreleased]` 段）。
+> 图例：`[x]` 已落地；`[~]` 部分落地/有占位；`[ ]` 未开工。
+
 ### 阶段一：MVP（4-6 周）
 
 **交付物：macOS + Web 可运行的对话练习原型**
 
-- [ ] Flutter 项目初始化，macOS + Web 双端运行
-- [ ] 3-Profile 系统：LLM + STT + TTS 统一配置管理
-- [ ] 主界面布局：上半屏角色插画 + 振幅嘴型动画，下半屏聊天窗口
-- [ ] 录音功能：按住录音 → 云端 STT → 文字显示在聊天气泡
-- [ ] AI 对话：通过 Profile 系统接入 LLM（OpenAI 兼容协议）
-- [ ] TTS 播放：AI 回复 → 云端 TTS → 语音播放 + 嘴型动画
-- [ ] 智能纠正：LLM 在回复中自然指出错误，自动提取 `corrections[]` 存入错误库
-- [ ] Profile 管理：新建/编辑/删除/切换（SQLite 存储）
-- [ ] 新手引导：分步教程引导用户注册并填写 LLM/STT/TTS API Key
-- [ ] 水平定级：首次使用 AI 引导简短对话，评估水平并设置难度起点
-- [ ] 对话历史本地存储
+- [x] Flutter 项目初始化，macOS + Web 双端运行
+- [x] 3-Profile 系统：LLM + STT + TTS 统一配置管理
+- [x] 主界面布局：上半屏角色插画 + 振幅嘴型动画，下半屏聊天窗口
+- [x] 录音功能：按住录音 → 云端 STT → 文字显示在聊天气泡
+- [x] AI 对话：通过 Profile 系统接入 LLM（OpenAI 兼容协议）
+- [x] TTS 播放：AI 回复 → 云端 TTS → 语音播放 + 嘴型动画
+- [x] 智能纠正：LLM 在回复中自然指出错误，自动提取 `corrections[]` 存入错误库
+- [x] Profile 管理：新建/编辑/删除/切换（SQLite 存储）
+- [x] 新手引导：分步教程引导用户注册并填写 LLM/STT/TTS API Key
+- [~] 水平定级：首次使用 AI 引导简短对话，评估水平并设置难度起点（占位页存在，AI 对话评估待重写）
+- [x] 对话历史本地存储
 
 ### 阶段二：学习循环（4-6 周）
 
 **交付物：完整的学习闭环**
 
-- [ ] 错误记录系统：自动从 AI 回复中提取纠正，结构化存储
-- [ ] 复习模式：AI 虚拟外教引导聊天式复习
-- [ ] 间隔重复算法（SM-2）
-- [ ] 会话管理：新建对话 / 继续上次 / 历史浏览
-- [ ] 场景选择：预设多个练习场景和话题库，游戏化卡片选择 UI（分类 + 进度标记 + 难度标签）
-- [ ] 纠正强度三档设置
-- [ ] 消息点击重播 TTS
-- [ ] iOS + Android 端适配测试
+- [x] 错误记录系统：自动从 AI 回复中提取纠正，结构化存储
+- [~] 复习模式：AI 虚拟外教引导聊天式复习（ReviewScreen 已有评分卡片 + 跳转练习会话；AI 引导式复习留待后续）
+- [x] 间隔重复算法（SM-2）（运行时已接通，含 quality 评分 UI）
+- [x] 会话管理：新建对话 / 继续上次 / 历史浏览（含删除会话）
+- [~] 场景选择：预设多个练习场景和话题库，游戏化卡片选择 UI（分类 + 进度标记 + 难度标签）（基础场景已存在，游戏化进度/难度标签待补）
+- [x] 纠正强度三档设置（gentle / moderate / strict 真正写入 system prompt）
+- [x] 消息点击重播 TTS
+- [ ] iOS + Android 端适配测试（待 Flutter 工具链环境下验证）
 - [ ] Profile 导入/导出功能
 
 ### 阶段三：虚拟人物（4-8 周）
@@ -592,8 +629,8 @@
 - [ ] Live2D 虚拟外教模型制作（外包或自制）
 - [ ] Rhubarb Lip Sync 集成：TTS 音频 → viseme 时间线
 - [ ] Live2D 嘴型参数驱动：viseme → 口型同步播放
-- [ ] 待机动画：呼吸、眨眼、微笑、头部微转
-- [ ] 情感状态切换：开心、思考、鼓励等表情
+- [~] 待机动画：呼吸、眨眼、微笑、头部微转（VirtualCharacter 占位已有呼吸光晕动画；完整 Live2D 待三期）
+- [~] 情感状态切换：开心、思考、鼓励等表情（已有 idle/listening/thinking/speaking 四态切换；情感种类待补）
 
 ### 阶段四：发布上线（4-6 周）
 
@@ -603,15 +640,15 @@
 - [ ] macOS App Store：打包、签名、公证
 - [ ] iOS App Store 提交
 - [ ] Google Play 提交
-- [ ] 性能优化：音频延迟、动画流畅度、内存占用
-- [ ] 错误处理和边界情况完善
-- [ ] 新手引导教程
+- [~] 性能优化：音频延迟、动画流畅度、内存占用（本轮已修复输入按键整屏 rebuild、corrections 全表重查、O(N²) 历史增长；音频延迟/内存待测）
+- [~] 错误处理和边界情况完善（本轮补了删除会话级联、去重、双击防护；剩余边界待补）
+- [x] 新手引导教程
 
 ### 阶段五：持续迭代
 
-- [ ] 学习统计和进度报告
+- [x] 学习统计和进度报告（ProgressScreen + 7 日活跃图）
 - [ ] 发音评分（音素级分析）
-- [ ] 多角色选择（不同外教性格/口音/风格）
+- [x] 多角色选择（不同外教性格/口音/风格）（6 位预设 Tutor，选择已持久化）
 - [ ] 社区场景分享
 - [ ] Rive 高级动画升级
 - [ ] 云同步学习记录（可选）

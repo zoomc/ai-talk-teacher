@@ -5,19 +5,29 @@ import 'tutor.dart';
 ///
 /// Composes, in order:
 ///   1. A shared pedagogical "spine" (role, conversation best-practices,
-///      correction approach, level-aware complexity).
+///      correction approach + the corrections-JSON output contract, level-aware
+///      complexity).
 ///   2. The selected tutor's personality prompt (if any).
 ///   3. The scenario's role-play context (if any).
 ///   4. A review block listing the student's due corrections (if this is a
 ///      review / practice session).
 ///
-/// The corrections-JSON format instruction is appended separately by
-/// [LlmService] when assembling the messages array, so it is intentionally
-/// omitted here.
+/// The corrections-JSON output contract lives INSIDE the spine (not appended
+/// separately by [LlmService] each turn). Reasons:
+///   - It removes the previous duplicate (spine "How to correct" + LlmService
+///     JSON spec said overlapping things and sometimes contradicted each other
+///     about whether explanations go inline or in JSON).
+///   - Keeping the system prompt byte-identical across turns lets providers
+///     that do prefix prompt caching (e.g. DeepSeek) reuse the cached prefix
+///     and skip charging for those tokens again.
 class TutorPromptBuilder {
   TutorPromptBuilder._();
 
   /// Compose the full system prompt.
+  ///
+  /// [correctionStrength] controls how aggressively the tutor flags errors.
+  /// Maps to the user-facing "Correction Strength" setting (gentle / moderate /
+  /// strict). Defaults to 'moderate'.
   static String build({
     Tutor? tutor,
     Scenario? scenario,
@@ -25,11 +35,13 @@ class TutorPromptBuilder {
     bool isReviewSession = false,
     List<Correction> dueCorrections = const [],
     String? sessionTopic,
+    String correctionStrength = 'moderate',
   }) {
     final buffer = StringBuffer();
 
-    // 1. Shared pedagogical spine.
-    buffer.writeln(_spine(userLevel));
+    // 1. Shared pedagogical spine (includes correction approach + JSON contract
+    //    scaled by correctionStrength).
+    buffer.writeln(_spine(userLevel, correctionStrength));
 
     // 2. Tutor personality.
     if (tutor != null) {
@@ -84,13 +96,14 @@ class TutorPromptBuilder {
   }
 
   /// The shared pedagogical spine applied to every session.
-  static String _spine(String? userLevel) {
+  static String _spine(String? userLevel, String correctionStrength) {
     final level = _normalizeLevel(userLevel);
     final levelGuidance = switch (level) {
       TutorLevel.beginner => _beginnerGuidance,
       TutorLevel.intermediate => _intermediateGuidance,
       TutorLevel.advanced => _advancedGuidance,
     };
+    final correctionGuidance = _correctionGuidance(correctionStrength);
 
     return '''You are an English speaking-practice tutor inside a voice-first app. \
 Your replies are spoken aloud by a TTS engine and transcribed from the student's \
@@ -108,16 +121,50 @@ and scaffold. If they're fluent, raise the bar.
 back to English and offer the phrase they need.
 
 ## How to correct
-- Do NOT interrupt the flow to lecture. Model the correct form by reusing it \
-naturally in your reply (e.g. student: "I go to school yesterday" → you: "Oh, \
-you went to school yesterday! What did you do there?").
-- Only flag genuine errors — grammar, word choice, pronunciation-affecting \
-stress, or clearly wrong collocations. Don't over-correct style or accent.
-- When a mistake is subtle or high-value, give a one-line explanation in your \
-reply, then move on.
+- Do NOT interrupt the flow to lecture, and do NOT speak the explanation aloud. \
+Model the correct form by reusing it naturally in your reply (e.g. student: \
+"I go to school yesterday" → you: "Oh, you went to school yesterday! What did \
+you do there?").
+$correctionGuidance
+- Put structured error feedback ONLY in the corrections JSON block at the end \
+of your reply (see "Output format" below). Keep your spoken reply natural — \
+the student will see the structured explanation in the UI card, so you don't \
+need to repeat it in speech.
+
+## Output format
+Reply in two parts:
+1. Your natural spoken reply to the student.
+2. (Only if you noticed errors) A fenced corrections block at the very end, \
+formatted EXACTLY like this:
+```corrections
+[
+  {"original": "what the student said", "corrected": "correct version", "type": "grammar|vocabulary|pronunciation", "explanation": "brief one-line explanation"}
+]
+```
+- "original" must be a short verbatim snippet of what the student actually \
+said (not a paraphrase).
+- "type" must be exactly one of: grammar, vocabulary, pronunciation.
+- If there were no errors, do NOT include the corrections block at all.
+- Keep the block at the END of the reply so the spoken part stays clean.
 
 ## Level adaptation
 $levelGuidance''';
+  }
+
+  /// Strength-specific guidance appended to the "How to correct" section.
+  /// Lets the user's "Correction Strength" setting (gentle / moderate / strict)
+  /// actually influence tutor behavior. Previously the setting was saved but
+  /// never read by the prompt builder.
+  static String _correctionGuidance(String strength) {
+    switch (strength.toLowerCase()) {
+      case 'gentle':
+        return '''- GENTLE mode: only flag errors that clearly block understanding. Let minor style, article, and preposition slips go — the goal is to keep the student talking confidently.''';
+      case 'strict':
+        return '''- STRICT mode: flag every error including minor grammar, word choice, collocation, and preposition issues. Still keep your spoken reply natural and brief — corrections go in the JSON block, not a lecture.''';
+      case 'moderate':
+      default:
+        return '''- MODERATE mode: flag clear grammar, vocabulary, and pronunciation-affecting errors. Skip nitpicks on style or regional accent.''';
+    }
   }
 
   static String get _beginnerGuidance => '''The student is a BEGINNER.

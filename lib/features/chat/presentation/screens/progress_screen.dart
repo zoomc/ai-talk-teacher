@@ -109,6 +109,17 @@ class ProgressScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
 
+          // 7-day activity chart — renders dailyActivity (messages + corrections
+          // per day). Previously the field was queried but never shown in the
+          // UI (P0-10): the chart closes the "data shown vs. data collected"
+          // gap and gives the user a streak-like sense of daily practice.
+          Text('Last 7 Days', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: AppSpacing.md),
+          GlassCard(
+            child: _ActivityChart(daily: stats.dailyActivity),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+
           // Mastery breakdown
           Text(
             'Mastery Breakdown',
@@ -298,6 +309,215 @@ class _MasteryRow extends StatelessWidget {
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(color: color),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 7-day activity bar chart.
+///
+/// The repository only returns rows for days that have activity, so we
+/// zero-fill missing days here to keep the X axis consistent. Bars are
+/// stacked per day: messages (cyan) on top of corrections (warm orange)
+/// so both series share the same vertical column instead of side-by-side
+/// squashing on narrow phones.
+class _ActivityChart extends StatelessWidget {
+  final List<DailyActivity> daily;
+
+  const _ActivityChart({required this.daily});
+
+  @override
+  Widget build(BuildContext context) {
+    // Build a 7-day window ending today, zero-filling any days with no
+    // activity row from the source data.
+    final today = DateTime.now();
+    final byDate = {for (final d in daily) _dayKey(d.date): d};
+    final days = List.generate(7, (i) {
+      final date = DateTime(today.year, today.month, today.day)
+          .subtract(Duration(days: 6 - i));
+      final matched = byDate[_dayKey(date)];
+      return DailyActivity(
+        date: date,
+        messages: matched?.messages ?? 0,
+        corrections: matched?.corrections ?? 0,
+      );
+    });
+
+    final maxVal = days.fold<int>(
+      0,
+      (m, d) => d.messages + d.corrections > m ? d.messages + d.corrections : m,
+    );
+    // Avoid div-by-zero; min visual bar is 1.0 unit so a lone day with
+    // activity still shows up clearly.
+    final scaleMax = maxVal < 1 ? 1 : maxVal;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Legend
+        Row(
+          children: [
+            _LegendDot(color: AppColors.accentSecondary, label: 'Messages'),
+            const SizedBox(width: AppSpacing.md),
+            _LegendDot(color: AppColors.warning, label: 'Corrections'),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        SizedBox(
+          height: 140,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: days
+                .map((d) => Expanded(child: _DayBar(day: d, scaleMax: scaleMax)))
+                .toList(),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          children: days
+              .map(
+                (d) => Expanded(
+                  child: Text(
+                    _shortWeekday(d.date.weekday),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textMuted,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          children: days
+              .map(
+                (d) => Expanded(
+                  child: Text(
+                    '${d.date.day}/${d.date.month}',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textMuted,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ],
+    );
+  }
+
+  String _dayKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  String _shortWeekday(int weekday) {
+    // DateTime.weekday: Mon=1..Sun=7
+    const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return names[(weekday - 1) % 7];
+  }
+}
+
+class _DayBar extends StatelessWidget {
+  final DailyActivity day;
+  final int scaleMax;
+
+  const _DayBar({required this.day, required this.scaleMax});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = day.messages + day.corrections;
+    // Bar total height as a fraction of the available 140px column.
+    final totalFraction = scaleMax == 0 ? 0.0 : total / scaleMax;
+    final msgFraction =
+        total == 0 ? 0.0 : (day.messages / total) * totalFraction;
+    final corrFraction =
+        total == 0 ? 0.0 : (day.corrections / total) * totalFraction;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          if (total > 0)
+            Tooltip(
+              message:
+                  '${day.messages} msg · ${day.corrections} corrections',
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Messages on top (cyan)
+                  if (msgFraction > 0)
+                    Container(
+                      width: double.infinity,
+                      height: (msgFraction * 110).clamp(2.0, 110.0),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentSecondary,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(4),
+                          topRight: Radius.circular(4),
+                        ),
+                      ),
+                    ),
+                  // Corrections stacked below (warm orange)
+                  if (corrFraction > 0)
+                    Container(
+                      width: double.infinity,
+                      height: (corrFraction * 110).clamp(2.0, 110.0),
+                      decoration: BoxDecoration(
+                        color: AppColors.warning,
+                        borderRadius: BorderRadius.only(
+                          topLeft: msgFraction > 0 ? Radius.zero : Radius.circular(4),
+                          topRight: msgFraction > 0 ? Radius.zero : Radius.circular(4),
+                          bottomLeft: Radius.circular(4),
+                          bottomRight: Radius.circular(4),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            )
+          else
+            // Empty day — show a faint baseline so the row alignment
+            // stays consistent across the 7-day window.
+            Container(
+              width: double.infinity,
+              height: 2,
+              color: AppColors.glassBorder,
+            ),
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _LegendDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: AppColors.textSecondary,
+            fontSize: 12,
           ),
         ),
       ],

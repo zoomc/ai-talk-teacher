@@ -7,6 +7,164 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Comprehensive review pass (learning loop / UI / config / AI usage)
+
+Conducted a 4-axis review (learning closed-loop, UI/art/interaction,
+config/prompt/token efficiency, AI usage realism) and fixed all P0
+blockers plus key P1 items. See `tmp_modification_plan.md` for the full
+plan and `tmp_review1..4_*.md` for the underlying reviews.
+
+#### Added — learning closed-loop (P0-1, P0-10)
+- **SM-2 spaced repetition is now wired to runtime**. Previously
+  `Sm2Service.scheduleReview` was only invoked by tests; `Correction`
+  records were created with the default SM-2 fields and never advanced.
+  - `ReviewScreen` now shows a quality rating bar
+    (Again / Hard / Good / Easy → SM-2 quality 1 / 3 / 4 / 5) on each
+    due correction. Tapping a button calls
+    `Sm2Service.scheduleReview` + `ChatRepository.updateCorrection`,
+    then removes the card from the "due now" list and shows a SnackBar
+    with the next review time.
+  - `_ratingInFlight` Set guards against double-taps while the
+    `updateCorrection` write is in flight.
+  - Occurrence-count badge (`×N`) renders when a correction has been
+    seen more than once (driven by the v3 schema fields).
+  - As a consequence, `LearningStatsService.masteredCount/learningCount`
+    SQL now returns real values instead of always 0.
+- **Progress dashboard: 7-day activity chart**. The `dailyActivity`
+  field was queried but never rendered. Added a `_ActivityChart`
+  stacked bar (messages = cyan, corrections = warm orange) that
+  zero-fills missing days for the last 7 days, with tooltip + legend.
+
+#### Added — UI / interaction (P0-8, P1-8, P1-10)
+- **Recording button now pulses while recording**. Replaced the static
+  record button with a `_RecordButton` StatefulWidget + custom
+  `_RipplePainter` (sonar-pulse ripple animation). Removed the dead
+  `GlowButton` class from `glass_widgets.dart` (~88 lines) — its visual
+  pattern is now implemented inline where it is actually used.
+- **Theme switching is now immediate**. Previously changing the theme
+  in Settings required an app restart. Added a global
+  `themeModeProvider` (StateProvider<ThemeMode>) in `shared/providers.dart`,
+  seeded from the persisted preference via `ProviderScope.overrides` in
+  `main()`. `SpeakFlowApp` is now a `ConsumerWidget` that watches the
+  provider; `SettingsScreen` updates the notifier on save.
+- **Placeholder entries are now visually marked**. "Interface Language"
+  and "Export Learning Data" subtitles now read "(coming soon)" so users
+  do not mistake them for bugs.
+
+#### Fixed — correctness / first-run experience (P0-2, P0-3, P0-4)
+- **Delete Session actually deletes now**. Both entry points
+  (`history_screen.dart` and `chat_screen.dart` session options sheet)
+  were no-ops — one showed a "Delete not implemented" SnackBar, the
+  other just popped the sheet. Added `ChatRepository.deleteSession(id)`
+  which deletes the session row plus its messages and corrections
+  (cascade), and wired both UIs to it with an `AlertDialog` confirm.
+- **Tutor selection now persists**. `TutorSelectionScreen._selectTutor`
+  only called `context.pop(tutor.id)` and the caller never consumed the
+  return value, so `selected_tutor_id` was never written from this page.
+  Now `await profileRepo.setSetting('selected_tutor_id', tutor.id)`
+  before popping, and `ChatScreen` reloads tutor identity on resume.
+- **DeepSeek / Kimi default model names corrected**.
+  `provider_catalog.dart` shipped `deepseek-v4-flash` (does not exist)
+  and `kimi-k2.6` (unstable identifier) as defaults — new users hit a
+  404 on their first chat. Changed to `deepseek-chat` and
+  `moonshot-v1-8k` (official stable model identifiers).
+
+#### Fixed — prompt / token efficiency (P0-5, P1-1, P1-2, P1-3)
+- **`correction_strength` setting now affects the system prompt**.
+  Settings saved the value but `TutorPromptBuilder.build` ignored it;
+  the spine was identical for gentle / moderate / strict. Added a
+  `correctionStrength` parameter and three spine variants:
+  - `gentle` — only flag errors that clearly block understanding; let
+    minor slips go.
+  - `moderate` (default) — flag errors that affect meaning or naturalness.
+  - `strict` — flag every error including style / collocation.
+  The spine also now explicitly tells the tutor **not** to speak the
+  explanation aloud (it goes only into the structured `corrections`
+  JSON), keeping the spoken reply natural.
+- **`max_tokens` aligned with the spine's "1-4 sentences" instruction**
+  (1000 → 400). The previous value let the model ramble past the
+  intended short-reply budget.
+- **Removed the per-turn duplicate correction instructions**. The
+  `corrections` JSON schema was re-sent on every assistant turn via
+  `_buildMessages`, costing ~180 tokens/turn. Moved the contract into
+  the system prompt (it is byte-identical across turns, so providers
+  that support prompt caching can cache it) and removed the duplicate
+  from `LlmService`.
+- **Unified the correction strategy between Spine and LlmService**.
+  The spine said "give a one-line explanation in your reply" while
+  `LlmService` said "explanation goes in the JSON" — contradiction.
+  Decision: the spoken reply stays natural and does **not** inline
+  explanations; structured explanations live only in the `corrections`
+  JSON, surfaced as UI cards. Updated the spine wording accordingly.
+
+#### Fixed — settings wiring (P0-6)
+- **`tts_speed` global setting now applies to playback**. Settings
+  saved the value but `TtsService.synthesize` only used `profile.speed`,
+  so the global control did nothing. Added `TtsPlaybackService.setSpeed`
+  (just_audio `setSpeed`) and `ChatScreen._loadTtsSpeed()` reads the
+  setting on screen entry and applies it. Player-side `setSpeed` is
+  used (no re-synthesis, no extra tokens).
+
+#### Fixed — performance (P0-7, P0-9, P1-11)
+- **Input keystrokes no longer rebuild the entire ChatScreen**.
+  `TextEditingController.addListener(setState)` was rebuilding the
+  whole screen (and its child message list) on every keystroke.
+  Removed the listener; the send button is now wrapped in a
+  `ValueListenableBuilder<TextEditingValue>` so only the button
+  opacity toggles. Combined with the next fix, typing is now O(1)
+  per keystroke instead of O(N).
+- **Corrections are no longer re-queried on every chat rebuild**.
+  `_ChatMessageList` used a `FutureBuilder` that ran
+  `getAllCorrections()` on every rebuild (i.e. on every keystroke
+  before the previous fix). Replaced with a session-scoped
+  `_correctionsByMessageProvider` (FutureProvider.family) that caches
+  the result and is only invalidated after a new correction is saved.
+  Added `ChatRepository.getCorrectionsForSession(sessionId)` for the
+  scoped query.
+- **Chat history is now capped** to the last 40 messages (~20 turns)
+  via `ChatRepository.getMessages(limit: 40)`. Prevents the O(N²) token
+  growth that would otherwise blow the context window in long
+  sessions.
+- **Corrections are de-duplicated on save**. Previously every chat
+  turn that contained the same error inserted a new row. Added
+  `ChatRepository.saveCorrectionDedup()` which matches on
+  `(original, corrected, type)` and, on hit, increments
+  `occurrenceCount` and updates `lastSeenAt` instead of inserting.
+  `ChatScreen._sendMessage` now uses this path.
+
+#### Tests
+- `test/tutor_prompts_test.dart`: added a new
+  `TutorPromptBuilder.build — correctionStrength` test group (7 cases)
+  covering gentle / moderate / strict variants, case-insensitivity,
+  unknown-strength fallback, that the corrections JSON contract appears
+  exactly once in the spine, and that the spine tells the tutor not to
+  speak the explanation aloud.
+
+#### Verification status
+- **Static review**: every modified file was re-read after the edit and
+  checked for syntax / type / import correctness against the plan.
+- **Existing tests**: `test/sm2_service_test.dart`,
+  `test/correction_model_test.dart`, `test/llm_service_test.dart`,
+  `test/provider_catalog_test.dart` were re-read to confirm the
+  changes do not break their assumptions; the new
+  `correctionStrength` tests were added to `tutor_prompts_test.dart`.
+- **Compile verification**: the sandbox does not have the Flutter
+  toolchain pre-installed. An attempt was made to install Flutter
+  (`git clone` of the stable channel + first-run Dart SDK download),
+  but the Dart SDK download (233 MB) did not complete within the
+  session time budget. **`flutter analyze` / `flutter build web` /
+  `flutter build apk` were NOT run in this session** — the next session
+  with a Flutter environment should run them and address any analyzer
+  findings before release. The previous `[Unreleased]` entry confirmed
+  `flutter build web --release` succeeded for the prior code, and the
+  changes here are additive (new parameters, new widgets, new methods)
+  rather than structural refactors, so the risk of compile breakage is
+  low but not zero.
+
+---
+
+### Earlier in [Unreleased]
+
 ### Added
 - Cloud sync (optional, deferred to future version)
 

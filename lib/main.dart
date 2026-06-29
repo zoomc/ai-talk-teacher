@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'features/profile/data/profile_repository.dart';
+import 'shared/providers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,10 +28,12 @@ void main() async {
 
   runApp(
     ProviderScope(
-      child: SpeakFlowApp(
-        hasCompletedOnboarding: hasCompletedOnboarding,
-        initialThemeMode: initialThemeMode,
-      ),
+      overrides: [
+        // Seed the global themeModeProvider with the persisted preference
+        // so the first frame already uses the correct theme (P1-8).
+        themeModeProvider.overrideWith((ref) => initialThemeMode),
+      ],
+      child: SpeakFlowApp(hasCompletedOnboarding: hasCompletedOnboarding),
     ),
   );
 }
@@ -47,40 +50,23 @@ ThemeMode _parseThemeMode(String? s) {
   }
 }
 
-class SpeakFlowApp extends StatefulWidget {
+class SpeakFlowApp extends ConsumerWidget {
   final bool hasCompletedOnboarding;
-  final ThemeMode initialThemeMode;
-  const SpeakFlowApp({
-    super.key,
-    required this.hasCompletedOnboarding,
-    required this.initialThemeMode,
-  });
+
+  const SpeakFlowApp({super.key, required this.hasCompletedOnboarding});
 
   @override
-  State<SpeakFlowApp> createState() => _SpeakFlowAppState();
-}
-
-class _SpeakFlowAppState extends State<SpeakFlowApp> {
-  late ThemeMode _themeMode;
-
-  @override
-  void initState() {
-    super.initState();
-    _themeMode = widget.initialThemeMode;
-  }
-
-  void setThemeMode(ThemeMode mode) {
-    setState(() => _themeMode = mode);
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watching themeModeProvider means a state change from the settings
+    // screen immediately rebuilds MaterialApp with the new themeMode —
+    // no restart required (P1-8).
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp.router(
       title: 'SpeakFlow',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: _themeMode,
+      themeMode: themeMode,
       routerConfig: AppRouter.router,
     );
   }

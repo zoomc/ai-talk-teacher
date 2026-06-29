@@ -67,7 +67,10 @@ class LlmProviderCatalog {
       id: 'deepseek',
       displayName: 'DeepSeek',
       defaultBaseUrl: 'https://api.deepseek.com/v1',
-      defaultModel: 'deepseek-v4-flash',
+      // 'deepseek-chat' is the official stable V3 chat model. The previous
+      // default 'deepseek-v4-flash' does not exist and caused 404 on first
+      // chat for every new user.
+      defaultModel: 'deepseek-chat',
       docsUrl: 'https://platform.deepseek.com',
       note: 'Cheap, capable, great default. China-based, global access.',
       region: ProviderRegion.cn,
@@ -85,7 +88,9 @@ class LlmProviderCatalog {
       id: 'moonshot_kimi',
       displayName: 'Moonshot Kimi (月之暗面)',
       defaultBaseUrl: 'https://api.moonshot.ai/v1',
-      defaultModel: 'kimi-k2.6',
+      // 'moonshot-v1-8k' is the official stable Kimi chat model. The previous
+      // default 'kimi-k2.6' was a non-existent version string and caused 404.
+      defaultModel: 'moonshot-v1-8k',
       docsUrl: 'https://platform.moonshot.ai',
       note: 'Kimi K2 series. Long context.',
       region: ProviderRegion.cn,

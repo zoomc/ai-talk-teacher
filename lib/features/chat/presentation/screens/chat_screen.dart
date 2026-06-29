@@ -52,10 +52,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _messageController.addListener(() {
-      if (mounted) setState(() {});
-    });
+    // NOTE: We intentionally do NOT add a setState listener to the text
+    // controller here. Doing so would rebuild the entire ChatScreen (and
+    // its child message list) on every keystroke. Instead, _ChatInputBar
+    // wraps the send button in a ValueListenableBuilder so only the button
+    // opacity toggles when text becomes empty/non-empty.
     _loadTutorIdentity();
+    _loadTtsSpeed();
     // Auto-focus the input on wide (desktop/web) layouts where there's no
     // risk of popping the soft keyboard unexpectedly. On mobile we leave
     // focus alone so the user controls when the keyboard appears.
@@ -65,6 +68,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _messageFocusNode.requestFocus();
       }
     });
+  }
+
+  /// Load the user's preferred TTS playback speed (0.75 / 1.0 / 1.25 / 1.5)
+  /// from settings and apply it to the playback service. We do this once
+  /// on screen entry; if the user changes the setting mid-session they can
+  /// re-enter the chat to pick up the new value (acceptable trade-off vs.
+  /// adding a settings listener just for this).
+  Future<void> _loadTtsSpeed() async {
+    try {
+      final raw = await ref.read(profileRepoProvider).getSetting('tts_speed');
+      if (raw == null) return;
+      final speed = double.tryParse(raw);
+      if (speed == null || speed <= 0 || speed > 3) return;
+      await _ttsPlaybackService.setSpeed(speed);
+    } catch (_) {
+      // Best-effort — never block the screen on settings read.
+    }
   }
 
   Future<void> _loadTutorIdentity() async {
@@ -319,6 +339,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
 
       final userLevel = await profileRepo.getUserLevel();
+      // correction_strength is saved by the settings screen (gentle/moderate/strict).
+      // Defaults to 'moderate' for first-run users.
+      final correctionStrength =
+          await profileRepo.getSetting('correction_strength') ?? 'moderate';
       final systemPrompt = TutorPromptBuilder.build(
         tutor: tutor,
         scenario: scenario,
@@ -326,6 +350,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         isReviewSession: isReviewSession,
         dueCorrections: dueCorrections,
         sessionTopic: topic,
+        correctionStrength: correctionStrength,
       );
 
       final llmService = LlmService(llmProfile);
@@ -342,9 +367,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
       await repo.saveMessage(aiResponse);
 
-      // Save corrections tied to the AI message
+      // Save corrections tied to the AI message. Use the dedup path so the
+      // same mistake flagged across sessions bumps occurrence_count instead
+      // of producing duplicate review rows.
       for (final correction in response.corrections) {
-        await repo.saveCorrection(
+        await repo.saveCorrectionDedup(
           correction.copyWith(
             messageId: aiResponse.id,
             sessionId: widget.sessionId,
@@ -354,6 +381,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       // Refresh UI
       ref.invalidate(_messagesProvider(widget.sessionId));
+      // Invalidate the per-session corrections map so the inline
+      // correction chips in the new AI bubble render without a manual reload.
+      ref.invalidate(_correctionsByMessageProvider(widget.sessionId));
 
       // Auto-play TTS for the AI reply + animate speaking state.
       await _autoplayTts(aiResponse.id, response.content);
@@ -602,7 +632,47 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 'Delete Session',
                 style: TextStyle(color: AppColors.error),
               ),
-              onTap: () => Navigator.pop(context),
+              onTap: () async {
+                // Confirm before destructive action — deletes the session
+                // and all related messages + corrections (transactional).
+                Navigator.pop(context); // close the bottom sheet first
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Delete this conversation?'),
+                    content: const Text(
+                      'All messages and corrections from this session will be permanently removed.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed != true || !mounted) return;
+                try {
+                  await ref.read(chatRepoProvider).deleteSession(widget.sessionId);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Conversation deleted')),
+                    );
+                    context.go('/');
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Delete failed: ${_safeError(e)}')),
+                    );
+                  }
+                }
+              },
             ),
           ],
         ),
@@ -638,6 +708,13 @@ class _ChatMessageList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final messagesAsync = ref.watch(_messagesProvider(sessionId));
+    // Watch the corrections-by-message provider in parallel so that when
+    // _messagesProvider is invalidated (after the user sends a message +
+    // after corrections are saved), the corrections map refreshes too.
+    // Previously this was a FutureBuilder that re-ran getAllCorrections()
+    // on every chat-screen rebuild (every keystroke via the now-removed
+    // setState listener) — P0-7 fix.
+    final correctionsAsync = ref.watch(_correctionsByMessageProvider(sessionId));
 
     return messagesAsync.when(
       data: (messages) {
@@ -670,33 +747,30 @@ class _ChatMessageList extends ConsumerWidget {
           );
         }
 
-        // Load corrections per message so we can render them inline.
-        return FutureBuilder<Map<String, List<Correction>>>(
-          future: _loadCorrectionsByMessage(ref),
-          builder: (context, snapshot) {
-            final correctionsByMsg = snapshot.data ?? const {};
-            return ListView.builder(
-              controller: scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              itemCount: messages.length + (isAiThinking ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == messages.length) {
-                  // Typing indicator row
-                  return const _TypingBubble();
-                }
-                final msg = messages[index];
-                final isUser = msg.role == MessageRole.user;
-                return _ChatBubble(
-                  key: ValueKey(msg.id),
-                  message: msg.content,
-                  isUser: isUser,
-                  isPlaying: playingMessageId == msg.id,
-                  corrections: correctionsByMsg[msg.id] ?? const [],
-                  onPlayTts: isUser
-                      ? null
-                      : () => onPlayTts(msg.id, msg.content),
-                );
-              },
+        // Use the cached corrections map; fall back to empty while the
+        // first load is in flight so messages can render immediately.
+        final correctionsByMsg = correctionsAsync.valueOrNull ?? const {};
+
+        return ListView.builder(
+          controller: scrollController,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          itemCount: messages.length + (isAiThinking ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index == messages.length) {
+              // Typing indicator row
+              return const _TypingBubble();
+            }
+            final msg = messages[index];
+            final isUser = msg.role == MessageRole.user;
+            return _ChatBubble(
+              key: ValueKey(msg.id),
+              message: msg.content,
+              isUser: isUser,
+              isPlaying: playingMessageId == msg.id,
+              corrections: correctionsByMsg[msg.id] ?? const [],
+              onPlayTts: isUser
+                  ? null
+                  : () => onPlayTts(msg.id, msg.content),
             );
           },
         );
@@ -704,20 +778,6 @@ class _ChatMessageList extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Error: $e')),
     );
-  }
-
-  Future<Map<String, List<Correction>>> _loadCorrectionsByMessage(
-    WidgetRef ref,
-  ) async {
-    final repo = ref.read(chatRepoProvider);
-    final all = await repo.getAllCorrections();
-    final map = <String, List<Correction>>{};
-    for (final c in all) {
-      final key = c.messageId;
-      if (key == null) continue;
-      map.putIfAbsent(key, () => []).add(c);
-    }
-    return map;
   }
 }
 
@@ -727,6 +787,33 @@ final _messagesProvider = FutureProvider.family<List<ChatMessage>, String>((
 ) async {
   final repo = ref.watch(chatRepoProvider);
   return repo.getMessages(sessionId);
+});
+
+/// Per-session corrections grouped by AI message id, for inline display.
+///
+/// Cached by Riverpod and invalidated together with [_messagesProvider]
+/// (the chat screen calls `ref.invalidate(_messagesProvider(sessionId))`
+/// followed by `ref.invalidate(_correctionsByMessageProvider(sessionId))`
+/// whenever a new AI message + its corrections are saved). This replaces
+/// the previous FutureBuilder that re-ran `getAllCorrections()` on every
+/// chat-screen rebuild, including on every keystroke.
+final _correctionsByMessageProvider =
+    FutureProvider.family<Map<String, List<Correction>>, String>((
+  ref,
+  sessionId,
+) async {
+  final repo = ref.watch(chatRepoProvider);
+  // Filter by session_id so we don't pull the entire corrections table
+  // for every other session the user has. The query is the same shape as
+  // getAllCorrections() but scoped.
+  final all = await repo.getCorrectionsForSession(sessionId);
+  final map = <String, List<Correction>>{};
+  for (final c in all) {
+    final key = c.messageId;
+    if (key == null) continue;
+    map.putIfAbsent(key, () => []).add(c);
+  }
+  return map;
 });
 
 /// Lightweight typing indicator shown while the LLM is responding.
@@ -1061,7 +1148,9 @@ class _ChatInputBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canSend = controller.text.trim().isNotEmpty && !isLoading;
+    // canSend is now derived inside the ValueListenableBuilder below so
+    // that only the Send button + its Semantics wrapper rebuild on each
+    // keystroke instead of the whole _ChatInputBar.
     // Bottom padding: prefer the MediaQuery viewInsets (soft keyboard /
     // browser IME) when present, otherwise fall back to safe-area padding.
     final viewInsets = MediaQuery.of(context).viewInsets.bottom;
@@ -1081,9 +1170,10 @@ class _ChatInputBar extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Record button — 48x48 meets the 44x44 minimum touch target.
-          // Semantics exposes the state to screen readers; the Tooltip
-          // shows the same on hover for mouse users.
+          // Record button — pulsing glow when recording, using GlowButton
+          // (which has its own AnimationController). 48x48 meets the 44x44
+          // minimum touch target. Semantics exposes the state to screen
+          // readers; the Tooltip shows the same on hover for mouse users.
           Semantics(
             button: true,
             enabled: !isLoading,
@@ -1093,32 +1183,9 @@ class _ChatInputBar extends StatelessWidget {
                 : 'Double tap to record a voice message',
             child: Tooltip(
               message: isRecording ? 'Stop recording' : 'Tap to record',
-              child: GestureDetector(
+              child: _RecordButton(
+                isRecording: isRecording,
                 onTap: isLoading ? null : onRecordToggle,
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isRecording
-                        ? AppColors.error
-                        : AppColors.accentSecondary,
-                    boxShadow: [
-                      BoxShadow(
-                        color:
-                            (isRecording
-                                    ? AppColors.error
-                                    : AppColors.accentSecondary)
-                                .withValues(alpha: 0.3),
-                        blurRadius: isRecording ? 20 : 10,
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    isRecording ? Icons.stop : Icons.mic,
-                    color: Colors.white,
-                  ),
-                ),
               ),
             ),
           ),
@@ -1155,42 +1222,196 @@ class _ChatInputBar extends StatelessWidget {
                   ),
                 ),
                 onSubmitted: (_) {
-                  if (canSend) onSend();
+                  // Derive canSend directly from the controller so we don't
+                  // rely on the parent rebuilding before onSubmitted fires.
+                  final canSubmit =
+                      controller.text.trim().isNotEmpty && !isLoading;
+                  if (canSubmit) onSend();
                 },
               ),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          // Send button — wrapped in Semantics so screen readers announce
-          // its disabled state clearly. The Opacity dimming is purely
-          // visual; Semantics reflects the actual enabled state.
-          Semantics(
-            button: true,
-            enabled: canSend,
-            label: 'Send message',
-            hint: canSend
-                ? 'Double tap to send'
-                : 'Type a message first to send',
-            child: Opacity(
-              opacity: canSend ? 1.0 : 0.4,
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: AppColors.gradientPrimary,
+          // Send button — wraps in a ValueListenableBuilder on the
+          // TextEditingController (which is itself a ValueNotifier) so only
+          // this button rebuilds when text changes. The whole
+          // _ChatInputBar no longer needs a setState on each keystroke.
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) {
+              final canSend = value.text.trim().isNotEmpty && !isLoading;
+              return Semantics(
+                button: true,
+                enabled: canSend,
+                label: 'Send message',
+                hint: canSend
+                    ? 'Double tap to send'
+                    : 'Type a message first to send',
+                child: Opacity(
+                  opacity: canSend ? 1.0 : 0.4,
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: AppColors.gradientPrimary,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.send, color: Colors.white),
+                      onPressed: canSend ? onSend : null,
+                    ),
+                  ),
                 ),
-                child: IconButton(
-                  icon: const Icon(Icons.send, color: Colors.white),
-                  onPressed: canSend ? onSend : null,
-                ),
-              ),
-            ),
+              );
+            },
           ),
         ],
       ),
     );
   }
+}
+
+/// Record (mic) button with a pulsing glow while recording.
+///
+/// This is the runtime use of the previously dead-code GlowButton visual
+/// pattern (P0-8 from the UI review): while recording, the button's outer
+/// glow expands and contracts to give the user clear feedback that audio
+/// capture is in progress. Idle state has a static, calmer glow.
+class _RecordButton extends StatefulWidget {
+  final bool isRecording;
+  final VoidCallback? onTap;
+
+  const _RecordButton({
+    required this.isRecording,
+    required this.onTap,
+  });
+
+  @override
+  State<_RecordButton> createState() => _RecordButtonState();
+}
+
+class _RecordButtonState extends State<_RecordButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    _pulse = Tween<double>(begin: 0.25, end: 0.55).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    if (widget.isRecording) _controller.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _RecordButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isRecording == oldWidget.isRecording) return;
+    if (widget.isRecording) {
+      _controller.repeat(reverse: true);
+    } else {
+      _controller.stop();
+      // Jump back to the resting glow value so the button doesn't freeze
+      // mid-pulse when recording stops.
+      _controller.value = 0.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        widget.isRecording ? AppColors.error : AppColors.accentSecondary;
+    final baseGlow = widget.isRecording ? 0.4 : 0.25;
+
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: AnimatedBuilder(
+          animation: _pulse,
+          builder: (context, _) {
+            final glowAlpha =
+                widget.isRecording ? _pulse.value : baseGlow;
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                // Expanding ripple ring while recording — gives a sonar-like
+                // "I am listening" feedback.
+                if (widget.isRecording)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _RipplePainter(
+                        progress: _controller.value,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                // Core button + glow.
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color,
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: glowAlpha),
+                        blurRadius: widget.isRecording ? 24 : 12,
+                        spreadRadius: widget.isRecording ? 4 : 0,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    widget.isRecording ? Icons.stop : Icons.mic,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// Draws one expanding ring (sonar pulse) for the recording state.
+class _RipplePainter extends CustomPainter {
+  final double progress; // 0.0 → 1.0
+  final Color color;
+
+  _RipplePainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxRadius = size.width / 2;
+    // Ring expands outward and fades as it grows.
+    final radius = maxRadius * (0.5 + progress * 0.9);
+    final alpha = (1.0 - progress) * 0.5;
+    final paint = Paint()
+      ..color = color.withValues(alpha: alpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    canvas.drawCircle(center, radius, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RipplePainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
 }
 
 /// Adaptive wrapper around [VirtualCharacter].
