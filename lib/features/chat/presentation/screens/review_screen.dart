@@ -18,6 +18,9 @@ class ReviewScreen extends ConsumerStatefulWidget {
 class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   List<Correction> _corrections = [];
   bool _isLoading = true;
+  // Tracks which correction ids are currently being submitted to prevent
+  // double-taps on the rating buttons while the SM-2 update is in flight.
+  final Set<String> _ratingInFlight = {};
 
   @override
   void initState() {
@@ -28,10 +31,12 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   Future<void> _loadCorrections() async {
     final repo = ref.read(chatRepoProvider);
     final corrections = await repo.getDueCorrections(limit: 50);
-    setState(() {
-      _corrections = corrections;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _corrections = corrections;
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -131,7 +136,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  'Tap an error to practice it in a conversation',
+                  'Rate how well you remember each correction — the schedule adapts to your answer. Tap the card to practice it in a conversation.',
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
@@ -150,7 +155,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               ),
               child: _CorrectionCard(
                 correction: correction,
+                isSubmitting: _ratingInFlight.contains(correction.id),
                 onTap: () => _practiceCorrection(context, correction),
+                onRate: (quality) => _rateCorrection(correction, quality),
               ),
             );
           }, childCount: _corrections.length),
@@ -180,13 +187,84 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       context.push('/chat/${session.id}');
     }
   }
+
+  /// Rate a correction via the SM-2 algorithm.
+  ///
+  /// Quality mapping (SM-2 uses 0–5):
+  ///   Again → 1 (failed: reset to 1-day interval, review count reset)
+  ///   Hard  → 3 (passed but barely: shorter next interval)
+  ///   Good  → 4 (passed comfortably: standard progression)
+  ///   Easy  → 5 (passed easily: longer next interval)
+  ///
+  /// After scheduling + persisting, the card is removed from the visible
+  /// "due now" list — the next review is in the future.
+  Future<void> _rateCorrection(Correction correction, int quality) async {
+    if (_ratingInFlight.contains(correction.id)) return;
+    setState(() => _ratingInFlight.add(correction.id));
+
+    try {
+      final updated = Sm2Service.scheduleReview(correction, quality);
+      await ref.read(chatRepoProvider).updateCorrection(updated);
+
+      // Brief feedback so the user understands what just happened.
+      final label = _ratingLabel(quality);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Rated "$label" — next review ${Sm2Service.getNextReviewText(updated)}'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        setState(() {
+          _corrections.removeWhere((c) => c.id == correction.id);
+          _ratingInFlight.remove(correction.id);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _ratingInFlight.remove(correction.id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save rating: ${_safeError(e)}')),
+        );
+      }
+    }
+  }
+
+  String _ratingLabel(int quality) {
+    switch (quality) {
+      case 1:
+        return 'Again';
+      case 3:
+        return 'Hard';
+      case 4:
+        return 'Good';
+      case 5:
+        return 'Easy';
+      default:
+        return 'Rated';
+    }
+  }
+
+  String _safeError(Object e) {
+    final s = e.toString();
+    final i = s.indexOf(': ');
+    return i >= 0 ? s.substring(i + 2) : s;
+  }
 }
 
 class _CorrectionCard extends StatelessWidget {
   final Correction correction;
   final VoidCallback onTap;
+  /// Called with the SM-2 quality (1 / 3 / 4 / 5) when a rating button is tapped.
+  final ValueChanged<int> onRate;
+  final bool isSubmitting;
 
-  const _CorrectionCard({required this.correction, required this.onTap});
+  const _CorrectionCard({
+    required this.correction,
+    required this.onTap,
+    required this.onRate,
+    this.isSubmitting = false,
+  });
 
   Color _typeColor(CorrectionType type) {
     switch (type) {
@@ -215,7 +293,7 @@ class _CorrectionCard extends StatelessWidget {
     final typeColor = _typeColor(correction.type);
 
     return GlassCard(
-      onTap: onTap,
+      onTap: isSubmitting ? null : onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -260,6 +338,27 @@ class _CorrectionCard extends StatelessWidget {
                   ),
                 ),
               ),
+              if (correction.occurrenceCount > 1) ...[
+                const SizedBox(width: AppSpacing.xs),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xs,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentPrimary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Text(
+                    '×${correction.occurrenceCount}',
+                    style: const TextStyle(
+                      color: AppColors.accentPrimary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
               const Spacer(),
               Text(
                 Sm2Service.getNextReviewText(correction),
@@ -312,7 +411,63 @@ class _CorrectionCard extends StatelessWidget {
               ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
           ],
+          const SizedBox(height: AppSpacing.sm),
+          _RatingBar(onRate: onRate, disabled: isSubmitting),
         ],
+      ),
+    );
+  }
+}
+
+/// The SM-2 rating bar: Again / Hard / Good / Easy.
+///
+/// These map to SM-2 quality scores 1 / 3 / 4 / 5. We deliberately skip 0
+/// (complete blackout) and 2 (failed but recognized) because they're hard to
+/// distinguish from "Again" in a 4-button UI, and the SM-2 interval formulas
+/// only care about the boundary at quality >= 3 (pass) vs < 3 (fail).
+class _RatingBar extends StatelessWidget {
+  final ValueChanged<int> onRate;
+  final bool disabled;
+
+  const _RatingBar({required this.onRate, this.disabled = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: _ratingButton(context, label: 'Again', quality: 1, color: AppColors.error)),
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(child: _ratingButton(context, label: 'Hard', quality: 3, color: AppColors.warning)),
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(child: _ratingButton(context, label: 'Good', quality: 4, color: AppColors.success)),
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(child: _ratingButton(context, label: 'Easy', quality: 5, color: AppColors.accentPrimary)),
+      ],
+    );
+  }
+
+  Widget _ratingButton(
+    BuildContext context, {
+    required String label,
+    required int quality,
+    required Color color,
+  }) {
+    return SizedBox(
+      height: 36,
+      child: OutlinedButton(
+        onPressed: disabled ? null : () => onRate(quality),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: color,
+          side: BorderSide(color: color.withValues(alpha: 0.5)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
       ),
     );
   }

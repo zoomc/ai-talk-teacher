@@ -70,15 +70,54 @@ class ChatRepository {
     );
   }
 
+  /// Permanently delete a session and all of its messages + corrections.
+  ///
+  /// SQLite FK enforcement is off by default in sqflite, so we delete the
+  /// child rows explicitly in a transaction. Corrections tied to this session
+  /// are removed too — they're meaningless once the conversation that produced
+  /// them is gone.
+  Future<void> deleteSession(String id) async {
+    final db = await DatabaseHelper.database;
+    await db.transaction((txn) async {
+      // Delete corrections whose session_id matches, or whose message_id
+      // belongs to a message in this session.
+      await txn.delete(
+        'corrections',
+        where: 'session_id = ? OR message_id IN '
+            '(SELECT id FROM chat_messages WHERE session_id = ?)',
+        whereArgs: [id, id],
+      );
+      await txn.delete(
+        'chat_messages',
+        where: 'session_id = ?',
+        whereArgs: [id],
+      );
+      await txn.delete(
+        'chat_sessions',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    });
+  }
+
   // ========== Messages ==========
 
-  Future<List<ChatMessage>> getMessages(String sessionId) async {
+  /// Load a session's messages, optionally capped to the most recent [limit]
+  /// rows. Capping protects against O(N²) token growth on long conversations:
+  /// the LLM history is rebuilt every turn, so an unbounded history means the
+  /// Nth turn re-sends all N-1 previous messages. Default keeps the last 40
+  /// messages (~20 turns), which fits the spine's "1-4 sentences per turn".
+  Future<List<ChatMessage>> getMessages(
+    String sessionId, {
+    int limit = 40,
+  }) async {
     final db = await DatabaseHelper.database;
     final maps = await db.query(
       'chat_messages',
       where: 'session_id = ?',
       whereArgs: [sessionId],
       orderBy: 'created_at ASC',
+      limit: limit,
     );
     return maps.map((m) => ChatMessage.fromMap(m)).toList();
   }
@@ -93,6 +132,22 @@ class ChatRepository {
   Future<List<Correction>> getAllCorrections() async {
     final db = await DatabaseHelper.database;
     final maps = await db.query('corrections', orderBy: 'created_at DESC');
+    return maps.map((m) => Correction.fromMap(m)).toList();
+  }
+
+  /// All corrections belonging to a session (regardless of message_id), newest
+  /// first. Used by the chat screen's inline-corrections provider so we don't
+  /// pull the entire corrections table on every chat-screen rebuild — the
+  /// previous FutureBuilder ran `getAllCorrections()` which scales linearly
+  /// with the number of sessions the user has.
+  Future<List<Correction>> getCorrectionsForSession(String sessionId) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'corrections',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'created_at DESC',
+    );
     return maps.map((m) => Correction.fromMap(m)).toList();
   }
 
@@ -112,6 +167,67 @@ class ChatRepository {
   Future<void> saveCorrection(Correction correction) async {
     final db = await DatabaseHelper.database;
     await db.insert('corrections', correction.toMap());
+  }
+
+  /// Look up an existing correction by (original, corrected, type).
+  ///
+  /// Used for deduplication: when the LLM flags "I goes" → "I go" (grammar)
+  /// for the third time, we don't want three rows in the review list. Instead
+  /// we find the existing one and bump its occurrence_count + last_seen_at.
+  /// Matching ignores case and surrounding whitespace so " i goes " still
+  /// dedups against "I goes".
+  Future<Correction?> findExistingCorrection({
+    required String original,
+    required String corrected,
+    required String type,
+  }) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'corrections',
+      where:
+          'LOWER(TRIM(original)) = LOWER(TRIM(?)) AND '
+          'LOWER(TRIM(corrected)) = LOWER(TRIM(?)) AND '
+          'type = ?',
+      whereArgs: [
+        original,
+        corrected,
+        type,
+      ],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return Correction.fromMap(maps.first);
+  }
+
+  /// Insert a correction, or — if the same (original, corrected, type) already
+  /// exists — bump its occurrence_count + last_seen_at instead of creating a
+  /// duplicate. This keeps the review list focused on distinct mistakes
+  /// rather than accumulating one row per occurrence. Returns the correction
+  /// that should be considered "current" (the existing one if deduped).
+  Future<Correction> saveCorrectionDedup(Correction correction) async {
+    final existing = await findExistingCorrection(
+      original: correction.original,
+      corrected: correction.corrected,
+      type: correction.type.name,
+    );
+    if (existing == null) {
+      await saveCorrection(correction);
+      return correction;
+    }
+    final updated = existing.copyWith(
+      occurrenceCount: existing.occurrenceCount + 1,
+      lastSeenAt: DateTime.now(),
+      // Refresh the explanation if the LLM gave a (possibly better) one this
+      // time and the old one was missing. Don't overwrite a non-null old
+      // explanation — the first phrasing is usually fine and we avoid churn.
+      explanation: existing.explanation ?? correction.explanation,
+      // Keep the latest sighting context so the user can jump to the most
+      // recent occurrence.
+      messageId: correction.messageId ?? existing.messageId,
+      sessionId: correction.sessionId ?? existing.sessionId,
+    );
+    await updateCorrection(updated);
+    return updated;
   }
 
   Future<void> updateCorrection(Correction correction) async {

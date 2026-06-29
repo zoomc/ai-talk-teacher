@@ -28,7 +28,11 @@ class LlmService {
             'model': profile.model,
             'messages': messages,
             'temperature': 0.7,
-            'max_tokens': 1000,
+            // 400 tokens aligns with the spine's "1–4 sentences per turn"
+            // rule (≈80–120 tokens). The previous 1000 was 8–10x over budget
+            // and encouraged rambling that violated the spine. 400 leaves
+            // headroom for the corrections JSON block at the end.
+            'max_tokens': 400,
           }),
         )
         .timeout(const Duration(seconds: 60));
@@ -68,6 +72,14 @@ class LlmService {
   }
 
   /// Build messages array for the API call.
+  ///
+  /// The system prompt is passed through UNCHANGED. The corrections-JSON
+  /// output contract already lives inside the spine produced by
+  /// [TutorPromptBuilder.build] — appending it again here (as the previous
+  /// implementation did) duplicated ~180 tokens every turn and sometimes
+  /// contradicted the spine. Passing the prompt through verbatim also keeps
+  /// it byte-identical across turns, which lets providers with prefix prompt
+  /// caching (e.g. DeepSeek) reuse the cached system segment.
   List<Map<String, String>> _buildMessages(
     List<ChatMessage> history,
     String systemPrompt,
@@ -75,22 +87,8 @@ class LlmService {
   ) {
     final messages = <Map<String, String>>[];
 
-    // System prompt with correction instructions
-    messages.add({
-      'role': 'system',
-      'content': '''$systemPrompt
-
-IMPORTANT: When you notice grammar, vocabulary, or pronunciation errors in the student's message, naturally correct them in your response by restating the correct version. Do NOT interrupt the conversation flow.
-
-At the end of your response, if there were any errors, add a JSON block like this:
-```corrections
-[
-  {"original": "what student said", "corrected": "correct version", "type": "grammar|vocabulary|pronunciation", "explanation": "brief explanation"}
-]
-```
-
-If there were no errors, do not include the corrections block.''',
-    });
+    // System prompt (correction instructions + JSON contract already inside).
+    messages.add({'role': 'system', 'content': systemPrompt});
 
     // Chat history
     for (final msg in history) {

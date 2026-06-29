@@ -5,7 +5,7 @@ import 'package:path_provider/path_provider.dart';
 class DatabaseHelper {
   static Database? _database;
   static const String _dbName = 'speakflow.db';
-  static const int _dbVersion = 2;
+  static const int _dbVersion = 3;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -117,6 +117,8 @@ class DatabaseHelper {
         interval_days INTEGER NOT NULL DEFAULT 0,
         next_review_at TEXT,
         created_at TEXT NOT NULL,
+        occurrence_count INTEGER NOT NULL DEFAULT 1,
+        last_seen_at TEXT NOT NULL,
         FOREIGN KEY (message_id) REFERENCES chat_messages(id),
         FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
       )
@@ -349,6 +351,27 @@ class DatabaseHelper {
 
       // LLM profiles created before v2 default to 'custom' provider_id, which is
       // correct since they already carry their own base_url + model.
+    }
+
+    if (oldVersion < 3) {
+      // v3 adds dedup tracking columns to corrections so the same mistake
+      // flagged across sessions increments a counter instead of producing
+      // duplicate rows. Back-fill existing rows: occurrence_count = 1 and
+      // last_seen_at = created_at (the only timestamp we have).
+      final batch = db.batch();
+      batch.execute(
+        'ALTER TABLE corrections ADD COLUMN occurrence_count INTEGER NOT NULL DEFAULT 1',
+      );
+      batch.execute(
+        'ALTER TABLE corrections ADD COLUMN last_seen_at TEXT',
+      );
+      await batch.commit();
+      // Populate last_seen_at for rows that pre-date the column. ALTER TABLE
+      // ... ADD COLUMN with NOT NULL is impossible without a default, so we
+      // added it nullable above and back-fill here.
+      await db.execute(
+        "UPDATE corrections SET last_seen_at = created_at WHERE last_seen_at IS NULL",
+      );
     }
   }
 

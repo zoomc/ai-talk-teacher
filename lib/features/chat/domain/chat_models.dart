@@ -19,6 +19,13 @@ class Correction {
   final int intervalDays;
   final DateTime? nextReviewAt;
   final DateTime createdAt;
+  // How many times this exact mistake has been seen across sessions. Used
+  // for deduplication: when the LLM flags the same (original, corrected, type)
+  // again, we increment this instead of inserting a duplicate row.
+  final int occurrenceCount;
+  // Last time this mistake was flagged. Drives "recently seen" sort and lets
+  // the user see recurring errors vs one-offs.
+  final DateTime lastSeenAt;
 
   Correction({
     String? id,
@@ -33,8 +40,11 @@ class Correction {
     this.intervalDays = 0,
     this.nextReviewAt,
     DateTime? createdAt,
+    this.occurrenceCount = 1,
+    DateTime? lastSeenAt,
   }) : id = id ?? _uuid.v4(),
-       createdAt = createdAt ?? DateTime.now();
+       createdAt = createdAt ?? DateTime.now(),
+       lastSeenAt = lastSeenAt ?? createdAt ?? DateTime.now();
 
   Correction copyWith({
     String? original,
@@ -48,6 +58,8 @@ class Correction {
     int? intervalDays,
     DateTime? nextReviewAt,
     bool clearNextReviewAt = false,
+    int? occurrenceCount,
+    DateTime? lastSeenAt,
   }) {
     return Correction(
       id: id,
@@ -64,6 +76,8 @@ class Correction {
           ? null
           : (nextReviewAt ?? this.nextReviewAt),
       createdAt: createdAt,
+      occurrenceCount: occurrenceCount ?? this.occurrenceCount,
+      lastSeenAt: lastSeenAt ?? this.lastSeenAt,
     );
   }
 
@@ -81,6 +95,8 @@ class Correction {
       'interval_days': intervalDays,
       'next_review_at': nextReviewAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
+      'occurrence_count': occurrenceCount,
+      'last_seen_at': lastSeenAt.toIso8601String(),
     };
   }
 
@@ -100,6 +116,11 @@ class Correction {
           ? DateTime.parse(map['next_review_at'] as String)
           : null,
       createdAt: DateTime.parse(map['created_at'] as String),
+      // v3 migration back-fills these for pre-existing rows.
+      occurrenceCount: (map['occurrence_count'] as int?) ?? 1,
+      lastSeenAt: map['last_seen_at'] != null
+          ? DateTime.parse(map['last_seen_at'] as String)
+          : DateTime.parse(map['created_at'] as String),
     );
   }
 }

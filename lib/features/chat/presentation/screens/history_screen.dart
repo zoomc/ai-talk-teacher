@@ -62,7 +62,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Delete conversation?'),
         content: Text(
-          'Are you sure you want to delete "${session.topic ?? 'Free Talk'}"?',
+          'Are you sure you want to delete "${session.topic ?? 'Free Talk'}"? '
+          'This also removes its messages and corrections.',
         ),
         actions: [
           TextButton(
@@ -79,12 +80,32 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         ],
       ),
     );
-    if (confirmed == true && mounted) {
-      // deleteSession is not implemented in ChatRepository yet.
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Delete not implemented')));
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(chatRepoProvider).deleteSession(session.id);
+      // Optimistically remove from the in-memory list so the UI updates
+      // immediately without waiting for a full reload.
+      if (mounted) {
+        setState(() {
+          _sessions.removeWhere((s) => s.id == session.id);
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Conversation deleted')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete: ${_safeError(e)}')),
+        );
+      }
     }
+  }
+
+  String _safeError(Object e) {
+    final raw = e.toString();
+    if (raw.length > 120) return '${raw.substring(0, 120)}...';
+    return raw;
   }
 
   @override
@@ -166,61 +187,70 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                               horizontal: AppSpacing.lg,
                               vertical: AppSpacing.xs,
                             ),
-                            child: GestureDetector(
-                              onLongPress: () => _confirmDelete(session),
-                              child: GlassCard(
-                                onTap: () =>
-                                    context.push('/chat/${session.id}'),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 44,
-                                      height: 44,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.accentPrimary
-                                            .withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(
-                                          AppRadius.md,
+                            child: GlassCard(
+                              onTap: () =>
+                                  context.push('/chat/${session.id}'),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accentPrimary
+                                          .withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(
+                                        AppRadius.md,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.chat_bubble_outline,
+                                      color: AppColors.accentPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.md),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          session.topic ?? 'Free Talk',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.titleMedium,
                                         ),
-                                      ),
-                                      child: const Icon(
-                                        Icons.chat_bubble_outline,
-                                        color: AppColors.accentPrimary,
-                                      ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          _formatTime(session.updatedAt),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color:
+                                                    AppColors.textSecondary,
+                                              ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(width: AppSpacing.md),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            session.topic ?? 'Free Talk',
-                                            style: Theme.of(
-                                              context,
-                                            ).textTheme.titleMedium,
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            _formatTime(session.updatedAt),
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  color:
-                                                      AppColors.textSecondary,
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const Icon(
-                                      Icons.arrow_forward_ios,
-                                      size: 16,
+                                  ),
+                                  // Explicit delete button so the action is
+                                  // discoverable. Long-press is kept as a
+                                  // power-user shortcut.
+                                  IconButton(
+                                    tooltip: 'Delete conversation',
+                                    icon: const Icon(
+                                      Icons.delete_outline,
                                       color: AppColors.textMuted,
+                                      size: 20,
                                     ),
-                                  ],
-                                ),
+                                    onPressed: () => _confirmDelete(session),
+                                  ),
+                                  const Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 16,
+                                    color: AppColors.textMuted,
+                                  ),
+                                ],
                               ),
                             ),
                           );
