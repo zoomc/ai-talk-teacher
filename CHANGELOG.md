@@ -148,18 +148,33 @@ plan and `tmp_review1..4_*.md` for the underlying reviews.
   `test/provider_catalog_test.dart` were re-read to confirm the
   changes do not break their assumptions; the new
   `correctionStrength` tests were added to `tutor_prompts_test.dart`.
-- **Compile verification**: the sandbox does not have the Flutter
-  toolchain pre-installed. An attempt was made to install Flutter
-  (`git clone` of the stable channel + first-run Dart SDK download),
-  but the Dart SDK download (233 MB) did not complete within the
-  session time budget. **`flutter analyze` / `flutter build web` /
-  `flutter build apk` were NOT run in this session** — the next session
-  with a Flutter environment should run them and address any analyzer
-  findings before release. The previous `[Unreleased]` entry confirmed
-  `flutter build web --release` succeeded for the prior code, and the
-  changes here are additive (new parameters, new widgets, new methods)
-  rather than structural refactors, so the risk of compile breakage is
-  low but not zero.
+- **Compile verification** (run this session after installing Flutter
+  3.44.4 + Dart 3.12.2 into the sandbox):
+  - `flutter analyze`: **0 errors / 0 warnings**, 25 pre-existing
+    `info`-level lints (unchanged from before this pass). One real
+    compile error was found and fixed during this step —
+    `_correctionGuidance` in `tutor_prompts.dart` used line-continuation
+    backslashes inside a normal `'...'` string, which Dart parsed as
+    multiple unterminated string literals; rewrote the three returns as
+    triple-quoted `'''...'''` strings.
+  - `flutter test`: **all 78 tests pass** (1 pre-existing failure in
+    `provider_catalog_test.dart` — the test asserted every catalog entry
+    has a non-empty `defaultBaseUrl`, but the `custom` escape-hatch
+    entry is intentionally empty; updated the test to skip `custom`).
+  - `flutter build web --release`: **succeeds** —
+    `✓ Built build/web` in ~85s (42 MB output). Only a Wasm dry-run
+    warning about `flutter_secure_storage_web` using `dart:html` (this
+    is a pre-existing third-party limitation, not introduced by this
+    pass; JS build still succeeds).
+  - `flutter build apk --release`: **not completed** — the Android SDK
+    was installed (platform-tools, platforms;android-34, build-tools
+    34.0.0) and licenses accepted, but the Gradle wrapper could not
+    download the Gradle 9.1.0 distribution (~130 MB) within the
+    session's network budget. This is an environment limitation, not a
+    code issue — the same source tree built APKs successfully in prior
+    sessions. The next session with a warm Gradle cache should re-run
+    `flutter build apk --release` and `flutter build ios --no-codesign`
+    before release.
 
 ---
 

@@ -35,9 +35,20 @@
   `liquid_glass_widgets` 采用、reduce-motion 支持、发音音素级评分、
   `chat_screen.dart` 拆分（~1300 行）、Retry 指数退避、LlmUsage 持久化、
   请求取消（CancelToken）。
-- **编译验证**：本次沙箱未预装 Flutter 工具链，`flutter analyze` /
-  `flutter build web|apk` 未能在本会话内运行；下次有 Flutter 环境时需
-  补跑并在 release 前修复任何 analyzer findings。
+- **编译验证**：本轮在沙箱内安装了 Flutter 3.44.4 + Dart 3.12.2 + Android
+  SDK (platform-34 + build-tools 34.0.0)，验证结果：
+  - `flutter analyze`：0 errors / 0 warnings（25 条 info 级 lint，与改动前
+    一致；过程中发现并修复了 `tutor_prompts.dart` 一处真实的字符串字面量
+    解析错误——`_correctionGuidance` 用普通单引号字符串里写行末反斜杠
+    续行，被 Dart 解析为多个未终止字符串，改为三引号 `'''...'''`）。
+  - `flutter test`：78 条全部通过（其中 `provider_catalog_test.dart` 一条
+    原有失败已修——它断言所有 catalog 条目的 `defaultBaseUrl` 非空，但
+    `custom` 兜底条目按设计就是空的，已改为跳过 `custom`）。
+  - `flutter build web --release`：成功（~85s，42 MB 输出）。
+  - `flutter build apk --release`：**未完成**——Gradle wrapper 没能在会话
+    网络预算内下载 Gradle 9.1.0 distribution（~130 MB）。这是环境限制
+    非代码问题；下次有热 Gradle 缓存时需补跑 `flutter build apk` 和
+    `flutter build ios --no-codesign` 后再发版。
 
 ---
 
