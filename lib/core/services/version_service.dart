@@ -105,7 +105,12 @@ class VersionService extends StateNotifier<VersionState> {
   bool _disposed = false;
 
   static const _pollInterval = Duration(minutes: 5);
-  static const _prefLastDismissed = 'sf_install_last_version_dismissed';
+  // Note: this key stores the *version-update* dismissal (the server-side
+  // version string the user chose to dismiss). It's separate from
+  // `sf_install_banner_dismissed_v1` in install_prompt_service.dart,
+  // which stores the *install-prompt* dismissal. The `sf_version_`
+  // prefix makes the ownership unambiguous.
+  static const _prefLastDismissed = 'sf_version_last_dismissed';
 
   Future<void> _init() async {
     // Hook the SW update bridge first so we catch any waiting SW from the

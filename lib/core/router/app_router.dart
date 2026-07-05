@@ -30,6 +30,20 @@ class AppRouter {
       final isOnboarding = state.matchedLocation == '/onboarding';
       final isPlacement = state.matchedLocation == '/placement';
 
+      // PWA manifest shortcuts deep-link here with `?action=...` (see
+      // web/manifest.json). Map the action to the real route so the
+      // launcher shortcuts actually take the user somewhere useful
+      // instead of silently landing on the home screen.
+      final action = state.uri.queryParameters['action'];
+      if (action != null) {
+        if (action == 'review') return '/review';
+        if (action == 'scenarios') return '/scenarios';
+        // 'free-talk' falls through to '/' — the home screen handles
+        // session creation via its "Free Talk" quick-action card, and
+        // auto-starting a session from a cold launch would surprise
+        // the user (no provider configured yet, etc.).
+      }
+
       // Check if onboarding is completed
       final hasCompletedOnboarding = await _profileRepo
           .hasCompletedOnboarding();

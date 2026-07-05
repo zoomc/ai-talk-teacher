@@ -115,20 +115,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       subtitle: '${_ttsSpeed}x',
                       onTap: _showTtsSpeedDialog,
                     ),
-                    _SettingsTile(
-                      icon: Icons.language,
-                      title: 'Interface Language',
-                      subtitle: 'English (coming soon)',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Interface language switching coming in a future update',
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                    // Interface Language tile removed — it was a "coming
+                    // soon" placeholder that read as a real tappable
+                    // affordance and felt like a bug. We'll re-add it
+                    // when the feature actually lands.
                   ],
                 ),
 
@@ -154,22 +144,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: 'Data',
                   children: [
                     _SettingsTile(
-                      icon: Icons.download_outlined,
-                      title: 'Export Learning Data',
-                      subtitle: 'Download your progress and corrections (coming soon)',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Export coming soon')),
-                        );
-                      },
-                    ),
-                    _SettingsTile(
                       icon: Icons.delete_outline,
                       title: 'Clear Cache',
                       subtitle: 'Free up storage space',
                       onTap: _clearCache,
                       isDestructive: true,
                     ),
+                    // Export Learning Data tile removed — same reason as
+                    // Interface Language above. Will re-add with the
+                    // real export flow.
                   ],
                 ),
 

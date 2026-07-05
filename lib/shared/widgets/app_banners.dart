@@ -60,11 +60,18 @@ class _AppBannersState extends ConsumerState<AppBanners> {
     final showInstall = ref.watch(shouldShowInstallBannerProvider);
 
     // Route-aware suppression: hide banners entirely on first-run /
-    // full-screen routes that have no AppBar. `maybeOf` returns null
-    // when AppBanners is rendered outside the GoRouter subtree (e.g.
-    // during very first frame before the router has attached) — in
-    // that case we treat the route as unknown and don't suppress.
-    final route = GoRouterState.maybeOf(context)?.uri.path ?? '';
+    // full-screen routes that have no AppBar. `GoRouterState.of` throws
+    // when AppBanners is rendered outside the router subtree (e.g.
+    // during very first frame before the router has attached), so we
+    // guard with try/catch — on failure we treat the route as unknown
+    // and don't suppress (the safe default — better to show a banner
+    // than to crash).
+    String route;
+    try {
+      route = GoRouterState.of(context).uri.path;
+    } catch (_) {
+      route = '';
+    }
     final hiddenRoute = _kHiddenRoutes.any(route.startsWith);
 
     final showUpdateBanner = showUpdate && !hiddenRoute;
@@ -392,7 +399,13 @@ class _BannerCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   message,
-                  maxLines: 1,
+                  // 2 lines so the version detail "1.0.0+1 → 1.0.1+2"
+                  // doesn't truncate on iPhone SE (320pt). The parent
+                  // _MeasureSize already supports height changes via the
+                  // RenderProxyBox reporter, so growing to 2 lines is
+                  // safe and the MediaQuery padding injection below
+                  // updates automatically.
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textPrimary,

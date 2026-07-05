@@ -1,13 +1,90 @@
 # SpeakFlow — AI 口语练习应用
 
 > 跨平台 AI 英语口语练习应用
-> 更新日期：2026-06-29
+> 更新日期：2026-07-05
 > 技术栈：Flutter（Dart）
 > 目标平台：macOS · Web · iOS · Android
 
 ---
 
-## 0. 当前状态（2026-06-29 综合评审后）
+## 0. 当前状态（2026-07-05 iPhone/iPad 适配 + SPA/PWA 后）
+
+本轮在 2026-06-29 综合评审的基础上，针对 **Web 版** 完成了两件大事：
+
+1. **iPhone / iPad 自适应适配**：不是大小屏硬拉伸，而是按
+   FormFactor（phone / tablet / desktop，按 longestSide 分类）+
+   横竖屏 + 短边阈值给出最合适的布局——iPad mini 竖屏堆叠、
+   iPad 横屏 / 大平板竖屏左右分栏、iPhone 横屏隐藏角色面板让
+   聊天呼吸、iPhone SE 等窄屏 2 行 banner / FittedBox 防溢出、
+   44pt 最小触控目标。详见 `lib/core/util/responsive.dart` 和
+   `CHANGELOG.md` 的「iPhone / iPad responsive + SPA / PWA pass」段。
+2. **SPA / PWA 化**：完整的 `manifest.json` + 品牌 splash +
+   Service Worker 离线外壳 + `version.json` 5 分钟轮询 + SW
+   waiting 检测 + 一键更新（`forceReload` 触发 `SKIP_WAITING` 并
+   cache-bust 重载）+ 安装引导（Chrome/Edge 原生 `beforeinstallprompt`，
+   iOS Safari 三步 A2HS 引导，排除 Instagram/Facebook 等内嵌浏览器）。
+   版本检查支持 tab 隐藏暂停 / 可见恢复 + 立即检查；404 / 网络错误
+   清空服务器状态防幻影 banner；dismissal 按版本字符串持久化，
+   新版本会重新弹出。
+
+3 轮 UI / 交互 / 整体式样 review 均已完成，所有 HIGH+MEDIUM 级别
+问题修复。多轮测试：`flutter analyze` 0 errors / 0 warnings
+（25 条 info 级 lint 不变），`flutter test` 92 条全过
+（新增 14 条 `version_service_test.dart`），`flutter build web
+--release` 成功。
+
+### 已落地（本轮）
+
+- **响应式**：`FormFactor` 枚举 + 一系列 helper（`shouldUseSideBySide`、
+  `shouldHideStackedCharacterPanel`、`characterSize`、
+  `gridColumnCount`、`statCardColumnCount`、`bubbleMaxWidthFraction`、
+  `useBottomNav` / `useNavRail`、`minTapTarget`）；iPad mini 竖屏
+  堆叠、iPhone 横屏短视口隐藏面板、NavRail SafeArea 修正、
+  `_StatCard` FittedBox 防溢出、`_QuickActionGrid` 改用 LayoutBuilder、
+  iPad 横屏背景渐变铺满 Scaffold（不再只在中间 ~1040pt）。
+- **PWA 外壳**：`web/manifest.json`（standalone + maskable icons +
+  shortcuts）、`web/index.html` 品牌 splash（脉动 logo + 词标 +
+  动画点 + safe-area 适配 + 15s 兜底）、`web/version.json`、
+  `web/version_check.js`（SW 更新桥）、`web/install_prompt.js`
+  （安装引导桥，含 iPadOS 13+ MacIntel 启发式 + 内嵌浏览器排除）。
+- **版本检查 / 更新机制**：`VersionService`（5 分钟轮询 + 可见性
+  门控 + 404 清状态 + 8s Completer 防 SW 竞态）、`applyUpdate`
+  （SW 已 waiting → `forceReload`；否则 `triggerSwUpdate` + 等
+  `onUpdateReady` 再 `forceReload`）、`dismissUpdate`（版本字符串
+  持久化 + 会话级 SW 抑制）、`compareVersions`（semver + build 元数据）。
+- **安装引导**：`InstallPromptService`（30s 延迟 + 持久化 dismissal +
+  `resetDismissal` 撤销）+ iOS 三步 A2HS 模态底 sheet + 路由感知
+  抑制（onboarding / placement 不显示 banner）。
+- **非遮挡 banner**：`AppBanners` 通过 `_MeasureSize`（RenderProxyBox）
+  测量 banner 高度并注入 `MediaQuery.padding.top`，让 Scaffold /
+  AppBar 下移而不是被遮挡。`AppBanners` 放在 `MaterialApp.router`
+  的 `builder` 里以使 `GoRouterState.of` 可用。
+- **离线感知**：`ConnectivityService`（`navigator.onLine` +
+  online/offline 事件）+ 聊天输入栏离线提示条。
+- **Settings 新增 App 段**：手动「Check for updates」+「Show install
+  banner again」（撤销 dismissal）；删除了「Interface Language」和
+  「Export Learning Data」假可点的 coming-soom 占位。
+- **修复 Round 3 HIGH**：`GoRouterState.of` 跨 router 抛异常（移到
+  `builder` + try/catch）、聊天输入栏双键盘 inset（~340pt 浮空）、
+  favicon 404（指向 `icons/Icon-192.png`）、Tutor 选择后不刷新（await
+  + `_loadTutorIdentity`）、PWA shortcuts no-op（router redirect）。
+
+### 仍未做（后续工作）
+
+- LLM Streaming（SSE）、Placement 重写为 AI 对话评估、i18n（中/英）、
+  `liquid_glass_widgets` 采用、reduce-motion 支持、发音音素级评分、
+  `chat_screen.dart` 拆分（~1300 行）、Retry 指数退避、LlmUsage 持久化、
+  请求取消（CancelToken）、Inter 字体打包（当前静默回退到系统 sans）、
+  路由切换 250-300ms fade/slide 转场、raw error 文案友好化、
+  accessibility（`MediaQuery.accessibleNavigation` / disableAnimations）。
+- iOS / Android 端真机适配测试待 Flutter 工具链环境下验证
+  （`flutter build apk --release` 和 `flutter build ios --no-codesign`
+  上次因沙箱网络预算没下到 Gradle 9.1.0 distribution，下次热缓存时
+  补跑）。
+
+---
+
+## 0.1 上一轮状态（2026-06-29 综合评审后）
 
 经过对学习闭环 / UI / 配置 / AI 使用四个维度的全面 review，本次迭代完成了
 全部 P0 阻断项和 P1 关键项的修复（详见 `CHANGELOG.md` 的 `[Unreleased]` 段，

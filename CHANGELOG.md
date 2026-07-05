@@ -178,6 +178,242 @@ plan and `tmp_review1..4_*.md` for the underlying reviews.
 
 ---
 
+### iPhone / iPad responsive + SPA / PWA pass
+
+Conducted a focused pass on (1) iPhone/iPad responsive adaptation
+across portrait/landscape and screen-size classes (no hard-stretch —
+each form factor gets its own layout regime), and (2) SPA-ification of
+the web build (offline-first shell, real version-check + update
+mechanism, install-prompt guidance). Three review rounds were
+performed; see the commit message for the per-round breakdown.
+
+#### Added — iPhone / iPad responsive
+- **Centralized form-factor classification** in
+  `lib/core/util/responsive.dart`: a `FormFactor` enum
+  (phone / tablet / desktop) classified by the *long edge* so an iPad
+  reports the same form factor in portrait (768×1024) and landscape
+  (1024×768). `shouldUseSideBySide`, `shouldHideStackedCharacterPanel`,
+  `characterSize`, `characterPanelHeight`, `gridColumnCount`,
+  `statCardColumnCount`, `bubbleMaxWidthFraction`, `useBottomNav`,
+  `useNavRail`, `minTapTarget` helpers drive per-screen layouts.
+- **iPad mini portrait stacks instead of side-by-side** — at 768pt
+  wide, a 280pt panel + 488pt chat feels cramped, so portrait tablets
+  <900pt stack the character panel above the chat. Landscape tablets
+  (≥1024pt) and portrait tablets ≥900pt keep side-by-side.
+- **iPhone landscape short viewport handling** — at ~390pt tall the
+  stacked character panel eats half the screen, so it's hidden
+  entirely and the chat breathes; the AppBar still identifies the
+  tutor.
+- **NavRail SafeArea** fix — `MainShell` has no AppBar to consume the
+  top inset, so `_SideNavRail` now uses `SafeArea(child: …)` (top:
+  true) instead of `SafeArea(top: false, …)`. Brand mark + nav items
+  no longer hide under the status bar on iPad.
+- **`_StatCard` overflow fix** — value Text wrapped in `FittedBox` +
+  `maxLines: 1` so large mastery counts don't clip on iPhone SE.
+- **`_QuickActionGrid` uses `LayoutBuilder`** instead of
+  `MediaQuery.sizeOf(context).width` so card sizing is correct inside
+  the outer `Padding(EdgeInsets.all(AppSpacing.lg))` (was double-
+  subtracting the horizontal padding).
+- **Background gradient moved outside `ConstrainedBox`** on
+  `progress_screen`, `history_screen`, `tutor_selection_screen` —
+  previously the gradient only spanned ~1040pt in the center of an
+  iPad landscape (1366pt), leaving bare scaffold sides. Now the
+  gradient covers the full Scaffold body and only the inner content
+  is constrained.
+- **iOS HIG 44pt minimum touch targets** enforced on banner action
+  buttons, banner dismiss, record button, send button, listen button,
+  rating buttons via `Responsive.minTapTarget`.
+
+#### Added — SPA / PWA shell
+- **`web/manifest.json`** — full PWA manifest: name/short_name
+  SpeakFlow, theme_color/background_color #0A0E1A (brand deep-space-
+  blue), `display: standalone`, `display_override:
+  ["window-controls-overlay", "standalone", "minimal-ui"]`,
+  `orientation: "any"`, shortcuts (Free Talk / Review / Scenarios),
+  192/512 icons + maskable variants.
+- **`web/index.html`** — complete rewrite with brand splash
+  (pulsing logo + wordmark + tagline + animated dots, safe-area aware
+  via `env(safe-area-inset-*)`), `viewport-fit=cover` for notch /
+  Dynamic Island, theme-color meta, apple-mobile-web-app-* meta,
+  apple-touch-icon, pre-Flutter bridge scripts (`version_check.js` +
+  `install_prompt.js`, deferred), `flutter-first-frame` listener
+  removes splash, **15s safety fallback** `setTimeout(_removeSplash,
+  15000)` so the splash never blocks forever if Flutter stalls.
+- **`web/version.json`** — server-side version marker
+  (`version`, `buildTime`, `commit`, `notes`) polled by the client
+  every 5 min.
+- **`web/version_check.js`** — SW update bridge on
+  `window.__speakflowUpdate`: `hasWaitingSW()`,
+  `onUpdateReady(cb)`, `forceReload()` (posts `SKIP_WAITING` to
+  waiting SW, then cache-bust reloads with `?sf_refresh=<ts>`,
+  cleans the URL via `history.replaceState` on the reloaded page),
+  `triggerSwUpdate()` (calls `registration.update()`),
+  `onVisibilityChange(cb)` (real visibility changes only — no
+  redundant immediate fire on subscribe).
+- **`web/install_prompt.js`** — PWA install bridge on
+  `window.__speakflowInstall`: `canPromptNative()`,
+  `promptNative()` (returns Promise<'accepted'|'dismissed'|
+  'unavailable'>), `isIOSSafari()` (includes iPadOS 13+ MacIntel
+  heuristic, excludes in-app browsers like Instagram/Facebook/
+  LinkedIn/X/Snapchat), `isStandalone()`,
+  `onAvailabilityChange(cb)`. Captures `beforeinstallprompt`,
+  prevents the mini-infobar, stashes the deferred event.
+
+#### Added — version check + real update mechanism (Dart side)
+- **`lib/core/services/version_service.dart`** —
+  `VersionService extends StateNotifier<VersionState>`:
+  - Polls `/version.json?ts=<cache-buster>` every 5 min.
+  - **Visibility-gated polling** — pauses the timer when the tab is
+    hidden, resumes + fires an immediate check on resume.
+  - **404 / error path clears server state** so a stale successful
+    poll doesn't leave a phantom banner for a version that no longer
+    exists. SW signal (`swUpdateWaiting`) is preserved across this
+    path (independent of the server).
+  - **`compareVersions(a, b)`** — semver comparison with build-
+    metadata tiebreaker (`1.0.0+2 > 1.0.0+1`, `1.0.1 > 1.0.0+99`).
+  - **`applyUpdate()`** — two-case: if SW already waiting →
+    `forceReload()`; else → `triggerSwUpdate()` + wait for
+    `onUpdateReady` (8s Completer timeout) + `forceReload()`. This
+    avoids the race where a reload fires before the SW has downloaded
+    the new shell.
+  - **`dismissUpdate()`** — server-version dismissals persist across
+    sessions (keyed by version string, so a *newer* future version
+    re-shows the banner). SW-only dismissals are session-scoped
+    (`_swDismissedThisSession` flag) because the SW is still waiting
+    and `hookSW` re-fires `onUpdateReady` on next page load.
+- **`lib/core/services/install_prompt_service.dart`** —
+  `InstallPromptService extends StateNotifier<InstallPromptState>`:
+  30s delay timer before showing the banner (so first-time visitors
+  aren't ambushed), persisted dismissal, `resetDismissal()` so users
+  who dismissed by mistake have an undo path (wired up from Settings).
+  Reports `platformUnsupported=true` on non-web so the banner is
+  hidden.
+- **`lib/core/services/connectivity_check.dart`** —
+  `ConnectivityService extends StateNotifier<bool>` for online/offline
+  detection on web (`navigator.onLine` + online/offline window
+  events). `isOfflineProvider` convenience provider.
+- **Conditional-import bridge pattern** — `*_stub.dart` +
+  `*_web.dart` pairs for version / install / connectivity bridges so
+  the same service compiles on all platforms. Web variants use
+  `dart:js_interop` (`@JS` annotations, `.toJS` / `.toDart`); stubs
+  are no-ops.
+- **`lib/shared/widgets/app_banners.dart`** — non-occluding banner
+  overlay system:
+  - `_MeasureSize` (`SingleChildRenderObjectWidget` +
+    `RenderProxyBox`) reports banner height during `performLayout()`
+    via `scheduleMicrotask` (no post-frame-callback rebuild churn).
+  - The measured height is injected into the child's
+    `MediaQuery.padding.top` so the Scaffold/AppBar shifts down —
+    taps land on the AppBar instead of the banner.
+  - **Route-aware suppression**: banners never appear on
+    `/onboarding` or `/placement` (first-run full-screen flows with
+    no AppBar).
+  - `_UpdateBanner` — shows `currentVersion → serverVersion` arrow.
+  - `_InstallBanner` — native: "Install" button; iOS: "Show steps"
+    opens a modal bottom sheet with a 3-step Add-to-Home-Screen
+    walkthrough.
+  - Banner text `maxLines: 2` so the version detail doesn't truncate
+    on iPhone SE (320pt); the `_MeasureSize` reporter handles the
+    height change automatically.
+- **`lib/main.dart`** — `AppBanners` lives inside
+  `MaterialApp.router`'s `builder` (not wrapping it from outside) so
+  its context is within the GoRouter subtree — that's what lets
+  `GoRouterState.of(context)` work for route-aware suppression.
+
+#### Added — chat offline hint
+- **`lib/features/chat/presentation/screens/chat_screen.dart`** —
+  `_ChatInputBar` is now a `ConsumerWidget` that watches
+  `isOfflineProvider`; when offline, an `_OfflineHint` banner
+  (cloud_off icon, warning color) renders above the input Row so the
+  user knows their next send will fail until connectivity returns.
+
+#### Added — Settings: App section
+- **`lib/features/settings/presentation/screens/settings_screen.dart`**
+  — new `_AppSection` ConsumerWidget with:
+  - **"Check for updates"** tile — manual `checkNow()` with live
+    state in the subtitle (Checking… / New version X available / Up
+    to date (server: X) / Tap to check now) + SnackBar feedback.
+  - **"Show install banner again"** tile — calls
+    `InstallPromptService.resetDismissal()` so users who dismissed
+    the install banner can re-trigger it. Only rendered when
+    `installState.hasDismissed && !installState.isStandalone`.
+  - Whole section hidden on non-web (providers report
+    `platformUnsupported`).
+- Removed the "Interface Language" and "Export Learning Data"
+  placeholder tiles — they read as real tappable affordances but
+  only showed a "coming soon" SnackBar, which felt like a bug.
+  They'll re-add when the real features land.
+- "About → SpeakFlow" subtitle now shows the real bundled version
+  (`Version $kAppVersion`) instead of a hardcoded `1.0.0`.
+
+#### Fixed — Round 3 review (HIGH severity)
+- **`GoRouterState.of(context)` from outside `MaterialApp.router`** —
+  moved `AppBanners` into `MaterialApp.router`'s `builder` and
+  wrapped `GoRouterState.of` in try/catch (the call throws when
+  rendered before the router attaches). Without this the app would
+  crash on startup.
+- **Double keyboard inset in `_ChatInputBar`** — the Scaffold has
+  `resizeToAvoidBottomInset: true` (which shrinks the body by
+  `viewInsets.bottom`) AND the input bar was manually adding
+  `viewInsets.bottom` as padding, causing the text field to float
+  ~340pt above the keyboard on mobile web. Now uses
+  `safeBottom + AppSpacing.md` only.
+- **Missing favicons** — `index.html` referenced `favicon.png` and
+  `favicon.svg` that don't exist (404s). Repointed to the existing
+  `icons/Icon-192.png` and `icons/Icon-512.png`.
+- **Tutor selection didn't refresh chat UI** — `context.push(
+  '/tutor-selection')` was fire-and-forget, so after picking a new
+  tutor the AppBar title + character panel kept showing the old one
+  until the user left & re-entered the chat. Now `await`s the push
+  and calls `_loadTutorIdentity()` on resume.
+- **PWA manifest shortcuts were no-ops** — `/?action=review` and
+  `/?action=scenarios` landed on the home screen and were ignored.
+  Added a `redirect` in `AppRouter` that maps `action=review` →
+  `/review` and `action=scenarios` → `/scenarios`.
+
+#### Fixed — Round 3 review (MEDIUM severity)
+- **`statsProvider` stale on `ProgressScreen`** — added
+  `ref.invalidate(statsProvider)` on every entry so stats refresh
+  after the user reviews corrections on `ReviewScreen`.
+- **In-app browser false-positive for iOS install** — `isIOSSafari()`
+  now excludes Instagram / Facebook / LinkedIn / X / Snapchat in-app
+  browsers (their Share sheet doesn't surface "Add to Home Screen"
+  usefully).
+- **Redundant immediate `checkNow()` on page load** —
+  `version_check.js`'s `onVisibilityChange` no longer fires the
+  callback once on subscribe (the Dart side's own `_init()` already
+  does an initial check, so this was a redundant double-poll on
+  every page load).
+- **`location.reload(true)` is deprecated + `?sf_refresh=` lingered
+  in URL** — `forceReload()` now uses `history.replaceState` to drop
+  the cache-bust param on the reloaded page, and calls
+  `location.reload()` without the deprecated `forceReload` argument.
+- **Confusing shared-preferences key** —
+  `sf_install_last_version_dismissed` (which actually stores the
+  *version-update* dismissal, not the install-prompt dismissal)
+  renamed to `sf_version_last_dismissed` for unambiguous ownership.
+
+#### Tests
+- `test/version_service_test.dart` (new, 14 tests): `compareVersions`
+  equality / major-dominates / minor / patch / build-tiebreaker /
+  semver-precedence / missing-patch / non-numeric / real-world
+  ordering; `VersionState.copyWith` preserves `currentVersion` /
+  preserves unspecified fields / defaults are sane; `kAppVersion`
+  default format.
+
+#### Verification status
+- `flutter analyze`: **0 errors / 0 warnings**, 25 pre-existing
+  `info`-level lints (unchanged).
+- `flutter test`: **all 92 tests pass** (78 prior + 14 new
+  `version_service_test.dart`).
+- `flutter build web --release`: **succeeds** — `✓ Built build/web`
+  (~47s). All PWA assets present in `build/web/`: `manifest.json`,
+  `version.json`, `version_check.js`, `install_prompt.js`,
+  `flutter_service_worker.js`, icons. Wasm dry-run warning about
+  `flutter_secure_storage_web` is pre-existing and unrelated.
+
+---
+
 ### Earlier in [Unreleased]
 
 ### Added

@@ -16,6 +16,11 @@ class ProgressScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Refresh stats on every entry — the user might have just finished
+    // a review session on ReviewScreen, and showing stale counts would
+    // make it look like their work didn't register. Stats are cheap to
+    // recompute.
+    ref.invalidate(statsProvider);
     final statsAsync = ref.watch(statsProvider);
 
     return Scaffold(
