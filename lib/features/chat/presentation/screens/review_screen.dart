@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/util/responsive.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../domain/chat_models.dart';
@@ -109,27 +110,36 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Review',
-                          style: Theme.of(context).textTheme.displayLarge,
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          '${_corrections.length} errors due for review',
-                          style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(color: AppColors.textSecondary),
-                        ),
-                      ],
+                    // Flexible so the title Column shrinks instead of
+                    // pushing the AI Review button off-screen on iPhone SE
+                    // when the count line is long.
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Review',
+                            style: Theme.of(context).textTheme.displayLarge,
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            '${_corrections.length} errors due for review',
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(color: AppColors.textSecondary),
+                          ),
+                        ],
+                      ),
                     ),
-                    ElevatedButton.icon(
-                      onPressed: () => _startAIReview(context),
-                      icon: const Icon(Icons.auto_awesome, size: 18),
-                      label: const Text('AI Review'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accentPrimary,
+                    const SizedBox(width: AppSpacing.md),
+                    Flexible(
+                      flex: 0,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _startAIReview(context),
+                        icon: const Icon(Icons.auto_awesome, size: 18),
+                        label: const Text('AI Review'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accentPrimary,
+                        ),
                       ),
                     ),
                   ],
@@ -297,7 +307,13 @@ class _CorrectionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          // Wrap badges so they reflow on narrow widths instead of
+          // overflowing when type + mastery + ×count + next-review all
+          // compete for space on a 320pt screen.
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -317,7 +333,6 @@ class _CorrectionCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.xs),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.xs,
@@ -338,8 +353,7 @@ class _CorrectionCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (correction.occurrenceCount > 1) ...[
-                const SizedBox(width: AppSpacing.xs),
+              if (correction.occurrenceCount > 1)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.xs,
@@ -358,8 +372,6 @@ class _CorrectionCard extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
-              const Spacer(),
               Text(
                 Sm2Service.getNextReviewText(correction),
                 style: Theme.of(
@@ -453,7 +465,8 @@ class _RatingBar extends StatelessWidget {
     required Color color,
   }) {
     return SizedBox(
-      height: 36,
+      // 44pt meets the iOS HIG minimum touch target (was 36).
+      height: Responsive.minTapTarget,
       child: OutlinedButton(
         onPressed: disabled ? null : () => onRate(quality),
         style: OutlinedButton.styleFrom(
@@ -461,12 +474,15 @@ class _RatingBar extends StatelessWidget {
           side: BorderSide(color: color.withValues(alpha: 0.5)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-          minimumSize: Size.zero,
+          minimumSize: const Size.fromHeight(Responsive.minTapTarget),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/util/responsive.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 
@@ -64,58 +65,75 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Progress
-              Row(
-                children: List.generate(_questions.length, (i) {
-                  return Expanded(
-                    child: Container(
-                      height: 4,
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      decoration: BoxDecoration(
-                        color: i <= _currentQuestion
-                            ? AppColors.accentPrimary
-                            : AppColors.bgTertiary,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-              const SizedBox(height: AppSpacing.xxl),
+        child: Center(
+          // Constrain on iPad so the question text + option cards don't
+          // stretch edge-to-edge. Placement is a top-level route (no
+          // MainShell), so without this iPad renders full-bleed.
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: Responsive.contentMaxWidth(context),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Progress
+                  Row(
+                    children: List.generate(_questions.length, (i) {
+                      return Expanded(
+                        child: Container(
+                          height: 4,
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          decoration: BoxDecoration(
+                            color: i <= _currentQuestion
+                                ? AppColors.accentPrimary
+                                : AppColors.bgTertiary,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: AppSpacing.xxl),
 
-              Text(
-                'Quick Assessment',
-                style: Theme.of(context).textTheme.displayLarge,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Question ${_currentQuestion + 1} of ${_questions.length}',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: AppSpacing.xl),
+                  // On a short landscape phone (~390pt tall), drop the
+                  // title from displayLarge to headlineMedium so the
+                  // question + option list have room. The whole column
+                  // is now scrollable so nothing clips.
+                  Text(
+                    'Quick Assessment',
+                    style: Responsive.isShortViewport(context)
+                        ? Theme.of(context).textTheme.headlineMedium
+                        : Theme.of(context).textTheme.displayLarge,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Question ${_currentQuestion + 1} of ${_questions.length}',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
 
-              Text(
-                _questions[_currentQuestion]['question'],
-                style: Theme.of(context).textTheme.headlineLarge,
-              ),
-              const SizedBox(height: AppSpacing.xl),
+                  Text(
+                    _questions[_currentQuestion]['question'],
+                    style: Responsive.isShortViewport(context)
+                        ? Theme.of(context).textTheme.titleLarge
+                        : Theme.of(context).textTheme.headlineLarge,
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
 
-              Expanded(
-                child: ListView.builder(
-                  itemCount:
-                      (_questions[_currentQuestion]['options'] as List<String>)
-                          .length,
-                  itemBuilder: (context, index) {
-                    final option =
-                        (_questions[_currentQuestion]['options']
-                            as List<String>)[index];
+                  // Use a non-Expanded Column-friendly list: since the
+                  // whole column scrolls now, we render the options
+                  // inline instead of in an Expanded ListView (which
+                  // needs a bounded height).
+                  ...(_questions[_currentQuestion]['options'] as List<String>)
+                      .asMap()
+                      .entries
+                      .map((entry) {
+                    final index = entry.key;
+                    final option = entry.value;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                       child: GlassCard(
@@ -144,18 +162,20 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                               ),
                             ),
                             const SizedBox(width: AppSpacing.md),
-                            Text(
-                              option,
-                              style: Theme.of(context).textTheme.bodyLarge,
+                            Flexible(
+                              child: Text(
+                                option,
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
                             ),
                           ],
                         ),
                       ),
                     );
-                  },
-                ),
+                  }),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

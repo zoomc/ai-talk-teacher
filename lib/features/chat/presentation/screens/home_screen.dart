@@ -332,35 +332,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       delayMs: 900,
     );
 
-    // Phone: single column with vertical spacing (legacy look).
-    // Tablet/desktop: responsive grid with spacing between cells.
-    final cols = Responsive.gridColumnCount(context);
-    if (cols == 1) {
-      return Column(
-        children: [
-          for (int i = 0; i < actions.length; i++) ...[
-            actions[i],
-            if (i < actions.length - 1) const SizedBox(height: AppSpacing.md),
-          ],
-        ],
-      );
-    }
+    // Use LayoutBuilder so the card width is derived from the actual
+    // constraints (which already account for the MainShell / Center /
+    // ConstrainedBox chain) instead of MediaQuery.sizeOf(context).width
+    // — the latter returned the full screen width and made the grid
+    // silently collapse to fewer columns on iPad/desktop (the cards were
+    // wider than the available column, so Wrap dropped them).
+    //
+    // Note: do NOT subtract screenHorizontalPadding again — the outer
+    // Padding(EdgeInsets.all(AppSpacing.lg)) wrapper around this grid
+    // has already reserved that horizontal space, so constraints.maxWidth
+    // is the on-screen width available for cards.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cols = Responsive.gridColumnCount(context);
+        if (cols == 1) {
+          return Column(
+            children: [
+              for (int i = 0; i < actions.length; i++) ...[
+                actions[i],
+                if (i < actions.length - 1)
+                  const SizedBox(height: AppSpacing.md),
+              ],
+            ],
+          );
+        }
 
-    return Wrap(
-      spacing: AppSpacing.md,
-      runSpacing: AppSpacing.md,
-      children: [
-        for (final a in actions)
-          SizedBox(
-            width:
-                (MediaQuery.of(context).size.width -
-                    Responsive.screenHorizontalPadding(context) * 2 -
-                    AppSpacing.md * (cols - 1) -
-                    AppSpacing.lg * 2) /
-                cols,
-            child: a,
-          ),
-      ],
+        final cellWidth =
+            (constraints.maxWidth - AppSpacing.md * (cols - 1)) / cols;
+        return Wrap(
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.md,
+          children: [
+            for (final a in actions)
+              SizedBox(width: cellWidth, child: a),
+          ],
+        );
+      },
     );
   }
 

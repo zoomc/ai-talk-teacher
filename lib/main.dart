@@ -5,6 +5,7 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'features/profile/data/profile_repository.dart';
 import 'shared/providers.dart';
+import 'shared/widgets/app_banners.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,6 +62,10 @@ class SpeakFlowApp extends ConsumerWidget {
     // screen immediately rebuilds MaterialApp with the new themeMode —
     // no restart required (P1-8).
     final themeMode = ref.watch(themeModeProvider);
+    // AppBanners lives inside MaterialApp.router's `builder` (rather
+    // than wrapping it from the outside) so its context is within the
+    // GoRouter subtree — that's what lets `GoRouterState.maybeOf` work
+    // for route-aware banner suppression on first-run screens.
     return MaterialApp.router(
       title: 'SpeakFlow',
       debugShowCheckedModeBanner: false,
@@ -68,6 +73,7 @@ class SpeakFlowApp extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
       routerConfig: AppRouter.router,
+      builder: (context, child) => AppBanners(child: child!),
     );
   }
 }

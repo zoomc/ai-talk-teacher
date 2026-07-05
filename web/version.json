@@ -1,0 +1,6 @@
+{
+  "version": "1.0.0+1",
+  "buildTime": "2026-07-05T00:00:00Z",
+  "commit": "manual",
+  "notes": "Initial SPA/PWA release. iPhone/iPad responsive + offline-first shell + version check + install prompt."
+}

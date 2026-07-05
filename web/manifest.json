@@ -1,23 +1,31 @@
 {
-    "name": "speakflow",
-    "short_name": "speakflow",
+    "id": "/",
+    "name": "SpeakFlow — AI English Speaking Practice",
+    "short_name": "SpeakFlow",
+    "description": "Practice spoken English with an AI tutor. Offline-friendly notebook-style PWA with spaced-repetition review.",
     "start_url": ".",
+    "scope": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+    "orientation": "any",
+    "background_color": "#0A0E1A",
+    "theme_color": "#0A0E1A",
+    "lang": "en",
+    "dir": "ltr",
+    "categories": ["education", "productivity", "utilities"],
     "prefer_related_applications": false,
     "icons": [
         {
             "src": "icons/Icon-192.png",
             "sizes": "192x192",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         },
         {
             "src": "icons/Icon-512.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         },
         {
             "src": "icons/Icon-maskable-192.png",
@@ -30,6 +38,29 @@
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Free Talk",
+            "short_name": "Talk",
+            "description": "Jump straight into a free conversation with your AI tutor",
+            "url": "/?action=free-talk",
+            "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
+        },
+        {
+            "name": "Review",
+            "short_name": "Review",
+            "description": "Spaced-repetition review of your saved corrections",
+            "url": "/?action=review",
+            "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
+        },
+        {
+            "name": "Scenarios",
+            "short_name": "Scenarios",
+            "description": "Browse conversation scenarios",
+            "url": "/?action=scenarios",
+            "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
         }
     ]
 }

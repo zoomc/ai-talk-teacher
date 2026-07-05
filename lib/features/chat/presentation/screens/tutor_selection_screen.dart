@@ -61,45 +61,68 @@ class _TutorSelectionScreenState extends ConsumerState<TutorSelectionScreen> {
         ),
         title: const Text('Choose Your Tutor'),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: Responsive.contentMaxWidth(context),
-          ),
-          child: Container(
-            decoration: const BoxDecoration(gradient: AppColors.gradientBg),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'AI Tutors',
-                    style: Theme.of(context).textTheme.displayLarge,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Choose a tutor that matches your learning style',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.textSecondary,
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppColors.gradientBg),
+        child: SafeArea(
+          // bottom:true keeps the last tutor card + trailing xxl spacing
+          // out from behind the home indicator on notched iPhones.
+          top: false,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: Responsive.contentMaxWidth(context),
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AI Tutors',
+                      style: Theme.of(context).textTheme.displayLarge,
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-
-                  // Tutor grid
-                  ...TutorRepository.tutors.map(
-                    (tutor) => Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                      child: _TutorCard(
-                        tutor: tutor,
-                        isSelected: _selectedTutorId == tutor.id,
-                        onTap: () => _selectTutor(tutor),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Choose a tutor that matches your learning style',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: AppColors.textSecondary,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: AppSpacing.xl),
 
-                  const SizedBox(height: AppSpacing.xxl),
-                ],
+                    // Tutor grid — 1 column on phones, 2 on iPad/desktop.
+                    // Tutors are few (~6) so a 2-col grid on expanded uses
+                    // the iPad width without making the cards too narrow.
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final cols = Responsive.isPhone(context) ? 1 : 2;
+                        final cellWidth = cols == 1
+                            ? double.infinity
+                            : (constraints.maxWidth -
+                                    AppSpacing.md * (cols - 1)) /
+                                cols;
+                        final tutors = TutorRepository.tutors;
+                        return Wrap(
+                          spacing: AppSpacing.md,
+                          runSpacing: AppSpacing.md,
+                          children: [
+                            for (final tutor in tutors)
+                              SizedBox(
+                                width: cellWidth,
+                                child: _TutorCard(
+                                  tutor: tutor,
+                                  isSelected: _selectedTutorId == tutor.id,
+                                  onTap: () => _selectTutor(tutor),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: AppSpacing.xxl),
+                  ],
+                ),
               ),
             ),
           ),

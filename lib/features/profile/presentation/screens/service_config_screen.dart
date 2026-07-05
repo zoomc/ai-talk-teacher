@@ -62,22 +62,26 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: Responsive.contentMaxWidth(context),
-                ),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionHeader(
-                        context,
-                        '🧠',
-                        'AI Dialogue',
-                        'Chat completion model',
-                      ),
+          : SafeArea(
+              // bottom:true keeps Import/Export + trailing spacing out
+              // from behind the home indicator on notched iPhones.
+              top: false,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: Responsive.contentMaxWidth(context),
+                  ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader(
+                          context,
+                          '🧠',
+                          'AI Dialogue',
+                          'Chat completion model',
+                        ),
                       const SizedBox(height: AppSpacing.sm),
                       ..._llmProfiles.map(
                         (p) => _buildProfileCard(
@@ -162,6 +166,7 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                 ),
               ),
             ),
+          ),
     );
   }
 

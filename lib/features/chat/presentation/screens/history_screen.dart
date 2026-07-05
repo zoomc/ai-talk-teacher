@@ -118,16 +118,21 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         ),
         title: const Text('Chat History'),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: Responsive.contentMaxWidth(context),
-          ),
-          child: Container(
-            decoration: const BoxDecoration(gradient: AppColors.gradientBg),
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _sessions.isEmpty
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppColors.gradientBg),
+        child: SafeArea(
+          // top:false — AppBar already consumes the top inset. bottom:true
+          // keeps the last list items + trailing xxl spacing out from
+          // behind the home indicator on notched iPhones.
+          top: false,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: Responsive.contentMaxWidth(context),
+              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _sessions.isEmpty
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -261,9 +266,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       ),
                     ],
                   ),
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
     );
   }
 }

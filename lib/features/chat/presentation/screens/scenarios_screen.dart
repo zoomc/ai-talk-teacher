@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/util/responsive.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../domain/chat_models.dart';
@@ -105,8 +106,12 @@ class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
                                   ?.copyWith(color: AppColors.textSecondary),
                             ),
                           ),
+                          // Responsive height — was fixed 184 which could
+                          // clip the optional 2 stats rows + a 2-line name
+                          // on small screens. Bump up on tablets where the
+                          // cards are wider and labels wrap less.
                           SizedBox(
-                            height: 184,
+                            height: Responsive.isPhone(context) ? 188 : 210,
                             child: ListView.builder(
                               scrollDirection: Axis.horizontal,
                               padding: const EdgeInsets.symmetric(

@@ -195,34 +195,46 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
       ),
       body: _isLoadingExisting
           ? const Center(child: CircularProgressIndicator())
-          : Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: Responsive.contentMaxWidth(context),
-                ),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildNameField(),
-                        const SizedBox(height: AppSpacing.lg),
-                        _buildProviderPicker(),
-                        if (_providerDef.note != null) ...[
-                          const SizedBox(height: AppSpacing.sm),
-                          _buildNote(_providerDef.note!),
+          : SafeArea(
+              // bottom:true keeps Save/Cancel out from behind the home
+              // indicator; the keyboard inset (below) keeps them above
+              // the soft keyboard.
+              top: false,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: Responsive.contentMaxWidth(context),
+                  ),
+                  child: SingleChildScrollView(
+                    // Scaffold's `resizeToAvoidBottomInset: true` (the
+                    // default) already shrinks the body to clear the
+                    // soft keyboard, so we just need normal bottom
+                    // padding here — adding viewInsets.bottom would
+                    // double-count and leave the Save button floating
+                    // ~300pt above the keyboard.
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildNameField(),
+                          const SizedBox(height: AppSpacing.lg),
+                          _buildProviderPicker(),
+                          if (_providerDef.note != null) ...[
+                            const SizedBox(height: AppSpacing.sm),
+                            _buildNote(_providerDef.note!),
+                          ],
+                          const SizedBox(height: AppSpacing.lg),
+                          _buildTypeSpecificFields(),
+                          const SizedBox(height: AppSpacing.lg),
+                          _buildApiKeyField(),
+                          const SizedBox(height: AppSpacing.lg),
+                          _buildTestButton(),
+                          const SizedBox(height: AppSpacing.xxl),
+                          _buildSaveCancel(),
                         ],
-                        const SizedBox(height: AppSpacing.lg),
-                        _buildTypeSpecificFields(),
-                        const SizedBox(height: AppSpacing.lg),
-                        _buildApiKeyField(),
-                        const SizedBox(height: AppSpacing.lg),
-                        _buildTestButton(),
-                        const SizedBox(height: AppSpacing.xxl),
-                        _buildSaveCancel(),
-                      ],
+                      ),
                     ),
                   ),
                 ),

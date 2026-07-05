@@ -26,17 +26,25 @@ class ProgressScreen extends ConsumerWidget {
         ),
         title: const Text('Learning Progress'),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: Responsive.contentMaxWidth(context),
-          ),
-          child: Container(
-            decoration: const BoxDecoration(gradient: AppColors.gradientBg),
-            child: statsAsync.when(
-              data: (stats) => _buildContent(context, stats),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppColors.gradientBg),
+        child: SafeArea(
+          // top:false would still leave the AppBar's top inset; using the
+          // default SafeArea here is fine because AppBar already consumes
+          // the top inset. We mainly need bottom:true so the "Start Review
+          // Session" button + trailing xxl spacing don't hide behind the
+          // home indicator on notched iPhones.
+          top: false,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: Responsive.contentMaxWidth(context),
+              ),
+              child: statsAsync.when(
+                data: (stats) => _buildContent(context, stats),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Error: $e')),
+              ),
             ),
           ),
         ),
@@ -63,50 +71,11 @@ class ProgressScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
 
-          // Overview cards
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  icon: Icons.chat,
-                  label: 'Sessions',
-                  value: '${stats.totalSessions}',
-                  color: AppColors.accentPrimary,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _StatCard(
-                  icon: Icons.message,
-                  label: 'Messages',
-                  value: '${stats.totalMessages}',
-                  color: AppColors.accentSecondary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  icon: Icons.check_circle,
-                  label: 'Mastered',
-                  value: '${stats.masteredCount}',
-                  color: AppColors.success,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _StatCard(
-                  icon: Icons.schedule,
-                  label: 'Due for Review',
-                  value: '${stats.dueForReview}',
-                  color: AppColors.warning,
-                ),
-              ),
-            ],
-          ),
+          // Overview cards — reflow via Wrap so on iPhone SE we get 2
+          // columns, on iPad 3, on desktop 4. Previous fixed 2x2 Row
+          // clipped large numbers on 320pt screens and under-used space
+          // on iPad Pro.
+          _StatGrid(stats: stats),
           const SizedBox(height: AppSpacing.xl),
 
           // 7-day activity chart — renders dailyActivity (messages + corrections
@@ -226,6 +195,54 @@ class ProgressScreen extends ConsumerWidget {
   }
 }
 
+class _StatGrid extends StatelessWidget {
+  final LearningStats stats;
+  const _StatGrid({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    final cards = <_StatCard>[
+      _StatCard(
+        icon: Icons.chat,
+        label: 'Sessions',
+        value: '${stats.totalSessions}',
+        color: AppColors.accentPrimary,
+      ),
+      _StatCard(
+        icon: Icons.message,
+        label: 'Messages',
+        value: '${stats.totalMessages}',
+        color: AppColors.accentSecondary,
+      ),
+      _StatCard(
+        icon: Icons.check_circle,
+        label: 'Mastered',
+        value: '${stats.masteredCount}',
+        color: AppColors.success,
+      ),
+      _StatCard(
+        icon: Icons.schedule,
+        label: 'Due for Review',
+        value: '${stats.dueForReview}',
+        color: AppColors.warning,
+      ),
+    ];
+
+    final cols = Responsive.statCardColumnCount(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellWidth =
+            (constraints.maxWidth - AppSpacing.md * (cols - 1)) / cols;
+        return Wrap(
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.md,
+          children: [for (final c in cards) SizedBox(width: cellWidth, child: c)],
+        );
+      },
+    );
+  }
+}
+
 class _StatCard extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -247,15 +264,24 @@ class _StatCard extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 28),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineLarge?.copyWith(color: color),
+          // FittedBox so big values like "12,345" shrink to fit narrow
+          // 2-col phone cards instead of clipping or wrapping.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineLarge?.copyWith(color: color),
+            ),
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),

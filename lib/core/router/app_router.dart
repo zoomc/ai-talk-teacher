@@ -247,50 +247,56 @@ class _SideNavRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.bgSecondary,
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-      width: extended ? 200 : 72,
-      child: Column(
-        children: [
-          // Brand mark at the top of the rail.
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.gradientPrimary,
-                    borderRadius: BorderRadius.circular(AppRadius.md),
+    return SafeArea(
+      // top:true because the tablet/desktop MainShell has no AppBar —
+      // without the top inset the brand mark sits under the status bar /
+      // browser chrome / iPad Split-View top inset. bottom:true keeps
+      // the last nav item clear of the home indicator.
+      child: Container(
+        color: AppColors.bgSecondary,
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+        width: extended ? 200 : 72,
+        child: Column(
+          children: [
+            // Brand mark at the top of the rail.
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.gradientPrimary,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                    child: const Icon(Icons.mic, color: Colors.white, size: 20),
                   ),
-                  child: const Icon(Icons.mic, color: Colors.white, size: 20),
-                ),
-                if (extended) ...[
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'SpeakFlow',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                  if (extended) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      'SpeakFlow',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          ...List.generate(_items.length, (i) {
-            final item = _items[i];
-            final selected = i == selectedIndex;
-            return _SideNavItem(
-              item: item,
-              selected: selected,
-              extended: extended,
-              onTap: () => onItemTapped(i),
-            );
-          }),
-        ],
+            const SizedBox(height: AppSpacing.lg),
+            ...List.generate(_items.length, (i) {
+              final item = _items[i];
+              final selected = i == selectedIndex;
+              return _SideNavItem(
+                item: item,
+                selected: selected,
+                extended: extended,
+                onTap: () => onItemTapped(i),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }

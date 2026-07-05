@@ -229,6 +229,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
     final keyRequired = def.apiKeyRequired;
     return SingleChildScrollView(
+      // Scaffold's `resizeToAvoidBottomInset: true` (the default) already
+      // shrinks the body to clear the soft keyboard, so we just need
+      // normal bottom padding here — adding viewInsets.bottom would
+      // double-count and leave the Next/Start button floating ~300pt
+      // above the keyboard when fully scrolled.
       padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,16 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
     href value below to reflect the base path you are serving from.
-
     The path provided below has to start and end with a slash "/" in order for
     it to work correctly.
-
     For more details:
     * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
     This is a placeholder for base href that will be replaced by the value of
     the `--base-href` argument provided to `flutter build`.
   -->
@@ -18,29 +15,164 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover"
+  >
+  <meta name="description" content="SpeakFlow — Practice spoken English with an AI tutor. Offline-friendly notebook-style PWA.">
+  <meta name="theme-color" content="#0A0E1A" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#0A0E1A" media="(prefers-color-scheme: light)">
+  <!--
+    Note: both color schemes use the deep-space-blue theme color because
+    SpeakFlow's brand is dark-first; the light theme mode tints the
+    Scaffold background but the browser chrome / iOS status-bar tint
+    stays on-brand dark.
+  -->
 
-  <!-- iOS meta tags & icons -->
+  <!-- iOS PWA / Safari "Add to Home Screen" -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="speakflow">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SpeakFlow">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/Icon-512.png">
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <!-- Favicon — repoint to the existing PWA icon assets (we don't ship
+       a separate favicon.png/svg, so without this browsers 404 on both
+       and the tab gets the generic globe icon). -->
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/Icon-192.png"/>
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/Icon-512.png"/>
 
-  <title>speakflow</title>
+  <!-- PWA manifest -->
   <link rel="manifest" href="manifest.json">
+
+  <title>SpeakFlow — AI English Speaking Practice</title>
+
+  <!--
+    Brand splash — shown while flutter_bootstrap.js loads so the first paint
+    is the SpeakFlow brand instead of a white flash. Removed automatically
+    once Flutter paints its first frame (see flutter.js loader callback below
+    + the #splash removal in flutter_bootstrap_*.js custom config).
+  -->
+  <style>
+    #splash {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(120% 90% at 50% 0%, #111827 0%, #0A0E1A 60%, #050810 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      z-index: 9999;
+      color: #F0F0F0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      transition: opacity 320ms ease;
+    }
+    #splash.gone { opacity: 0; pointer-events: none; }
+    #splash .logo {
+      width: 84px;
+      height: 84px;
+      border-radius: 22px;
+      background: linear-gradient(135deg, #6C5CE7 0%, #00D2FF 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 48px rgba(108, 92, 231, 0.55), 0 0 96px rgba(0, 210, 255, 0.25);
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    #splash .logo svg { width: 44px; height: 44px; color: #fff; }
+    #splash .wordmark {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+    }
+    #splash .tagline {
+      font-size: 12px;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: #8892A4;
+    }
+    #splash .dots {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    #splash .dots span {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #6C5CE7;
+      opacity: 0.4;
+      animation: dot 1.2s ease-in-out infinite;
+    }
+    #splash .dots span:nth-child(2) { background: #00D2FF; animation-delay: 0.15s; }
+    #splash .dots span:nth-child(3) { background: #00E676; animation-delay: 0.3s; }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+    @keyframes dot {
+      0%, 100% { opacity: 0.3; transform: translateY(0); }
+      50% { opacity: 1; transform: translateY(-3px); }
+    }
+    /* Safe-area aware: keep splash content clear of notch / Dynamic Island */
+    @supports (padding: max(0px)) {
+      #splash { padding-top: max(24px, env(safe-area-inset-top)); padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <!-- Brand splash — removed once Flutter is ready -->
+  <div id="splash" aria-hidden="true">
+    <div class="logo" aria-label="SpeakFlow">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8" y1="23" x2="16" y2="23"/>
+      </svg>
+    </div>
+    <div class="wordmark">SPEAKFLOW</div>
+    <div class="tagline">AI English Speaking Practice</div>
+    <div class="dots"><span></span><span></span><span></span></div>
+  </div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
+  <!--
+    Pre-Flutter bridge scripts. These load synchronously before
+    flutter_bootstrap.js so that:
+      1. The service worker is registered ASAP (offline-first).
+      2. beforeinstallprompt is captured before any Dart code asks for it.
+      3. SW update events are wired into window.__speakflow* hooks the
+         Dart VersionService reads via js_interop.
   -->
+  <script src="version_check.js" defer></script>
+  <script src="install_prompt.js" defer></script>
+
+  <!--
+    Flutter web loader. `flutter_bootstrap.js` is the modern entry point and
+    is what registers the service worker (when ServiceWorkerConfiguration is
+    enabled, which it is by default for `flutter build web`). We pass a
+    custom onEntrypointLoaded callback that hides #splash once the engine
+    is ready.
+  -->
+  <script>
+    // Hide the splash as soon as Flutter has rendered its first frame.
+    window.addEventListener('flutter-first-frame', function () {
+      _removeSplash();
+    });
+
+    // Safety fallback: if Flutter hasn't painted within 15s (slow CDN,
+    // failed SW fetch, JS error during init), force-remove the splash so
+    // the user can see whatever is on the page — including any error
+    // message Flutter may have rendered.
+    function _removeSplash() {
+      var s = document.getElementById('splash');
+      if (!s) return;
+      s.classList.add('gone');
+      setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 400);
+    }
+    setTimeout(_removeSplash, 15000);
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

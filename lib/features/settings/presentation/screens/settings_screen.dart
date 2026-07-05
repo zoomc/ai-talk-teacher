@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/install_prompt_service.dart';
+import '../../../../core/services/version_service.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../../chat/data/tts_playback_service.dart';
@@ -173,6 +175,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                 const SizedBox(height: AppSpacing.lg),
 
+                // App section — install banner reset + manual update check.
+                // Only meaningful on web, so we read the web-only providers
+                // here; the providers self-report `platformUnsupported` /
+                // empty state on mobile so the tiles degrade gracefully.
+                _AppSection(),
+
+                const SizedBox(height: AppSpacing.lg),
+
                 // About section
                 _SettingsSection(
                   title: 'About',
@@ -180,7 +190,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     _SettingsTile(
                       icon: Icons.info_outline,
                       title: 'SpeakFlow',
-                      subtitle: 'Version 1.0.0',
+                      subtitle: 'Version $kAppVersion',
                       onTap: () {},
                     ),
                   ],
@@ -386,6 +396,79 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ),
     );
+  }
+}
+
+/// Section for app-level web/PWA controls: manual update check + install
+/// banner reset. Reads the version + install providers directly so the
+/// tiles reflect current state, and degrades gracefully on non-web
+/// platforms (providers report `platformUnsupported`).
+class _AppSection extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final versionState = ref.watch(versionServiceProvider);
+    final installState = ref.watch(installPromptServiceProvider);
+
+    // On non-web platforms both services report unsupported/empty —
+    // hide the whole section to avoid clutter.
+    if (installState.platformUnsupported && !versionState.isChecking &&
+        versionState.serverVersion == null) {
+      // Still show on non-web if we haven't determined unsupported yet
+      // (initial state). Once install service reports platformUnsupported,
+      // we know we're not on web.
+      return const SizedBox.shrink();
+    }
+
+    final children = <Widget>[
+      _SettingsTile(
+        icon: Icons.system_update_alt_outlined,
+        title: 'Check for updates',
+        subtitle: versionState.isChecking
+            ? 'Checking…'
+            : (versionState.newVersionAvailable
+                ? 'New version ${versionState.serverVersion} available'
+                : (versionState.serverVersion != null
+                    ? 'Up to date (server: ${versionState.serverVersion})'
+                    : 'Tap to check now')),
+        onTap: () async {
+          await ref.read(versionServiceProvider.notifier).checkNow();
+          if (!context.mounted) return;
+          final s = ref.read(versionServiceProvider);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(s.newVersionAvailable
+                  ? 'New version ${s.serverVersion} available — see banner at top.'
+                  : 'You\'re on the latest version.'),
+            ),
+          );
+        },
+      ),
+      // Only show the "show install banner again" tile if the user has
+      // actually dismissed it before — otherwise the action is a no-op
+      // and would just confuse.
+      if (installState.hasDismissed && !installState.isStandalone)
+        _SettingsTile(
+          icon: Icons.install_mobile_outlined,
+          title: 'Show install banner again',
+          subtitle: 'Re-show the "Install SpeakFlow" prompt',
+          onTap: () async {
+            await ref
+                .read(installPromptServiceProvider.notifier)
+                .resetDismissal();
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Install banner will reappear shortly. '
+                  'Reload the page if it doesn\'t.',
+                ),
+              ),
+            );
+          },
+        ),
+    ];
+
+    return _SettingsSection(title: 'App', children: children);
   }
 }
 

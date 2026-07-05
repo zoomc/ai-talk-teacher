@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
+import '../../../../core/services/connectivity_check.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/widgets/virtual_character.dart';
 import '../../../../shared/providers.dart';
@@ -154,7 +155,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       (_, _) => _scrollToBottom(),
     );
 
-    final isWide = Responsive.isWide(context);
+    // Layout regime:
+    //   - sideBySide: iPad / desktop / wide browser → character panel
+    //     beside the chat.
+    //   - hidePanel: short landscape phone (~390pt tall) → no character
+    //     panel at all, chat takes the full height.
+    //   - stacked (default): phone portrait → character panel above chat.
+    final sideBySide = Responsive.shouldUseSideBySide(context);
+    final hidePanel = Responsive.shouldHideStackedCharacterPanel(context);
 
     // Wrap the Scaffold in a Focus node so hardware-key events (Esc to
     // cancel recording) are caught at the screen level even when the text
@@ -180,10 +188,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ],
           ),
           actions: [
+            // On a short landscape phone the AppBar is the only place the
+            // tutor's listening/thinking/speaking state can surface — show
+            // a small status dot so the user still gets feedback when the
+            // character panel is hidden.
+            if (hidePanel)
+              Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.sm),
+                child: _AppBarStatusDot(state: _characterState),
+              ),
             IconButton(
               tooltip: 'Pick a tutor',
               icon: const Icon(Icons.swap_horiz),
-              onPressed: () => context.push('/tutor-selection'),
+              // Await the tutor-selection route so we can re-read the
+              // persisted `selected_tutor_id` after the user picks one.
+              // Without this, the AppBar title + character panel keep
+              // showing the *old* tutor until the user leaves & re-enters
+              // the chat.
+              onPressed: () async {
+                await context.push('/tutor-selection');
+                if (mounted) _loadTutorIdentity();
+              },
             ),
             IconButton(
               tooltip: 'More options',
@@ -197,9 +222,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         resizeToAvoidBottomInset: true,
         body: SafeArea(
           top: false,
-          // On wide screens (tablet/desktop/browser), put the character panel
-          // beside the chat. On mobile, stack them vertically.
-          child: isWide
+          child: sideBySide
               ? Row(
                   children: [
                     _CharacterPanel(
@@ -215,6 +238,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Expanded(child: _chatColumn(context)),
                   ],
                 )
+              : hidePanel
+              // Short landscape phone: chat fills the whole body.
+              ? _chatColumn(context)
               : Column(
                   children: [
                     _CharacterPanel(
@@ -973,9 +999,10 @@ class _ChatBubble extends StatelessWidget {
                       onTap: onPlayTts,
                       borderRadius: BorderRadius.circular(AppRadius.sm),
                       child: Container(
+                        // 44x44 meets the iOS HIG minimum touch target.
                         constraints: const BoxConstraints(
-                          minWidth: 44,
-                          minHeight: 36,
+                          minWidth: Responsive.minTapTarget,
+                          minHeight: Responsive.minTapTarget,
                         ),
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.xs,
@@ -1129,7 +1156,7 @@ class _CorrectionInline extends StatelessWidget {
   }
 }
 
-class _ChatInputBar extends StatelessWidget {
+class _ChatInputBar extends ConsumerWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isRecording;
@@ -1147,15 +1174,19 @@ class _ChatInputBar extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // canSend is now derived inside the ValueListenableBuilder below so
     // that only the Send button + its Semantics wrapper rebuild on each
     // keystroke instead of the whole _ChatInputBar.
-    // Bottom padding: prefer the MediaQuery viewInsets (soft keyboard /
-    // browser IME) when present, otherwise fall back to safe-area padding.
-    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+    // Bottom padding: the parent Scaffold has `resizeToAvoidBottomInset:
+    // true`, which shrinks the body by `viewInsets.bottom` when the
+    // keyboard opens — so the input bar already sits on top of the
+    // keyboard. We only need to add safe-area bottom + a little extra
+    // breathing room here. (Adding viewInsets.bottom too would push
+    // the text field ~340pt above the keyboard on mobile web.)
     final safeBottom = MediaQuery.of(context).padding.bottom;
-    final bottomPad = viewInsets > 0 ? viewInsets : safeBottom + AppSpacing.md;
+    final bottomPad = safeBottom + AppSpacing.md;
+    final isOffline = ref.watch(isOfflineProvider);
     return Container(
       padding: EdgeInsets.only(
         left: AppSpacing.md,
@@ -1167,103 +1198,154 @@ class _ChatInputBar extends StatelessWidget {
         color: AppColors.bgSecondary,
         border: Border(top: BorderSide(color: AppColors.glassBorder)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Record button — pulsing glow when recording, using GlowButton
-          // (which has its own AnimationController). 48x48 meets the 44x44
-          // minimum touch target. Semantics exposes the state to screen
-          // readers; the Tooltip shows the same on hover for mouse users.
-          Semantics(
-            button: true,
-            enabled: !isLoading,
-            label: isRecording ? 'Stop recording' : 'Start voice recording',
-            hint: isRecording
-                ? 'Double tap to stop and transcribe'
-                : 'Double tap to record a voice message',
-            child: Tooltip(
-              message: isRecording ? 'Stop recording' : 'Tap to record',
-              child: _RecordButton(
-                isRecording: isRecording,
-                onTap: isLoading ? null : onRecordToggle,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          // Text input — grows up to 5 lines on desktop/web so long
-          // messages stay readable without scrolling the field itself.
-          Expanded(
-            child: Container(
-              constraints: const BoxConstraints(maxHeight: 160),
-              decoration: BoxDecoration(
-                color: AppColors.bgTertiary,
-                borderRadius: BorderRadius.circular(AppRadius.xl),
-                border: Border.all(
-                  color: isRecording
-                      ? AppColors.error.withValues(alpha: 0.6)
-                      : AppColors.glassBorder,
-                ),
-              ),
-              child: TextField(
-                controller: controller,
-                focusNode: focusNode,
+          if (isOffline) const _OfflineHint(),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // Record button — pulsing glow when recording, using GlowButton
+              // (which has its own AnimationController). 48x48 meets the 44x44
+              // minimum touch target. Semantics exposes the state to screen
+              // readers; the Tooltip shows the same on hover for mouse users.
+              Semantics(
+                button: true,
                 enabled: !isLoading,
-                style: const TextStyle(color: AppColors.textPrimary),
-                textInputAction: TextInputAction.send,
-                maxLines: null,
-                minLines: 1,
-                decoration: InputDecoration(
-                  hintText: 'Type a message...',
-                  hintStyle: TextStyle(color: AppColors.textMuted),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.sm + 4,
+                label: isRecording ? 'Stop recording' : 'Start voice recording',
+                hint: isRecording
+                    ? 'Double tap to stop and transcribe'
+                    : 'Double tap to record a voice message',
+                child: Tooltip(
+                  message: isRecording ? 'Stop recording' : 'Tap to record',
+                  child: _RecordButton(
+                    isRecording: isRecording,
+                    onTap: isLoading ? null : onRecordToggle,
                   ),
                 ),
-                onSubmitted: (_) {
-                  // Derive canSend directly from the controller so we don't
-                  // rely on the parent rebuilding before onSubmitted fires.
-                  final canSubmit =
-                      controller.text.trim().isNotEmpty && !isLoading;
-                  if (canSubmit) onSend();
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              // Text input — grows up to 5 lines on desktop/web so long
+              // messages stay readable without scrolling the field itself.
+              Expanded(
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 160),
+                  decoration: BoxDecoration(
+                    color: AppColors.bgTertiary,
+                    borderRadius: BorderRadius.circular(AppRadius.xl),
+                    border: Border.all(
+                      color: isRecording
+                          ? AppColors.error.withValues(alpha: 0.6)
+                          : AppColors.glassBorder,
+                    ),
+                  ),
+                  child: TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    enabled: !isLoading,
+                    style: const TextStyle(color: AppColors.textPrimary),
+                    textInputAction: TextInputAction.send,
+                    maxLines: null,
+                    minLines: 1,
+                    decoration: InputDecoration(
+                      hintText: 'Type a message...',
+                      hintStyle: TextStyle(color: AppColors.textMuted),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.sm + 4,
+                      ),
+                    ),
+                    onSubmitted: (_) {
+                      // Derive canSend directly from the controller so we don't
+                      // rely on the parent rebuilding before onSubmitted fires.
+                      final canSubmit =
+                          controller.text.trim().isNotEmpty && !isLoading;
+                      if (canSubmit) onSend();
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              // Send button — wraps in a ValueListenableBuilder on the
+              // TextEditingController (which is itself a ValueNotifier) so only
+              // this button rebuilds when text changes. The whole
+              // _ChatInputBar no longer needs a setState on each keystroke.
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (context, value, _) {
+                  final canSend = value.text.trim().isNotEmpty && !isLoading;
+                  return Semantics(
+                    button: true,
+                    enabled: canSend,
+                    label: 'Send message',
+                    hint: canSend
+                        ? 'Double tap to send'
+                        : 'Type a message first to send',
+                    child: Opacity(
+                      opacity: canSend ? 1.0 : 0.4,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: AppColors.gradientPrimary,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.send, color: Colors.white),
+                          onPressed: canSend ? onSend : null,
+                        ),
+                      ),
+                    ),
+                  );
                 },
               ),
-            ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact offline banner shown above the chat input when the browser
+/// reports no network. AI replies + STT/TTS need the network; everything
+/// else (history, review, progress, settings, scenarios) keeps working.
+class _OfflineHint extends StatelessWidget {
+  const _OfflineHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs + 2,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(
+          color: AppColors.warning.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.cloud_off_rounded,
+            size: 16,
+            color: AppColors.warning,
           ),
           const SizedBox(width: AppSpacing.sm),
-          // Send button — wraps in a ValueListenableBuilder on the
-          // TextEditingController (which is itself a ValueNotifier) so only
-          // this button rebuilds when text changes. The whole
-          // _ChatInputBar no longer needs a setState on each keystroke.
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (context, value, _) {
-              final canSend = value.text.trim().isNotEmpty && !isLoading;
-              return Semantics(
-                button: true,
-                enabled: canSend,
-                label: 'Send message',
-                hint: canSend
-                    ? 'Double tap to send'
-                    : 'Type a message first to send',
-                child: Opacity(
-                  opacity: canSend ? 1.0 : 0.4,
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: AppColors.gradientPrimary,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.send, color: Colors.white),
-                      onPressed: canSend ? onSend : null,
-                    ),
+          Expanded(
+            child: Text(
+              "You're offline — voice & AI replies are unavailable. "
+              'Your history and review still work.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.warning,
+                    height: 1.3,
                   ),
-                ),
-              );
-            },
+            ),
           ),
         ],
       ),
@@ -1502,6 +1584,44 @@ class _CharacterPanel extends StatelessWidget {
         glowColor: AppColors.accentPrimary,
         padding: EdgeInsets.zero,
         child: Center(child: labelled),
+      ),
+    );
+  }
+}
+
+/// A tiny status indicator shown in the AppBar when the character panel
+/// is hidden (short landscape phone). Mirrors the panel's state colors so
+/// the user still gets listening/thinking/speaking feedback in a 12pt dot.
+class _AppBarStatusDot extends StatelessWidget {
+  final CharacterState state;
+  const _AppBarStatusDot({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (state) {
+      CharacterState.idle => AppColors.textMuted,
+      CharacterState.listening => AppColors.accentSecondary,
+      CharacterState.thinking => AppColors.accentPrimary,
+      CharacterState.speaking => AppColors.success,
+    };
+    return Semantics(
+      liveRegion: true,
+      label: switch (state) {
+        CharacterState.idle => 'Ready',
+        CharacterState.listening => 'Listening',
+        CharacterState.thinking => 'Thinking',
+        CharacterState.speaking => 'Speaking',
+      },
+      child: Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          boxShadow: state != CharacterState.idle
+              ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 6)]
+              : null,
+        ),
       ),
     );
   }
