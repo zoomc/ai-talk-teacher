@@ -53,13 +53,47 @@ class AppColors {
   // Light mode
   static const Color lightBgPrimary = Color(0xFFF5F7FB);
   static const Color lightBgSecondary = Color(0xFFFFFFFF);
-  static const Color lightGlassBg = Color(0xB3FFFFFF); // white 70%
-  static const Color lightGlassBorder = Color(0xE6FFFFFF); // white 90%
-  static const Color lightTextPrimary = Color(0xFF1A1A2E);
-  static const Color lightTextSecondary = Color(0xFF6B7280);
+  static const Color lightBgTertiary = Color(0xFFEEF1F7); // card bg
+  static const Color lightBgSurface = Color(0xFFF1F3F9); // surface overlay
+
+  // Light glass (frosted white overlay on bright surfaces)
+  static const Color lightGlassBg = Color(0xCCFFFFFF); // white 80%
+  static const Color lightGlassBgHover = Color(0xE6FFFFFF); // white 90%
+  static const Color lightGlassBorder = Color(0x1A000000); // black 10% visible border
+
+  // Light accents (deeper than dark variants for white-bg contrast)
+  static const Color lightAccentPrimary = Color(0xFF5A4BD1); // deeper purple
+  static const Color lightAccentSecondary = Color(0xFF0099C7); // deeper cyan
+
+  // Light text
+  static const Color lightTextPrimary = Color(0xFF1A1A2E); // ~15.7:1 on bg
+  static const Color lightTextSecondary = Color(0xFF6B7280); // ~4.5:1 on bg (AA)
+  static const Color lightTextMuted = Color(0xFF9CA3AF); // weaker than secondary
+  static const Color lightTextOnAccent = Color(0xFFFFFFFF);
+
+  // Light glow (reduced opacity for bright surfaces)
+  static const Color lightGlowPurple = Color(0x266C5CE7); // purple 15%
+  static const Color lightGlowCyan = Color(0x2600D2FF); // cyan 15%
+  static const Color lightGlowGreen = Color(0x2600E676); // green 15%
+
+  // Light gradients
+  static const LinearGradient lightGradientBg = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [lightBgPrimary, lightBgTertiary],
+  );
+
+  static const LinearGradient lightGradientPrimary = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [lightAccentPrimary, lightAccentSecondary],
+  );
 
   // Chat bubble colors
   static const Color bubbleAi = Color(0x1A6C5CE7); // purple 10%
   static const Color bubbleUser = Color(0x1A00D2FF); // cyan 10%
   static const Color bubbleCorrection = Color(0x1A00E676); // green 10%
+  static const Color lightBubbleAi = Color(0x406C5CE7); // purple 25%
+  static const Color lightBubbleUser = Color(0x4000D2FF); // cyan 25%
+  static const Color lightBubbleCorrection = Color(0x4000E676); // green 25%
 }

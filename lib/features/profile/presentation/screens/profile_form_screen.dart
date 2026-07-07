@@ -424,29 +424,19 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
 
   Widget _buildSttFields() {
     final def = _providerDef;
-    final showUrl = def.kind == ProviderKind.openaiCompatible;
     final showModel =
         def.kind == ProviderKind.openaiCompatible || _providerId == 'deepgram';
     final showRegion = _providerId == 'azure';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (showUrl)
-          _labelField(
-            'API Base URL',
-            _urlController,
-            'https://api.openai.com/v1',
-            required: true,
-          )
-        else if (_providerId == 'custom')
-          _labelField(
-            'API Base URL',
-            _urlController,
-            'https://my-relay.example/v1',
-            required: true,
-          ),
-        if (showUrl || _providerId == 'custom')
-          const SizedBox(height: AppSpacing.lg),
+        _labelField(
+          'API Base URL',
+          _urlController,
+          '自定义中转或本地端点可在此填写',
+          required: true,
+        ),
+        const SizedBox(height: AppSpacing.lg),
         if (showModel) ...[
           _labelField('Model', _modelController, 'whisper-1'),
           const SizedBox(height: AppSpacing.lg),
@@ -468,14 +458,6 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
 
   Widget _buildTtsFields() {
     final def = _providerDef;
-    final showUrl =
-        def.kind == ProviderKind.openaiCompatible ||
-        _providerId == 'custom' ||
-        _providerId == 'fish_audio' ||
-        _providerId == 'elevenlabs' ||
-        _providerId == 'azure_tts' ||
-        _providerId == 'google_tts' ||
-        _providerId == 'aliyun_cosyvoice';
     final showRegion = _providerId == 'azure_tts';
     final canFetchVoices =
         _providerId == 'elevenlabs' ||
@@ -484,14 +466,15 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (showUrl)
-          _labelField(
-            'API Base URL',
-            _urlController,
-            def.defaultBaseUrl,
-            required: true,
-          ),
-        if (showUrl) const SizedBox(height: AppSpacing.lg),
+        _buildReuseSttButton(),
+        const SizedBox(height: AppSpacing.lg),
+        _labelField(
+          'API Base URL',
+          _urlController,
+          '自定义中转或本地端点可在此填写',
+          required: true,
+        ),
+        const SizedBox(height: AppSpacing.lg),
         _labelField('Model', _modelController, def.defaultModel ?? ''),
         const SizedBox(height: AppSpacing.lg),
         // Voice field + fetch button (or static dropdown for openai-compatible).
@@ -538,6 +521,49 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildReuseSttButton() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: _reuseSttConfig,
+        icon: const Icon(Icons.copy, size: 18),
+        label: const Text('与 STT 使用相同的供应商和 Key'),
+      ),
+    );
+  }
+
+  Future<void> _reuseSttConfig() async {
+    final repo = ref.read(profileRepoProvider);
+    try {
+      final all = await repo.getAllSttProfiles();
+      final stt = all.where((p) => p.isActive).firstOrNull;
+      if (stt == null) {
+        if (mounted) _snack('没有活跃的 STT 配置可复制');
+        return;
+      }
+      const sttToTts = {
+        'deepgram': 'deepgram_tts',
+        'azure': 'azure_tts',
+        'google': 'google_tts',
+        'siliconflow_stt': 'siliconflow_tts',
+        'openai_whisper': 'openai_tts',
+        'custom': 'custom',
+      };
+      final mapped = sttToTts[stt.providerId] ?? 'custom';
+      final exists = TtsProviderCatalog.all.any((p) => p.id == mapped);
+      final newProviderId = exists ? mapped : 'custom';
+      setState(() {
+        _providerId = newProviderId;
+        _urlController.text = stt.baseUrl;
+        _keyController.text = stt.apiKey;
+        _applyProviderDefaults(overwriteAll: false);
+      });
+      if (mounted) _snack('已从 STT 配置复制');
+    } catch (e) {
+      if (mounted) _snack('复制失败: ${_safeError(e)}');
+    }
   }
 
   Widget _staticVoiceDropdown(List<String> voices) {

@@ -165,6 +165,93 @@ class AppTheme {
         ),
         iconTheme: const IconThemeData(color: AppColors.lightTextPrimary),
       ),
+      cardTheme: CardThemeData(
+        color: AppColors.lightBgSecondary,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        side: const BorderSide(color: AppColors.lightGlassBorder),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.lightBgSecondary,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: AppColors.lightGlassBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: AppColors.lightGlassBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(
+            color: AppColors.lightAccentPrimary,
+            width: 2,
+          ),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        hintStyle: AppTextStyles.body.copyWith(color: AppColors.lightTextMuted),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.lightAccentPrimary,
+          foregroundColor: AppColors.lightTextOnAccent,
+          textStyle: AppTextStyles.button,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.sm + 4,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          elevation: 0,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.lightTextPrimary,
+          textStyle: AppTextStyles.button,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.sm + 4,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          side: const BorderSide(color: AppColors.lightGlassBorder),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.lightAccentPrimary,
+          textStyle: AppTextStyles.buttonSmall,
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: AppColors.lightTextSecondary,
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.lightGlassBorder,
+        thickness: 1,
+        space: 1,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: AppColors.lightTextPrimary,
+        contentTextStyle: AppTextStyles.caption.copyWith(
+          color: AppColors.lightTextOnAccent,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 }

@@ -28,6 +28,14 @@ class SttService {
             return _transcribeAzure(audioData);
           case 'google':
             return _transcribeGoogle(audioData);
+          case 'volcengine_stt':
+          case 'xfyun_stt':
+          case 'tencent_stt':
+            throw UnimplementedError(
+              '${profile.providerDisplayName} is not directly supported by '
+              'SpeakFlow. Deploy a relay or use a custom OpenAI-compatible '
+              'STT endpoint instead. See the provider note for details.',
+            );
           default:
             // Unknown vendor → fall back to OpenAI-compatible surface.
             return _transcribeOpenAICompatible(audioData);
@@ -227,6 +235,13 @@ class SttService {
               );
             }
             break;
+          case 'volcengine_stt':
+          case 'xfyun_stt':
+          case 'tencent_stt':
+            throw SttException(
+              '${profile.providerDisplayName} is not directly supported. '
+              'Use a custom OpenAI-compatible STT endpoint instead.',
+            );
           default:
             break;
         }

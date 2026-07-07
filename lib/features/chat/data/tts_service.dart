@@ -33,6 +33,16 @@ class TtsService {
             return _synthesizeGoogle(text);
           case 'aliyun_cosyvoice':
             return _synthesizeAliyun(text);
+          case 'deepgram_tts':
+            return _synthesizeDeepgram(text);
+          case 'volcengine_tts':
+          case 'xfyun_tts':
+          case 'tencent_tts':
+            throw UnimplementedError(
+              '${profile.providerDisplayName} is not directly supported by '
+              'SpeakFlow. Deploy a relay or use a custom OpenAI-compatible '
+              'TTS endpoint instead. See the provider note for details.',
+            );
           default:
             return _synthesizeOpenAICompatible(text);
         }
@@ -67,6 +77,32 @@ class TtsService {
       throw TtsException(
         '${profile.providerDisplayName} error: '
         '${response.statusCode} - ${response.body}',
+      );
+    }
+    return response.bodyBytes;
+  }
+
+  // ── Deepgram TTS (Aura) ──────────────────────────────────────────────────
+  // Endpoint: /v1/speak?model=. Auth: "Token <key>". Returns audio bytes.
+  Future<Uint8List> _synthesizeDeepgram(String text) async {
+    final base = profile.baseUrl.isEmpty
+        ? 'https://api.deepgram.com'
+        : profile.baseUrl;
+    final model = profile.model.isEmpty ? 'aura-asteria-en' : profile.model;
+    final response = await http
+        .post(
+          Uri.parse('$base/v1/speak?model=$model'),
+          headers: {
+            'Authorization': 'Token ${profile.apiKey}',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'text': text}),
+        )
+        .timeout(const Duration(seconds: 60));
+
+    if (response.statusCode != 200) {
+      throw TtsException(
+        'Deepgram TTS error: ${response.statusCode} - ${response.body}',
       );
     }
     return response.bodyBytes;
@@ -355,6 +391,25 @@ class TtsService {
           case 'aliyun_cosyvoice':
             // No safe read-only probe; rely on synthesize-time errors.
             break;
+          case 'deepgram_tts':
+            final base = profile.baseUrl.isEmpty
+                ? 'https://api.deepgram.com'
+                : profile.baseUrl;
+            final r = await http
+                .get(
+                  Uri.parse('$base/v1/projects'),
+                  headers: {'Authorization': 'Token ${profile.apiKey}'},
+                )
+                .timeout(const Duration(seconds: 15));
+            _checkAuth(r, 'Deepgram TTS');
+            break;
+          case 'volcengine_tts':
+          case 'xfyun_tts':
+          case 'tencent_tts':
+            throw TtsException(
+              '${profile.providerDisplayName} is not directly supported. '
+              'Use a custom OpenAI-compatible TTS endpoint instead.',
+            );
           default:
             break;
         }
