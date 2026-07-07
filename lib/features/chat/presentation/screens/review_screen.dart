@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../domain/chat_models.dart';
@@ -44,7 +45,11 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.gradientBg),
+        decoration: BoxDecoration(
+            gradient:
+                Theme.of(context).brightness == Brightness.light
+                    ? AppColors.lightGradientBg
+                    : AppColors.gradientBg),
         child: SafeArea(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -57,6 +62,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -81,7 +87,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'No errors due for review right now.\nKeep practicing!',
+            l.t('review.nothing_due'),
             textAlign: TextAlign.center,
             style: Theme.of(
               context,
@@ -99,6 +105,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   }
 
   Widget _buildReviewList(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
@@ -118,12 +125,12 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Review',
+                            l.t('review.title'),
                             style: Theme.of(context).textTheme.displayLarge,
                           ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
-                            '${_corrections.length} errors due for review',
+                            '${_corrections.length} ${l.t('review.due_now')}',
                             style: Theme.of(context).textTheme.bodyLarge
                                 ?.copyWith(color: AppColors.textSecondary),
                           ),
@@ -217,11 +224,16 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       await ref.read(chatRepoProvider).updateCorrection(updated);
 
       // Brief feedback so the user understands what just happened.
-      final label = _ratingLabel(quality);
       if (mounted) {
+        final l = AppLocalizations.of(context);
+        final label = _ratingLabel(quality, l);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Rated "$label" — next review ${Sm2Service.getNextReviewText(updated)}'),
+            content: Text(
+              '$label — ${l.tArg('review.next_review', {
+                'when': Sm2Service.getNextReviewText(updated),
+              })}',
+            ),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -240,16 +252,16 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     }
   }
 
-  String _ratingLabel(int quality) {
+  String _ratingLabel(int quality, AppLocalizations l) {
     switch (quality) {
       case 1:
-        return 'Again';
+        return l.t('review.rate_again');
       case 3:
-        return 'Hard';
+        return l.t('review.rate_hard');
       case 4:
-        return 'Good';
+        return l.t('review.rate_good');
       case 5:
-        return 'Easy';
+        return l.t('review.rate_easy');
       default:
         return 'Rated';
     }
@@ -287,14 +299,14 @@ class _CorrectionCard extends StatelessWidget {
     }
   }
 
-  String _typeLabel(CorrectionType type) {
+  String _typeLabel(BuildContext context, CorrectionType type) {
     switch (type) {
       case CorrectionType.grammar:
-        return 'Grammar';
+        return AppLocalizations.of(context).t('correction.type_grammar');
       case CorrectionType.vocabulary:
-        return 'Vocabulary';
+        return AppLocalizations.of(context).t('correction.type_vocabulary');
       case CorrectionType.pronunciation:
-        return 'Pronunciation';
+        return AppLocalizations.of(context).t('correction.type_pronunciation');
     }
   }
 
@@ -325,7 +337,7 @@ class _CorrectionCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
                 child: Text(
-                  _typeLabel(correction.type),
+                  _typeLabel(context, correction.type),
                   style: TextStyle(
                     color: typeColor,
                     fontSize: 11,
@@ -445,15 +457,16 @@ class _RatingBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Row(
       children: [
-        Expanded(child: _ratingButton(context, label: 'Again', quality: 1, color: AppColors.error)),
+        Expanded(child: _ratingButton(context, label: l.t('review.rate_again'), quality: 1, color: AppColors.error)),
         const SizedBox(width: AppSpacing.xs),
-        Expanded(child: _ratingButton(context, label: 'Hard', quality: 3, color: AppColors.warning)),
+        Expanded(child: _ratingButton(context, label: l.t('review.rate_hard'), quality: 3, color: AppColors.warning)),
         const SizedBox(width: AppSpacing.xs),
-        Expanded(child: _ratingButton(context, label: 'Good', quality: 4, color: AppColors.success)),
+        Expanded(child: _ratingButton(context, label: l.t('review.rate_good'), quality: 4, color: AppColors.success)),
         const SizedBox(width: AppSpacing.xs),
-        Expanded(child: _ratingButton(context, label: 'Easy', quality: 5, color: AppColors.accentPrimary)),
+        Expanded(child: _ratingButton(context, label: l.t('review.rate_easy'), quality: 5, color: AppColors.accentPrimary)),
       ],
     );
   }

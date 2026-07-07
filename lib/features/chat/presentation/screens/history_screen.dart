@@ -4,9 +4,12 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../domain/chat_models.dart';
+
+// TODO(i18n): history strings not yet in catalog
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
@@ -57,6 +60,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   Future<void> _confirmDelete(ChatSession session) async {
+    final l = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -68,13 +72,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(l.t('common.cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: AppColors.error),
+            child: Text(
+              l.t('common.delete'),
+              style: const TextStyle(color: AppColors.error),
             ),
           ),
         ],
@@ -119,7 +123,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         title: const Text('Chat History'),
       ),
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.gradientBg),
+        decoration: BoxDecoration(
+            gradient:
+                Theme.of(context).brightness == Brightness.light
+                    ? AppColors.lightGradientBg
+                    : AppColors.gradientBg),
         child: SafeArea(
           // top:false — AppBar already consumes the top inset. bottom:true
           // keeps the last list items + trailing xxl spacing out from

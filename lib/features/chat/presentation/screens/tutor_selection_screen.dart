@@ -62,7 +62,11 @@ class _TutorSelectionScreenState extends ConsumerState<TutorSelectionScreen> {
         title: const Text('Choose Your Tutor'),
       ),
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.gradientBg),
+        decoration: BoxDecoration(
+            gradient:
+                Theme.of(context).brightness == Brightness.light
+                    ? AppColors.lightGradientBg
+                    : AppColors.gradientBg),
         child: SafeArea(
           // bottom:true keeps the last tutor card + trailing xxl spacing
           // out from behind the home indicator on notched iPhones.

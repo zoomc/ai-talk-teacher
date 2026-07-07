@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../domain/chat_models.dart';
@@ -36,6 +37,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final activeSession = ref.watch(activeSessionProvider);
     final dueCount = ref.watch(dueCorrectionCountProvider);
     final totalCount = ref.watch(totalCorrectionCountProvider);
@@ -51,7 +53,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.gradientBg),
+        decoration: BoxDecoration(
+            gradient:
+                Theme.of(context).brightness == Brightness.light
+                    ? AppColors.lightGradientBg
+                    : AppColors.gradientBg),
         child: SafeArea(
           child: Center(
             // Constrain content on wide screens so cards / text stay
@@ -145,7 +151,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Continue your conversation',
+                                          l.t('home.continue_practice'),
                                           style: Theme.of(
                                             context,
                                           ).textTheme.titleMedium,
@@ -192,7 +198,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           Expanded(
                             child: _StatCard(
                               icon: Icons.error_outline,
-                              label: 'Due for Review',
+                              label: l.t('progress.due_for_review'),
                               value: dueCount.when(
                                 data: (v) => '$v',
                                 loading: () => '...',
@@ -205,7 +211,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           Expanded(
                             child: _StatCard(
                               icon: Icons.check_circle_outline,
-                              label: 'Total Corrections',
+                              label: l.t('progress.total_corrections'),
                               value: totalCount.when(
                                 data: (v) => '$v',
                                 loading: () => '...',
@@ -226,7 +232,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         horizontal: AppSpacing.lg,
                       ),
                       child: Text(
-                        'Quick Start',
+                        l.t('home.quick_actions'),
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
@@ -269,6 +275,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _QuickActionGrid() {
+    final l = AppLocalizations.of(context);
     final actions = <Widget>[];
 
     void add({
@@ -293,7 +300,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     add(
       icon: Icons.chat_bubble_outline,
-      title: 'Free Talk',
+      title: l.t('home.free_talk'),
       subtitle: 'Start a conversation about anything',
       color: AppColors.accentPrimary,
       onTap: () => _startNewSession(context),
@@ -301,7 +308,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     add(
       icon: Icons.grid_view,
-      title: 'Scenario Practice',
+      title: l.t('home.scenarios'),
       subtitle: 'Practice real-life situations',
       color: AppColors.accentSecondary,
       onTap: () => context.go('/scenarios'),
@@ -309,7 +316,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     add(
       icon: Icons.refresh,
-      title: 'Review Mistakes',
+      title: l.t('home.review'),
       subtitle: 'Practice your weak points',
       color: AppColors.success,
       onTap: () => context.go('/review'),
@@ -317,7 +324,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     add(
       icon: Icons.bar_chart,
-      title: 'Learning Progress',
+      title: l.t('home.progress'),
       subtitle: 'View your statistics and achievements',
       color: AppColors.warning,
       onTap: () => context.push('/progress'),
@@ -384,7 +391,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgTertiary,
+        backgroundColor:
+            Theme.of(context).brightness == Brightness.light
+                ? AppColors.lightBgSecondary
+                : AppColors.bgTertiary,
         title: const Text('Welcome back!'),
         content: Text(
           'Continue your conversation about "${session.topic ?? 'Free Talk'}" or start a new topic?',

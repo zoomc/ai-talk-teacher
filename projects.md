@@ -1,13 +1,80 @@
 # SpeakFlow — AI 口语练习应用
 
 > 跨平台 AI 英语口语练习应用
-> 更新日期：2026-07-05
+> 更新日期：2026-07-07
 > 技术栈：Flutter（Dart）
 > 目标平台：macOS · Web · iOS · Android
 
 ---
 
-## 0. 当前状态（2026-07-05 iPhone/iPad 适配 + SPA/PWA 后）
+## 0. 当前状态（2026-07-07 i18n + 浅色主题 + 虚拟人物重做 + voice-first）
+
+本轮针对用户提出的 8 项要求进行了全面改造：onboarding 对比度/跳过/
+TTS 复用 STT/Deepgram TTS/STT-TTS URL/国内 provider、浏览器语言自动
+检测（中日韩英西法葡，检测不到默认中文）+ 设置内切换、浅色主题全面
+完善（iOS26 + 扁平化）、虚拟人物重做（CustomPainter 真实人物 + 20
+口型 + 10 动作 + 文本驱动）、对话默认语音输入、AI 回复自动播放 TTS、
+语音转文字 + 内联纠错、整体产品化打磨。并进行了 3 轮 review（imports/
+i18n-keys/AppColors、跨文件一致性、UI/交互）+ 修复所有 HIGH/MEDIUM
+问题。
+
+### 已落地（本轮）
+
+- **i18n 基础设施**：单文件 `lib/core/i18n/app_localizations.dart`
+  （~1620 行），`AppLocale` 枚举（zh/en/ja/ko/es/fr/pt）+ `AppLocalizations`
+  类（`t(key)` / `tArg(key, args)` + zh 兜底）+ ~150 key/locale。
+  浏览器语言检测走条件导入桥（`browser_language_bridge_stub/_web.dart`，
+  web 用 `dart:js_interop` 读 `navigator.language(s)`）。启动优先级：
+  持久化 `app_language` > 浏览器语言 > OS locale > zh。`localeProvider`
+  + `MaterialApp.router` 全套 delegates。Settings 内 7 语言 RadioListTile
+  切换，持久化 + 实时生效。
+- **浅色主题完善**：`app_colors.dart` 补全 light-* 字段（accentPrimary
+  改 #5A4BD1 更深紫、glassBorder 由不可见白改可见黑 10%）；`app_theme.dart`
+  lightTheme 补 8 个组件主题（elevation:0、大圆角 iOS26 扁平）。所有屏幕
+  主题感知：Scaffold/Container 背景、对话框、输入栏、TextField 文字/hint、
+  角色面板 label、进度条轨道——浅色下不可见的深色硬编码全部加 isLight 分支。
+- **虚拟人物重做**（`shared/widgets/virtual_character.dart` ~1090 行）：
+  CustomPainter 绘制真实人物（头/发/眼/眉/鼻/嘴/颊/躯干/臂/手）。20 种
+  Viseme + 10 种 Gesture。文本驱动：`_visemeForChar` 按字符映射口型（元音/
+  辅音/CJK fallback），`_gestureForKeyword` 按关键词映射动作（你好→wave、
+  对→nod、嗯→thinkPose…）。4 个 AnimationController，公开 API 向后兼容 +
+  新增 `speakingText`。性能优化：glow 仅活跃时运行（idle 不重绘）、viseme
+  改 `addStatusListener(completed)` 每 90ms 推进一次（原每帧触发过快）。
+- **provider catalog 扩展**：LLM +3（火山豆包/百川/零一万物，全 openaiCompatible
+  cn）、STT +3（火山/讯飞/腾讯，vendor cn）、TTS +4（Deepgram TTS 真实现 +
+  火山/讯飞/腾讯 vendor cn）。全部满足 `provider_catalog_test.dart` 约束。
+- **onboarding 改进**：欢迎页 + 每个服务页"跳过稍后设置"；STT URL 输入框；
+  TTS"复用 STT 的 provider 和 key"按钮（带 provider-id 映射）；STT/TTS
+  custom 恒显示 URL；主题感知对比度。
+- **voice-first 对话**：`_ChatInputBar` 默认语音模式（72px 圆形麦克风按钮 +
+  脉冲动画，录音变红），文字模式一键切换。AI 回复自动播放 TTS，spoken text
+  驱动角色口型。用户语音转文字显示为气泡 + 内联纠错建议。
+- **3 轮 review + 修复**：Round 1（imports/i18n keys/AppColors/API）全通过；
+  Round 2（跨文件一致性：STT→TTS 映射、speakingText 流转、localeProvider 类型、
+  provider_catalog_test 约束）全通过；Round 3（UI/交互）发现浅色对比度 bug
+  + 性能问题，全部修复。
+
+### 验证状态
+
+- 沙箱内 **无 Flutter/Dart 工具链**，`flutter analyze` / `flutter test`
+  无法运行。本轮依靠严谨代码审查验证：所有 import 路径解析、所有 i18n key
+  存在于目录、所有 AppColors 字段存在、VirtualCharacter API 匹配、跨文件
+  一致性确认。下次有 Flutter 工具链的环境应补跑 `flutter analyze` +
+  `flutter test` 后再发版。
+
+### 仍未做（后续工作）
+
+- LLM Streaming（SSE）、Placement 重写为 AI 对话评估、`liquid_glass_widgets`
+  采用、reduce-motion 支持、发音音素级评分、`chat_screen.dart` 拆分（~1500
+  行）、Retry 指数退避、LlmUsage 持久化、请求取消（CancelToken）、Inter 字体
+  打包、路由转场动画、raw error 文案友好化、accessibility。
+- home/scenarios/review/progress 仍有部分 pre-existing 硬编码英文文案
+  未走 i18n（非本轮新增，标记为后续）；history_screen 顶部有 TODO 注释。
+- iOS / Android 端真机适配测试待 Flutter 工具链环境下验证。
+
+---
+
+## 0.1 上一轮状态（2026-07-05 iPhone/iPad 适配 + SPA/PWA 后）
 
 本轮在 2026-06-29 综合评审的基础上，针对 **Web 版** 完成了两件大事：
 
@@ -84,7 +151,7 @@
 
 ---
 
-## 0.1 上一轮状态（2026-06-29 综合评审后）
+## 0.2 上两轮状态（2026-06-29 综合评审后）
 
 经过对学习闭环 / UI / 配置 / AI 使用四个维度的全面 review，本次迭代完成了
 全部 P0 阻断项和 P1 关键项的修复（详见 `CHANGELOG.md` 的 `[Unreleased]` 段，

@@ -7,6 +7,128 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### i18n + light-theme polish + virtual character rebuild + voice-first chat
+
+Conducted a comprehensive pass addressing 8 user requirements:
+onboarding contrast/skip/TTS-reuse/Deepgram-TTS/STT-TTS-URL/domestic
+providers, browser-language auto-detection (zh/en/ja/ko/es/fr/pt) with
+in-settings switching, light-theme UI overhaul (iOS26 + flat), a real
+CustomPainter virtual character with 20 visemes + 10 gestures + text-
+driven lip-sync, voice-first chat input, auto-play TTS on AI reply,
+speech-to-text with inline grammar correction, and overall product
+polish. Three review rounds (imports/i18n-keys/AppColors, cross-file
+consistency, UI/interaction) were performed and all HIGH+MEDIUM issues
+fixed.
+
+#### Added — i18n infrastructure
+- **Single-file localization system** `lib/core/i18n/app_localizations.dart`
+  (~1620 lines): `AppLocale` enum (zh/en/ja/ko/es/fr/pt) + `AppLocalizations`
+  class with `t(key)` / `tArg(key, args)` + `_translations` map (~150 keys
+  per locale, zh fallback). `supportedLocales`, `delegate`, `isSupported`
+  (fixed a bug where `isSupported` always returned true).
+- **Browser language auto-detection** via conditional-import bridge
+  (`browser_language_bridge_stub.dart` + `_web.dart` using
+  `dart:js_interop` to read `navigator.language` / `navigator.languages`).
+  Startup priority: persisted `app_language` > browser language > OS
+  locale (PlatformDispatcher) > `AppLocale.zh`.
+- **`localeProvider`** (StateProvider<AppLocale>) in `shared/providers.dart`,
+  seeded via `ProviderScope.overrides` in `main()`. `MaterialApp.router`
+  wired with `localizationsDelegates` (AppLocalizations + flutter
+  Global*), `supportedLocales`, `locale`.
+- **In-settings language switcher** with a RadioListTile dialog of 7
+  AppLocales; persists `app_language` and updates the provider live.
+- ~150 i18n keys covering onboarding/settings/chat/home/scenarios/
+  review/progress/profile/common; 5 new keys this round
+  (correction.type_grammar/vocabulary/pronunciation,
+  common.default_profile_name, onboarding.docs). All user-facing strings
+  across onboarding, settings, chat, home, scenarios, review, progress
+  migrated to `t()`/`tArg()`.
+
+#### Added — light theme completion
+- `app_colors.dart`: new light-* fields (lightBgTertiary, lightBgSurface,
+  lightGlassBgHover, lightAccentPrimary #5A4BD1, lightAccentSecondary,
+  lightTextMuted, lightTextOnAccent, lightGlowPurple/Cyan/Green,
+  lightGradientBg, lightGradientPrimary, lightBubbleAi/User/Correction).
+  lightGlassBg 70%→80%; lightGlassBorder changed from invisible white to
+  visible #1A000000.
+- `app_theme.dart`: lightTheme completed with 8 component themes
+  (card/input/elevated/outlined/text/icon/divider/snackBar) — all
+  elevation:0, large radii (iOS26 flat style).
+- All screens made theme-aware: Scaffold/Container backgrounds, dialog
+  backgrounds, input bar, text field text/hint colors, character panel
+  label, progress bar track — every hardcoded dark color that was
+  invisible on light bg now has an isLight branch (chat_screen,
+  home/scenarios/review/progress/history/tutor_selection, settings,
+  virtual_character).
+
+#### Added — virtual character rebuild (CustomPainter)
+- `shared/widgets/virtual_character.dart` (~1090 lines) rewritten as a
+  real human figure (head, hair, eyes, brows, nose, mouth, cheeks,
+  torso, arms, hands) via CustomPainter.
+- **20 visemes**: closed/slightOpen/smallOpen/mediumOpen/wideOpen/
+  roundedSmall/roundedLarge/wide/flat/smile/smileOpen/frown/pucker/
+  teeth/tongueUp/tongueOut/biteLip/openTeeth/oval/wideFlat.
+- **10 gestures**: idle/wave/nod/tiltHead/raiseHand/pointUp/thinkPose/
+  openPalm/shake/bounce.
+- **Text-driven lip-sync**: `_visemeForChar` maps chars to visemes
+  (vowels a/e/i/o/u, consonants m/b/p/f/v/l/n/t/d/s/z/c/r/th, CJK
+  fallback). `_gestureForKeyword` maps keywords (你好/hello→wave,
+  对/yes→nod, 嗯/hmm→thinkPose, 看/look→pointUp, 谢谢/thank→openPalm,
+  不/no→shake, great/棒→raiseHand, default→bounce).
+- 4 AnimationControllers (breath 3s, glow 1800ms, gesture 700-1400ms,
+  viseme 90ms). Public API backward-compatible (tutorName/state/
+  accentColor/size/showLabel + new optional speakingText).
+- **Performance**: glow only runs when active (idle stays dim, saving
+  per-frame repaints); viseme advances off `addStatusListener(completed)`
+  — one tick per 90ms cycle instead of every animation frame.
+
+#### Added — provider catalog expansion (domestic + Deepgram TTS)
+- LLM +3 (all openaiCompatible, cn): volcengine_doubao, baichuan, yi.
+- STT +3 (vendor, cn): volcengine_stt, xfyun_stt, tencent_stt.
+- TTS +4: deepgram_tts (vendor, global, aura-asteria-en) with real
+  implementation (POST {base}/v1/speak?model=..., Authorization: Token);
+  volcengine_tts, xfyun_tts, tencent_tts (vendor, cn).
+- All new providers satisfy `provider_catalog_test.dart` constraints.
+
+#### Added — onboarding improvements
+- "Skip for now" on welcome page (completes onboarding with no profiles)
+  and on each service page.
+- STT URL input field; TTS "Use same provider & key as STT" shortcut
+  with a provider-id mapping (deepgram→deepgram_tts, etc.).
+- STT/TTS custom providers always show URL input.
+- Theme-aware contrast (heading/body/field/hint colors).
+
+#### Added — voice-first chat
+- `_ChatInputBar` now defaults to voice mode (`_InputMode.voice`): a 72px
+  circular mic button with a pulse animation (turns red while recording).
+  Text mode is a toggle away (keyboard icon top-right).
+- AI reply auto-plays TTS (`_autoplayTts` on new AI message); the spoken
+  text drives the character's lip-sync via `_speakingText`.
+- User speech is transcribed and shown as a user bubble; grammar
+  corrections render inline under the user message (`_CorrectionInline`).
+
+#### Fixed — review round 3 (light-theme contrast + performance)
+- chat_screen Scaffold / input bar / bottom sheet / text field were
+  hardcoded to dark colors — invisible on light theme. All theme-aware.
+- home/scenarios/review/progress/history/tutor_selection had hardcoded
+  dark gradients — all branch to lightGradientBg.
+- settings loading-state gradient now theme-aware.
+- virtual character tutor-name label was dark-theme light text on a
+  light card — now branches to lightTextPrimary.
+
+#### Verification status
+- Flutter/Dart toolchain is NOT available in this sandbox, so
+  `flutter analyze` / `flutter test` could not be run. Verification was
+  done by rigorous code review: all imports resolve, all i18n keys
+  exist in the catalog, all AppColors fields exist, VirtualCharacter API
+  matches, cross-file consistency confirmed (STT→TTS mapping identical
+  in onboarding and profile_form; speakingText flow correct;
+  localeProvider types match; new providers satisfy test constraints).
+  The next session with a Flutter toolchain should re-run `flutter
+  analyze` + `flutter test` before release.
+
+---
+
 ### Comprehensive review pass (learning loop / UI / config / AI usage)
 
 Conducted a 4-axis review (learning closed-loop, UI/art/interaction,

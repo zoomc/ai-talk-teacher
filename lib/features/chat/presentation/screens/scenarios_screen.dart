@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../domain/chat_models.dart';
@@ -54,10 +55,15 @@ class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
   @override
   Widget build(BuildContext context) {
     final scenarios = ref.watch(scenariosProvider);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.gradientBg),
+        decoration: BoxDecoration(
+            gradient:
+                Theme.of(context).brightness == Brightness.light
+                    ? AppColors.lightGradientBg
+                    : AppColors.gradientBg),
         child: SafeArea(
           child: scenarios.when(
             data: (list) {
@@ -75,12 +81,12 @@ class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Scenarios',
+                            l.t('scenarios.title'),
                             style: Theme.of(context).textTheme.displayLarge,
                           ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
-                            'Choose a real-life scenario to practice',
+                            l.t('scenarios.subtitle'),
                             style: Theme.of(context).textTheme.bodyLarge
                                 ?.copyWith(color: AppColors.textSecondary),
                           ),

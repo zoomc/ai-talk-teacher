@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/install_prompt_service.dart';
@@ -58,20 +59,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  AppLocalizations get _l => AppLocalizations.of(context);
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
         body: Container(
-          decoration: const BoxDecoration(gradient: AppColors.gradientBg),
+          decoration: BoxDecoration(
+              gradient: Theme.of(context).brightness == Brightness.light
+                  ? AppColors.lightGradientBg
+                  : AppColors.gradientBg),
           child: const Center(child: CircularProgressIndicator()),
         ),
       );
     }
 
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.gradientBg),
+        decoration: BoxDecoration(
+          gradient:
+              isLight ? AppColors.lightGradientBg : AppColors.gradientBg,
+        ),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.lg),
@@ -79,19 +89,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Settings',
+                  _l.t('settings.title'),
                   style: Theme.of(context).textTheme.displayLarge,
                 ),
                 const SizedBox(height: AppSpacing.xl),
 
-                // Services section
                 _SettingsSection(
-                  title: 'Services',
+                  title: _l.t('settings.services'),
                   children: [
                     _SettingsTile(
                       icon: Icons.cloud_outlined,
-                      title: 'Service Configuration',
-                      subtitle: 'Manage LLM, STT, TTS profiles',
+                      title: _l.t('settings.service_config'),
+                      subtitle: _l.t('settings.service_config_subtitle'),
                       onTap: () => context.push('/service-config'),
                     ),
                   ],
@@ -99,81 +108,73 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                 const SizedBox(height: AppSpacing.lg),
 
-                // Learning section
                 _SettingsSection(
-                  title: 'Learning',
+                  title: _l.t('settings.learning'),
                   children: [
                     _SettingsTile(
                       icon: Icons.speed,
-                      title: 'Correction Strength',
+                      title: _l.t('settings.correction_strength'),
                       subtitle: _capitalize(_correctionStrength),
                       onTap: _showCorrectionStrengthDialog,
                     ),
                     _SettingsTile(
                       icon: Icons.volume_up_outlined,
-                      title: 'TTS Speed',
+                      title: _l.t('settings.tts_speed'),
                       subtitle: '${_ttsSpeed}x',
                       onTap: _showTtsSpeedDialog,
                     ),
-                    // Interface Language tile removed — it was a "coming
-                    // soon" placeholder that read as a real tappable
-                    // affordance and felt like a bug. We'll re-add it
-                    // when the feature actually lands.
                   ],
                 ),
 
                 const SizedBox(height: AppSpacing.lg),
 
-                // Appearance section
                 _SettingsSection(
-                  title: 'Appearance',
+                  title: _l.t('settings.appearance'),
                   children: [
                     _SettingsTile(
                       icon: Icons.dark_mode_outlined,
-                      title: 'Theme',
-                      subtitle: _capitalize(_theme),
+                      title: _l.t('settings.theme'),
+                      subtitle: _themeDisplayName(_theme),
                       onTap: _showThemeDialog,
+                    ),
+                    _SettingsTile(
+                      icon: Icons.language,
+                      title: _l.t('settings.language'),
+                      subtitle: _localeDisplayName(ref.watch(localeProvider)),
+                      onTap: _showLanguageDialog,
                     ),
                   ],
                 ),
 
                 const SizedBox(height: AppSpacing.lg),
 
-                // Data section
                 _SettingsSection(
-                  title: 'Data',
+                  title: _l.t('settings.data'),
                   children: [
                     _SettingsTile(
                       icon: Icons.delete_outline,
-                      title: 'Clear Cache',
-                      subtitle: 'Free up storage space',
+                      title: _l.t('settings.clear_cache'),
+                      subtitle: _l.t('settings.clear_cache_subtitle'),
                       onTap: _clearCache,
                       isDestructive: true,
                     ),
-                    // Export Learning Data tile removed — same reason as
-                    // Interface Language above. Will re-add with the
-                    // real export flow.
                   ],
                 ),
 
                 const SizedBox(height: AppSpacing.lg),
 
-                // App section — install banner reset + manual update check.
-                // Only meaningful on web, so we read the web-only providers
-                // here; the providers self-report `platformUnsupported` /
-                // empty state on mobile so the tiles degrade gracefully.
                 _AppSection(),
 
                 const SizedBox(height: AppSpacing.lg),
 
-                // About section
                 _SettingsSection(
-                  title: 'About',
+                  title: _l.t('settings.about'),
                   children: [
                     _SettingsTile(
                       icon: Icons.info_outline,
                       title: 'SpeakFlow',
-                      subtitle: 'Version $kAppVersion',
+                      subtitle: _l.tArg('settings.version',
+                          {'version': kAppVersion}),
                       onTap: () {},
                     ),
                   ],
@@ -188,31 +189,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  String _themeDisplayName(String key) {
+    switch (key) {
+      case 'dark':
+        return _l.t('settings.theme_dark');
+      case 'light':
+        return _l.t('settings.theme_light');
+      case 'system':
+      default:
+        return _l.t('settings.theme_system');
+    }
+  }
+
+  String _localeDisplayName(AppLocale locale) => locale.nativeName;
+
   Future<void> _clearCache() async {
     try {
       await TtsPlaybackService().clearCache();
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Cache cleared')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_l.t('settings.cache_cleared'))),
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to clear cache: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_l.tArg('settings.cache_clear_failed',
+                {'error': e.toString()})),
+          ),
+        );
       }
     }
   }
 
   void _showCorrectionStrengthDialog() {
     String local = _correctionStrength;
+    final isLight = Theme.of(context).brightness == Brightness.light;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.bgTertiary,
-          title: const Text('Correction Strength'),
+          backgroundColor: isLight
+              ? AppColors.lightBgSecondary
+              : AppColors.bgTertiary,
+          title: Text(_l.t('settings.correction_strength')),
           content: RadioGroup<String>(
             groupValue: local,
             onChanged: (v) {
@@ -222,20 +243,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 RadioListTile<String>(
-                  title: const Text('Gentle'),
-                  subtitle: const Text('Occasionally correct errors'),
+                  title: Text(_l.t('settings.correction_gentle')),
+                  subtitle: Text(_l.t('settings.correction_gentle_sub')),
                   value: 'gentle',
                   activeColor: AppColors.accentPrimary,
                 ),
                 RadioListTile<String>(
-                  title: const Text('Moderate'),
-                  subtitle: const Text('Correct most errors'),
+                  title: Text(_l.t('settings.correction_moderate')),
+                  subtitle: Text(_l.t('settings.correction_moderate_sub')),
                   value: 'moderate',
                   activeColor: AppColors.accentPrimary,
                 ),
                 RadioListTile<String>(
-                  title: const Text('Strict'),
-                  subtitle: const Text('Correct every error'),
+                  title: Text(_l.t('settings.correction_strict')),
+                  subtitle: Text(_l.t('settings.correction_strict_sub')),
                   value: 'strict',
                   activeColor: AppColors.accentPrimary,
                 ),
@@ -245,7 +266,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: Text(_l.t('common.cancel')),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -255,7 +276,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 if (mounted) setState(() => _correctionStrength = local);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
-              child: const Text('Save'),
+              child: Text(_l.t('common.save')),
             ),
           ],
         ),
@@ -265,12 +286,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _showTtsSpeedDialog() {
     String local = _ttsSpeed;
+    final isLight = Theme.of(context).brightness == Brightness.light;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.bgTertiary,
-          title: const Text('TTS Speed'),
+          backgroundColor: isLight
+              ? AppColors.lightBgSecondary
+              : AppColors.bgTertiary,
+          title: Text(_l.t('settings.tts_speed')),
           content: RadioGroup<String>(
             groupValue: local,
             onChanged: (v) {
@@ -280,22 +304,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 RadioListTile<String>(
-                  title: const Text('0.75x (Slower)'),
+                  title: Text(_l.t('profile.speed_slower')),
                   value: '0.75',
                   activeColor: AppColors.accentPrimary,
                 ),
                 RadioListTile<String>(
-                  title: const Text('1.0x (Normal)'),
+                  title: Text(_l.t('profile.speed_normal')),
                   value: '1.0',
                   activeColor: AppColors.accentPrimary,
                 ),
                 RadioListTile<String>(
-                  title: const Text('1.25x (Faster)'),
+                  title: Text(_l.t('profile.speed_faster')),
                   value: '1.25',
                   activeColor: AppColors.accentPrimary,
                 ),
                 RadioListTile<String>(
-                  title: const Text('1.5x (Fastest)'),
+                  title: Text(_l.t('profile.speed_fastest')),
                   value: '1.5',
                   activeColor: AppColors.accentPrimary,
                 ),
@@ -305,7 +329,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: Text(_l.t('common.cancel')),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -315,7 +339,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 if (mounted) setState(() => _ttsSpeed = local);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
-              child: const Text('Save'),
+              child: Text(_l.t('common.save')),
             ),
           ],
         ),
@@ -325,12 +349,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _showThemeDialog() {
     String local = _theme;
+    final isLight = Theme.of(context).brightness == Brightness.light;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.bgTertiary,
-          title: const Text('Theme'),
+          backgroundColor: isLight
+              ? AppColors.lightBgSecondary
+              : AppColors.bgTertiary,
+          title: Text(_l.t('settings.theme')),
           content: RadioGroup<String>(
             groupValue: local,
             onChanged: (v) {
@@ -340,17 +367,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 RadioListTile<String>(
-                  title: const Text('System'),
+                  title: Text(_l.t('settings.theme_system')),
                   value: 'system',
                   activeColor: AppColors.accentPrimary,
                 ),
                 RadioListTile<String>(
-                  title: const Text('Dark'),
+                  title: Text(_l.t('settings.theme_dark')),
                   value: 'dark',
                   activeColor: AppColors.accentPrimary,
                 ),
                 RadioListTile<String>(
-                  title: const Text('Light'),
+                  title: Text(_l.t('settings.theme_light')),
                   value: 'light',
                   activeColor: AppColors.accentPrimary,
                 ),
@@ -360,20 +387,71 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: Text(_l.t('common.cancel')),
             ),
             ElevatedButton(
               onPressed: () async {
                 await ref.read(profileRepoProvider).setSetting('theme', local);
-                // Push the new theme into the global provider so
-                // MaterialApp rebuilds immediately (P1-8) — previously
-                // the change only took effect on next app restart.
                 ref.read(themeModeProvider.notifier).state =
                     _parseThemeMode(local);
                 if (mounted) setState(() => _theme = local);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
-              child: const Text('Save'),
+              child: Text(_l.t('common.save')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLanguageDialog() {
+    AppLocale local = ref.read(localeProvider);
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: isLight
+              ? AppColors.lightBgSecondary
+              : AppColors.bgTertiary,
+          title: Text(_l.t('settings.language')),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: AppLocale.values
+                  .map(
+                    (locale) => RadioListTile<AppLocale>(
+                      title: Text(locale.nativeName),
+                      subtitle: Text(locale.englishName),
+                      value: locale,
+                      groupValue: local,
+                      onChanged: (v) {
+                        if (v != null) setDialogState(() => local = v);
+                      },
+                      activeColor: AppColors.accentPrimary,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(_l.t('common.cancel')),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // Persist + push to the global provider so MaterialApp
+                // rebuilds with the new locale immediately.
+                await ref
+                    .read(profileRepoProvider)
+                    .setSetting('app_language', local.code);
+                ref.read(localeProvider.notifier).state = local;
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: Text(_l.t('common.save')),
             ),
           ],
         ),
@@ -389,30 +467,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 class _AppSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final versionState = ref.watch(versionServiceProvider);
     final installState = ref.watch(installPromptServiceProvider);
 
-    // On non-web platforms both services report unsupported/empty —
-    // hide the whole section to avoid clutter.
     if (installState.platformUnsupported && !versionState.isChecking &&
         versionState.serverVersion == null) {
-      // Still show on non-web if we haven't determined unsupported yet
-      // (initial state). Once install service reports platformUnsupported,
-      // we know we're not on web.
       return const SizedBox.shrink();
     }
 
     final children = <Widget>[
       _SettingsTile(
         icon: Icons.system_update_alt_outlined,
-        title: 'Check for updates',
+        title: l.t('settings.check_updates'),
         subtitle: versionState.isChecking
-            ? 'Checking…'
+            ? l.t('settings.checking')
             : (versionState.newVersionAvailable
-                ? 'New version ${versionState.serverVersion} available'
+                ? l.tArg('settings.update_available',
+                    {'version': versionState.serverVersion ?? ''})
                 : (versionState.serverVersion != null
-                    ? 'Up to date (server: ${versionState.serverVersion})'
-                    : 'Tap to check now')),
+                    ? l.tArg('settings.up_to_date',
+                        {'version': versionState.serverVersion!})
+                    : l.t('settings.tap_to_check'))),
         onTap: () async {
           await ref.read(versionServiceProvider.notifier).checkNow();
           if (!context.mounted) return;
@@ -420,38 +496,33 @@ class _AppSection extends ConsumerWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(s.newVersionAvailable
-                  ? 'New version ${s.serverVersion} available — see banner at top.'
-                  : 'You\'re on the latest version.'),
+                  ? l.tArg('settings.new_version_in_banner',
+                      {'version': s.serverVersion ?? ''})
+                  : l.t('settings.latest_version')),
             ),
           );
         },
       ),
-      // Only show the "show install banner again" tile if the user has
-      // actually dismissed it before — otherwise the action is a no-op
-      // and would just confuse.
       if (installState.hasDismissed && !installState.isStandalone)
         _SettingsTile(
           icon: Icons.install_mobile_outlined,
-          title: 'Show install banner again',
-          subtitle: 'Re-show the "Install SpeakFlow" prompt',
+          title: l.t('settings.show_install_again'),
+          subtitle: l.t('settings.show_install_again_sub'),
           onTap: () async {
             await ref
                 .read(installPromptServiceProvider.notifier)
                 .resetDismissal();
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Install banner will reappear shortly. '
-                  'Reload the page if it doesn\'t.',
-                ),
+              SnackBar(
+                content: Text(l.t('settings.install_will_show')),
               ),
             );
           },
         ),
     ];
 
-    return _SettingsSection(title: 'App', children: children);
+    return _SettingsSection(title: l.t('settings.app'), children: children);
   }
 }
 
@@ -463,6 +534,7 @@ class _SettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -473,9 +545,11 @@ class _SettingsSection extends StatelessWidget {
           ),
           child: Text(
             title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(color: AppColors.textSecondary),
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: isLight
+                      ? AppColors.lightTextSecondary
+                      : AppColors.textSecondary,
+                ),
           ),
         ),
         GlassCard(child: Column(children: children)),
@@ -501,27 +575,31 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final titleColor = isDestructive
+        ? AppColors.error
+        : (isLight ? AppColors.lightTextPrimary : AppColors.textPrimary);
+    final subtitleColor = isLight
+        ? AppColors.lightTextSecondary
+        : AppColors.textSecondary;
+    final chevronColor =
+        isLight ? AppColors.lightTextMuted : AppColors.textMuted;
     return ListTile(
       onTap: onTap,
       leading: Icon(
         icon,
         color: isDestructive ? AppColors.error : AppColors.accentSecondary,
       ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: isDestructive ? AppColors.error : AppColors.textPrimary,
-        ),
-      ),
+      title: Text(title, style: TextStyle(color: titleColor)),
       subtitle: Text(
         subtitle,
-        style: Theme.of(
-          context,
-        ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: subtitleColor,
+            ),
       ),
-      trailing: const Icon(
+      trailing: Icon(
         Icons.chevron_right,
-        color: AppColors.textMuted,
+        color: chevronColor,
         size: 20,
       ),
     );

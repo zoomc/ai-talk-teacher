@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
@@ -11,6 +12,10 @@ import '../../../profile/domain/provider_catalog.dart';
 /// First-run wizard. The user picks a provider for each of LLM / STT / TTS,
 /// pastes an API key, and we auto-fill the rest from the catalog. Only the API
 /// key is strictly required; everything else has sane catalog defaults.
+///
+/// Each page offers a "Skip for now" affordance — the user can defer all
+/// configuration to Settings later. The TTS page additionally offers a
+/// "Use same provider & key as STT" shortcut.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -31,6 +36,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // STT
   String _sttProviderId = 'deepgram';
   final _sttKeyController = TextEditingController();
+  final _sttUrlController = TextEditingController();
 
   // TTS
   String _ttsProviderId = 'fish_audio';
@@ -42,6 +48,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void initState() {
     super.initState();
     _applyLlmDefaults();
+    _applySttDefaults();
+    _applyTtsDefaults();
   }
 
   @override
@@ -51,6 +59,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _llmUrlController.dispose();
     _llmModelController.dispose();
     _sttKeyController.dispose();
+    _sttUrlController.dispose();
     _ttsKeyController.dispose();
     super.dispose();
   }
@@ -61,14 +70,31 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _llmModelController.text = def.defaultModel ?? '';
   }
 
+  void _applySttDefaults() {
+    final def = SttProviderCatalog.byId(_sttProviderId);
+    _sttUrlController.text = def.defaultBaseUrl;
+  }
+
+  void _applyTtsDefaults() {
+    final def = TtsProviderCatalog.byId(_ttsProviderId);
+    // TTS base URL is read straight from the catalog at save time, but we
+    // keep the controller in sync so the "reuse STT" button can overwrite
+    // it cleanly.
+    _ttsKeyController.text = '';
+  }
+
+  AppLocalizations get _l => AppLocalizations.of(context);
+
   @override
   Widget build(BuildContext context) {
+    // Use theme-aware background so the light theme no longer shows the
+    // old deep-navy gradient (which had poor contrast against dark text).
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return Scaffold(
-      backgroundColor: AppColors.bgPrimary,
+      backgroundColor:
+          isLight ? AppColors.lightBgPrimary : AppColors.bgPrimary,
       body: SafeArea(
         child: Center(
-          // Constrain onboarding content on wide screens so the form
-          // stays centered and readable on desktop browsers.
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: Responsive.contentMaxWidth(context),
@@ -91,6 +117,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Widget _buildWelcomePage() {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final headingColor =
+        isLight ? AppColors.lightTextPrimary : AppColors.textPrimary;
+    final bodyColor =
+        isLight ? AppColors.lightTextSecondary : AppColors.textSecondary;
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
@@ -114,21 +145,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
           const SizedBox(height: AppSpacing.xl),
           Text(
-            'Welcome to SpeakFlow',
-            style: Theme.of(context).textTheme.displayLarge,
+            _l.t('onboarding.welcome_title'),
+            style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                  color: headingColor,
+                ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            'Your AI English speaking practice companion.\n\n'
-            'To get started, configure 3 services. Pick a provider and paste '
-            'an API key — the rest is filled in automatically. You can use a '
-            'relay station (中转站) or a self-hosted local model too.',
+            _l.t('onboarding.welcome_body'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.6,
-            ),
+                  color: bodyColor,
+                  height: 1.6,
+                ),
           ),
           const SizedBox(height: AppSpacing.xxl),
           ElevatedButton(
@@ -136,7 +166,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 56),
             ),
-            child: const Text('Get Started'),
+            child: Text(_l.t('onboarding.get_started')),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          // "Skip for now" — completes onboarding with no profiles saved.
+          // The user can configure everything from Settings later.
+          TextButton(
+            onPressed: _isSaving ? null : _skipAll,
+            child: Text(_l.t('common.skip_for_now')),
           ),
         ],
       ),
@@ -146,8 +183,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget _buildLlmPage() {
     return _buildServicePage(
       emoji: '🧠',
-      title: 'AI Dialogue',
-      subtitle: 'Powers the conversation with your AI tutor.',
+      titleKey: 'onboarding.llm_title',
+      subtitleKey: 'onboarding.llm_subtitle',
       providerId: _llmProviderId,
       onProviderChanged: (v) {
         setState(() {
@@ -158,62 +195,186 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       providers: LlmProviderCatalog.all,
       keyController: _llmKeyController,
       keyHint: 'sk-...',
-      extraFields: [
-        const SizedBox(height: AppSpacing.md),
-        Text('API Base URL', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: AppSpacing.xs),
-        TextFormField(
-          controller: _llmUrlController,
-          style: const TextStyle(color: AppColors.textPrimary),
-          decoration: const InputDecoration(
-            hintText: 'https://api.deepseek.com/v1',
+      extraFields: _buildLlmExtraFields(),
+    );
+  }
+
+  List<Widget> _buildLlmExtraFields() {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final labelColor =
+        isLight ? AppColors.lightTextPrimary : AppColors.textPrimary;
+    return [
+      const SizedBox(height: AppSpacing.md),
+      Text(
+        _l.t('onboarding.base_url'),
+        style: Theme.of(context)
+            .textTheme
+            .titleMedium
+            ?.copyWith(color: labelColor),
+      ),
+      const SizedBox(height: AppSpacing.xs),
+      TextFormField(
+        controller: _llmUrlController,
+        style: TextStyle(color: labelColor),
+        decoration: InputDecoration(
+          hintText: 'https://api.deepseek.com/v1',
+          hintStyle: TextStyle(
+            color: isLight ? AppColors.lightTextMuted : AppColors.textMuted,
           ),
         ),
-        const SizedBox(height: AppSpacing.md),
-        Text('Model', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: AppSpacing.xs),
-        TextFormField(
-          controller: _llmModelController,
-          style: const TextStyle(color: AppColors.textPrimary),
-          decoration: const InputDecoration(hintText: 'deepseek-v4-flash'),
+      ),
+      const SizedBox(height: AppSpacing.md),
+      Text(
+        _l.t('onboarding.model'),
+        style: Theme.of(context)
+            .textTheme
+            .titleMedium
+            ?.copyWith(color: labelColor),
+      ),
+      const SizedBox(height: AppSpacing.xs),
+      TextFormField(
+        controller: _llmModelController,
+        style: TextStyle(color: labelColor),
+        decoration: InputDecoration(
+          hintText: 'deepseek-v4-flash',
+          hintStyle: TextStyle(
+            color: isLight ? AppColors.lightTextMuted : AppColors.textMuted,
+          ),
         ),
-      ],
-    );
+      ),
+    ];
   }
 
   Widget _buildSttPage() {
     return _buildServicePage(
       emoji: '🎤',
-      title: 'Speech Recognition',
-      subtitle:
-          'Converts your speech to text. Cloud services handle accents far better than on-device options.',
+      titleKey: 'onboarding.stt_title',
+      subtitleKey: 'onboarding.stt_subtitle',
       providerId: _sttProviderId,
-      onProviderChanged: (v) => setState(() => _sttProviderId = v),
+      onProviderChanged: (v) {
+        setState(() {
+          _sttProviderId = v;
+          _applySttDefaults();
+        });
+      },
       providers: SttProviderCatalog.all,
       keyController: _sttKeyController,
       keyHint: 'dg-...',
+      extraFields: _buildSttExtraFields(),
     );
+  }
+
+  List<Widget> _buildSttExtraFields() {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final labelColor =
+        isLight ? AppColors.lightTextPrimary : AppColors.textPrimary;
+    return [
+      const SizedBox(height: AppSpacing.md),
+      Text(
+        _l.t('onboarding.base_url'),
+        style: Theme.of(context)
+            .textTheme
+            .titleMedium
+            ?.copyWith(color: labelColor),
+      ),
+      const SizedBox(height: AppSpacing.xs),
+      TextFormField(
+        controller: _sttUrlController,
+        style: TextStyle(color: labelColor),
+        decoration: InputDecoration(
+          hintText: 'https://api.deepgram.com',
+          hintStyle: TextStyle(
+            color: isLight ? AppColors.lightTextMuted : AppColors.textMuted,
+          ),
+        ),
+      ),
+    ];
   }
 
   Widget _buildTtsPage() {
     return _buildServicePage(
       emoji: '🔊',
-      title: 'Text-to-Speech',
-      subtitle: 'Reads the AI tutor\'s responses aloud with natural voices.',
+      titleKey: 'onboarding.tts_title',
+      subtitleKey: 'onboarding.tts_subtitle',
       providerId: _ttsProviderId,
       onProviderChanged: (v) => setState(() => _ttsProviderId = v),
       providers: TtsProviderCatalog.all,
       keyController: _ttsKeyController,
-      keyHint: 'Enter your API key',
+      keyHint: _l.t('onboarding.api_key'),
+      extraFields: _buildTtsExtraFields(),
       isLast: true,
       onNext: _saveAndContinue,
     );
   }
 
+  List<Widget> _buildTtsExtraFields() {
+    return [
+      const SizedBox(height: AppSpacing.md),
+      // "Reuse STT provider & key" shortcut — copies the STT provider,
+      // base URL and API key into the TTS form (with a provider-id
+      // mapping when the STT id differs from the TTS id, e.g. deepgram
+      // → deepgram_tts).
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: _reuseSttForTts,
+          icon: const Icon(Icons.copy, size: 18),
+          label: Text(_l.t('onboarding.use_same_as_stt')),
+        ),
+      ),
+    ];
+  }
+
+  Future<void> _reuseSttForTts() async {
+    final repo = ref.read(profileRepoProvider);
+    try {
+      final sttProfiles = await repo.getAllSttProfiles();
+      final active =
+          sttProfiles.where((p) => p.isActive).firstOrNull ?? sttProfiles.firstOrNull;
+      // Onboarding hasn't saved anything yet — fall back to the in-form
+      // STT values the user is currently editing.
+      final sttId = active?.providerId ?? _sttProviderId;
+      final sttKey = active?.apiKey.isNotEmpty == true
+          ? active!.apiKey
+          : _sttKeyController.text;
+      final sttUrl = active?.baseUrl.isNotEmpty == true
+          ? active!.baseUrl
+          : _sttUrlController.text;
+      if (sttKey.isEmpty && sttUrl.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(_l.t('onboarding.no_active_stt'))));
+        return;
+      }
+      const mapping = <String, String>{
+        'deepgram': 'deepgram_tts',
+        'azure': 'azure_tts',
+        'google': 'google_tts',
+        'siliconflow_stt': 'siliconflow_tts',
+        'openai_whisper': 'openai_tts',
+        'custom': 'custom',
+      };
+      final mapped = mapping[sttId] ?? 'custom';
+      final exists =
+          TtsProviderCatalog.all.any((p) => p.id == mapped) ? mapped : 'custom';
+      setState(() {
+        _ttsProviderId = exists;
+        _ttsKeyController.text = sttKey;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_l.t('onboarding.copied_from_stt'))));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_l.t('onboarding.no_active_stt'))));
+    }
+  }
+
   Widget _buildServicePage({
     required String emoji,
-    required String title,
-    required String subtitle,
+    required String titleKey,
+    required String subtitleKey,
     required String providerId,
     required ValueChanged<String> onProviderChanged,
     required List<ProviderDef> providers,
@@ -223,17 +384,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     bool isLast = false,
     VoidCallback? onNext,
   }) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final headingColor =
+        isLight ? AppColors.lightTextPrimary : AppColors.textPrimary;
+    final bodyColor =
+        isLight ? AppColors.lightTextSecondary : AppColors.textSecondary;
+    final fieldColor =
+        isLight ? AppColors.lightTextPrimary : AppColors.textPrimary;
+    final hintColor =
+        isLight ? AppColors.lightTextMuted : AppColors.textMuted;
     final def = providers.firstWhere(
       (p) => p.id == providerId,
       orElse: () => providers.first,
     );
     final keyRequired = def.apiKeyRequired;
     return SingleChildScrollView(
-      // Scaffold's `resizeToAvoidBottomInset: true` (the default) already
-      // shrinks the body to clear the soft keyboard, so we just need
-      // normal bottom padding here — adding viewInsets.bottom would
-      // double-count and leave the Next/Start button floating ~300pt
-      // above the keyboard when fully scrolled.
       padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,7 +413,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   decoration: BoxDecoration(
                     color: i <= _currentPage
                         ? AppColors.accentPrimary
-                        : AppColors.bgTertiary,
+                        : (isLight
+                            ? AppColors.lightGlassBorder
+                            : AppColors.bgTertiary),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -259,25 +426,41 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
           Text(emoji, style: const TextStyle(fontSize: 48)),
           const SizedBox(height: AppSpacing.md),
-          Text(title, style: Theme.of(context).textTheme.displayLarge),
+          Text(
+            _l.t(titleKey),
+            style: Theme.of(context)
+                .textTheme
+                .displayLarge
+                ?.copyWith(color: headingColor),
+          ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.6,
-            ),
+            _l.t(subtitleKey),
+            style: Theme.of(context)
+                .textTheme
+                .bodyLarge
+                ?.copyWith(color: bodyColor, height: 1.6),
           ),
           const SizedBox(height: AppSpacing.xl),
 
           // Provider picker
-          Text('Provider', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            _l.t('onboarding.provider'),
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(color: headingColor),
+          ),
           const SizedBox(height: AppSpacing.xs),
           DropdownButtonFormField<String>(
             value: providerId,
-            dropdownColor: AppColors.bgTertiary,
-            style: const TextStyle(color: AppColors.textPrimary),
-            decoration: const InputDecoration(hintText: 'Select provider'),
+            dropdownColor:
+                isLight ? AppColors.lightBgSecondary : AppColors.bgTertiary,
+            style: TextStyle(color: fieldColor),
+            decoration: InputDecoration(
+              hintText: _l.t('onboarding.provider'),
+              hintStyle: TextStyle(color: hintColor),
+            ),
             items: _groupedItems(providers),
             onChanged: (v) {
               if (v != null && !v.startsWith('_header_')) onProviderChanged(v);
@@ -287,34 +470,42 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             const SizedBox(height: AppSpacing.sm),
             Text(
               def.note!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
-                height: 1.4,
-              ),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: bodyColor, height: 1.4),
             ),
           ],
           if (def.docsUrl.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'Docs: ${def.docsUrl}',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AppColors.accentSecondary),
+              '${_l.t('onboarding.docs')}: ${def.docsUrl}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.accentSecondary,
+                  ),
             ),
           ],
           const SizedBox(height: AppSpacing.lg),
 
           // API Key
           Text(
-            keyRequired ? 'API Key' : 'API Key (optional)',
-            style: Theme.of(context).textTheme.titleMedium,
+            keyRequired
+                ? _l.t('onboarding.api_key')
+                : _l.t('onboarding.api_key_optional'),
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(color: headingColor),
           ),
           const SizedBox(height: AppSpacing.xs),
           TextFormField(
             controller: keyController,
-            style: const TextStyle(color: AppColors.textPrimary),
+            style: TextStyle(color: fieldColor),
             obscureText: true,
-            decoration: InputDecoration(hintText: keyHint),
+            decoration: InputDecoration(
+              hintText: keyHint,
+              hintStyle: TextStyle(color: hintColor),
+            ),
           ),
 
           ...extraFields,
@@ -324,8 +515,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           Row(
             children: [
               if (_currentPage > 0)
-                TextButton(onPressed: _back, child: const Text('Back')),
+                TextButton(
+                  onPressed: _back,
+                  child: Text(_l.t('common.back')),
+                ),
               const Spacer(),
+              // Per-page skip — only on service pages (LLM/STT/TTS).
+              // Lets the user defer configuration of THIS service while
+              // still continuing the wizard.
+              TextButton(
+                onPressed: _isSaving ? null : _skipCurrent,
+                child: Text(_l.t('common.skip_for_now')),
+              ),
+              const SizedBox(width: AppSpacing.sm),
               ElevatedButton(
                 onPressed: _isSaving ? null : (onNext ?? _next),
                 child: _isSaving
@@ -334,7 +536,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(isLast ? 'Start Learning' : 'Next'),
+                    : Text(isLast
+                        ? _l.t('onboarding.start_learning')
+                        : _l.t('common.next')),
               ),
             ],
           ),
@@ -383,11 +587,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String _regionLabel(ProviderRegion r) {
     switch (r) {
       case ProviderRegion.cn:
-        return '— China (国内) —';
+        return _l.t('onboarding.region_cn');
       case ProviderRegion.global:
-        return '— Global (国外) —';
+        return _l.t('onboarding.region_global');
       case ProviderRegion.local:
-        return '— Local / Self-hosted —';
+        return _l.t('onboarding.region_local');
     }
   }
 
@@ -405,14 +609,33 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
+  /// Skip the current service page (advances to the next page, or completes
+  /// onboarding if already on the last page). The skipped service is simply
+  /// not saved — the user can configure it later from Settings.
+  void _skipCurrent() {
+    if (_currentPage < 3) {
+      _next();
+    } else {
+      _saveAndContinue();
+    }
+  }
+
+  /// Skip the entire wizard — completes onboarding with no profiles saved.
+  Future<void> _skipAll() async {
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(profileRepoProvider).setOnboardingCompleted();
+      if (mounted) context.go('/placement');
+    } catch (_) {
+      // Best-effort — let the user retry.
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   Future<void> _saveAndContinue() async {
     final repo = ref.read(profileRepoProvider);
 
-    // Validate before save — the LLM is essential; STT/TTS are recommended.
-    // Previously, an empty API key silently skipped saving, leaving the user
-    // stranded on the home screen with no service to talk to. Now we warn
-    // clearly and let them choose: configure now, or skip with explicit
-    // acknowledgement.
     final llmDef = LlmProviderCatalog.byId(_llmProviderId);
     final sttDef = SttProviderCatalog.byId(_sttProviderId);
     final ttsDef = TtsProviderCatalog.byId(_ttsProviderId);
@@ -425,28 +648,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         _ttsKeyController.text.isNotEmpty || !ttsDef.apiKeyRequired;
 
     if (!llmWillSave) {
-      // LLM is mandatory — chat literally cannot work without it.
       final proceed = await _confirmMissingService(
-        title: 'AI Dialogue is required',
-        body:
-            'You haven\'t entered an API key for the AI Dialogue service. '
-            'You won\'t be able to chat with the AI tutor without it.\n\n'
-            'Continue anyway? You can configure it later in Settings.',
-        confirmLabel: 'Skip for now',
+        title: _l.t('onboarding.missing_llm_title'),
+        body: _l.t('onboarding.missing_llm_body'),
+        confirmLabel: _l.t('common.skip_for_now'),
       );
       if (proceed != true) return;
     } else if (!sttWillSave || !ttsWillSave) {
-      // STT/TTS missing — warn but make it easy to continue.
       final missing = <String>[];
-      if (!sttWillSave) missing.add('Speech Recognition');
-      if (!ttsWillSave) missing.add('Text-to-Speech');
+      if (!sttWillSave) missing.add(_l.t('onboarding.stt_title'));
+      if (!ttsWillSave) missing.add(_l.t('onboarding.tts_title'));
       final proceed = await _confirmMissingService(
-        title: '${missing.join(" and ")} not configured',
-        body:
-            'Without these, voice input and AI spoken replies won\'t work. '
-            'You can still chat by typing.\n\n'
-            'Continue and configure later?',
-        confirmLabel: 'Continue',
+        title: _l.tArg(
+          'onboarding.missing_aux_title',
+          {'missing': missing.join(' & ')},
+        ),
+        body: _l.t('onboarding.missing_aux_body'),
+        confirmLabel: _l.t('common.continue'),
       );
       if (proceed != true) return;
     }
@@ -454,10 +672,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() => _isSaving = true);
 
     try {
-      // Save LLM profile (only if a key was entered OR the provider needs none).
       if (llmWillSave) {
         final llm = LlmProfile(
-          name: 'Default',
+          name: _l.t('common.default_profile_name'),
           providerId: _llmProviderId,
           baseUrl: _llmUrlController.text.trim().isEmpty
               ? llmDef.defaultBaseUrl
@@ -472,12 +689,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         await repo.setActiveLlmProfile(llm.id);
       }
 
-      // Save STT profile.
       if (sttWillSave) {
         final stt = SttProfile(
-          name: 'Default',
+          name: _l.t('common.default_profile_name'),
           providerId: _sttProviderId,
-          baseUrl: sttDef.defaultBaseUrl,
+          baseUrl: _sttUrlController.text.trim().isEmpty
+              ? sttDef.defaultBaseUrl
+              : _sttUrlController.text.trim(),
           apiKey: _sttKeyController.text,
           model: sttDef.defaultModel ?? '',
           language: 'en-US',
@@ -487,10 +705,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         await repo.setActiveSttProfile(stt.id);
       }
 
-      // Save TTS profile.
       if (ttsWillSave) {
         final tts = TtsProfile(
-          name: 'Default',
+          name: _l.t('common.default_profile_name'),
           providerId: _ttsProviderId,
           baseUrl: ttsDef.defaultBaseUrl,
           apiKey: _ttsKeyController.text,
@@ -511,32 +728,31 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(_l.tArg('chat.error', {'error': e.toString()}))));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
 
-  /// Shows a confirmation dialog when a critical service is missing from
-  /// the onboarding setup. Returns `true` if the user chose to proceed.
   Future<bool?> _confirmMissingService({
     required String title,
     required String body,
     required String confirmLabel,
   }) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgTertiary,
+        backgroundColor:
+            isLight ? AppColors.lightBgSecondary : AppColors.bgTertiary,
         title: Text(title),
         content: Text(body),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Go back'),
+            child: Text(_l.t('onboarding.go_back')),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),

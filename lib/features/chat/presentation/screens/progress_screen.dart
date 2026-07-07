@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../data/learning_stats_service.dart';
 
@@ -22,6 +23,7 @@ class ProgressScreen extends ConsumerWidget {
     // recompute.
     ref.invalidate(statsProvider);
     final statsAsync = ref.watch(statsProvider);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -29,10 +31,14 @@ class ProgressScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_ios_new),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Learning Progress'),
+        title: Text(l.t('progress.title')),
       ),
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.gradientBg),
+        decoration: BoxDecoration(
+            gradient:
+                Theme.of(context).brightness == Brightness.light
+                    ? AppColors.lightGradientBg
+                    : AppColors.gradientBg),
         child: SafeArea(
           // top:false would still leave the AppBar's top inset; using the
           // default SafeArea here is fine because AppBar already consumes
@@ -58,6 +64,7 @@ class ProgressScreen extends ConsumerWidget {
   }
 
   Widget _buildContent(BuildContext context, LearningStats stats) {
+    final l = AppLocalizations.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -87,7 +94,7 @@ class ProgressScreen extends ConsumerWidget {
           // per day). Previously the field was queried but never shown in the
           // UI (P0-10): the chart closes the "data shown vs. data collected"
           // gap and gives the user a streak-like sense of daily practice.
-          Text('Last 7 Days', style: Theme.of(context).textTheme.titleLarge),
+          Text(l.t('progress.daily_activity'), style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppSpacing.md),
           GlassCard(
             child: _ActivityChart(daily: stats.dailyActivity),
@@ -111,14 +118,14 @@ class ProgressScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 _MasteryRow(
-                  label: 'Learning',
+                  label: l.t('progress.learning'),
                   count: stats.learningCount,
                   total: stats.totalCorrections,
                   color: AppColors.warning,
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 _MasteryRow(
-                  label: 'Mastered',
+                  label: l.t('progress.mastered'),
                   count: stats.masteredCount,
                   total: stats.totalCorrections,
                   color: AppColors.success,
@@ -206,6 +213,7 @@ class _StatGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final cards = <_StatCard>[
       _StatCard(
         icon: Icons.chat,
@@ -215,19 +223,19 @@ class _StatGrid extends StatelessWidget {
       ),
       _StatCard(
         icon: Icons.message,
-        label: 'Messages',
+        label: l.t('progress.total_messages'),
         value: '${stats.totalMessages}',
         color: AppColors.accentSecondary,
       ),
       _StatCard(
         icon: Icons.check_circle,
-        label: 'Mastered',
+        label: l.t('progress.mastered'),
         value: '${stats.masteredCount}',
         color: AppColors.success,
       ),
       _StatCard(
         icon: Icons.schedule,
-        label: 'Due for Review',
+        label: l.t('progress.due_for_review'),
         value: '${stats.dueForReview}',
         color: AppColors.warning,
       ),
@@ -325,7 +333,10 @@ class _MasteryRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadius.sm),
             child: LinearProgressIndicator(
               value: progress,
-              backgroundColor: AppColors.bgTertiary,
+              backgroundColor:
+                  Theme.of(context).brightness == Brightness.light
+                      ? AppColors.lightBgSurface
+                      : AppColors.bgTertiary,
               valueColor: AlwaysStoppedAnimation<Color>(color),
               minHeight: 8,
             ),

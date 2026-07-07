@@ -9,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
 import '../../../../core/services/connectivity_check.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/widgets/virtual_character.dart';
 import '../../../../shared/providers.dart';
@@ -44,6 +45,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   String? _playingMessageId;
   CharacterState _characterState = CharacterState.idle;
   StreamSubscription? _playerStateSub;
+
+  // The text the AI is currently speaking via TTS, passed to VirtualCharacter
+  // for lip-sync. Set when TTS starts, cleared when playback completes/stops.
+  String? _speakingText;
 
   // Active tutor identity — drives the character panel + AppBar title so
   // the UI reflects who the user picked on the TutorSelectionScreen.
@@ -168,13 +173,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // cancel recording) are caught at the screen level even when the text
     // field isn't focused. The Focus widget manages its own internal node
     // when none is passed, so there's nothing to dispose.
+    final l = AppLocalizations.of(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return Focus(
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
-        backgroundColor: AppColors.bgPrimary,
+        backgroundColor:
+            isLight ? AppColors.lightBgPrimary : AppColors.bgPrimary,
         appBar: AppBar(
           leading: IconButton(
-            tooltip: 'Back to home',
+            tooltip: l.t('chat.back_home'),
             icon: const Icon(Icons.arrow_back_ios_new),
             onPressed: () => context.go('/'),
           ),
@@ -198,7 +206,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 child: _AppBarStatusDot(state: _characterState),
               ),
             IconButton(
-              tooltip: 'Pick a tutor',
+              tooltip: l.t('chat.pick_tutor'),
               icon: const Icon(Icons.swap_horiz),
               // Await the tutor-selection route so we can re-read the
               // persisted `selected_tutor_id` after the user picks one.
@@ -211,7 +219,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
             ),
             IconButton(
-              tooltip: 'More options',
+              tooltip: l.t('chat.more_options'),
               icon: const Icon(Icons.more_vert),
               onPressed: () => _showSessionOptions(context),
             ),
@@ -229,6 +237,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       state: _characterState,
                       tutorName: _tutorName,
                       tutorAvatar: _tutorAvatar,
+                      speakingText: _speakingText,
                       panelWidth: Responsive.sidePanelWidth(context),
                     ),
                     const VerticalDivider(
@@ -247,6 +256,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       state: _characterState,
                       tutorName: _tutorName,
                       tutorAvatar: _tutorAvatar,
+                      speakingText: _speakingText,
                       panelHeight: Responsive.characterPanelHeight(context),
                       compact: true,
                     ),
@@ -323,9 +333,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       if (llmProfile == null) {
         if (mounted) {
+          final l = AppLocalizations.of(context);
           _showConfigNeeded(
-            'AI Dialogue is not configured',
-            'Add an LLM provider to start chatting with your AI tutor.',
+            l.t('chat.config_needed_llm_title'),
+            l.t('chat.config_needed_llm_body'),
           );
         }
         return;
@@ -415,9 +426,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       await _autoplayTts(aiResponse.id, response.content);
     } catch (e) {
       if (mounted) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${_safeError(e)}')));
+        ).showSnackBar(
+          SnackBar(content: Text(l.tArg('chat.error', {'error': _safeError(e)}))),
+        );
       }
     } finally {
       if (mounted) {
@@ -441,9 +455,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         final audioData = await _recordingService.stopRecording();
         if (audioData == null || audioData.isEmpty) {
           if (mounted) {
+            final l = AppLocalizations.of(context);
             ScaffoldMessenger.of(
               context,
-            ).showSnackBar(const SnackBar(content: Text('No audio recorded')));
+            ).showSnackBar(SnackBar(content: Text(l.t('chat.no_audio'))));
             _setCharacterState(CharacterState.idle);
           }
           return;
@@ -454,9 +469,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
         if (sttProfile == null) {
           if (mounted) {
+            final l = AppLocalizations.of(context);
             _showConfigNeeded(
-              'Speech Recognition is not configured',
-              'Add an STT provider to use the microphone for voice input.',
+              l.t('chat.config_needed_stt_title'),
+              l.t('chat.config_needed_stt_body'),
             );
             _setCharacterState(CharacterState.idle);
           }
@@ -473,15 +489,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           if (mounted) _messageFocusNode.requestFocus();
           await _handleSend();
         } else if (mounted) {
+          final l = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not transcribe audio')),
+            SnackBar(content: Text(l.t('chat.transcribe_failed'))),
           );
           _setCharacterState(CharacterState.idle);
         }
       } catch (e) {
         if (mounted) {
+          final l = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Recording error: ${_safeError(e)}')),
+            SnackBar(
+              content: Text(l.tArg('chat.recording_error', {'error': _safeError(e)})),
+            ),
           );
           _setCharacterState(CharacterState.idle);
         }
@@ -493,8 +513,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _setCharacterState(CharacterState.listening);
       } catch (e) {
         if (mounted) {
+          final l = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Cannot start recording: ${_safeError(e)}')),
+            SnackBar(
+              content: Text(
+                l.tArg('chat.cannot_start_recording', {'error': _safeError(e)}),
+              ),
+            ),
           );
         }
       }
@@ -513,7 +538,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
 
       _setCharacterState(CharacterState.speaking);
-      if (mounted) setState(() => _playingMessageId = messageId);
+      if (mounted) {
+        setState(() {
+          _playingMessageId = messageId;
+          _speakingText = text;
+        });
+      }
 
       final ttsService = TtsService(ttsProfile);
 
@@ -527,7 +557,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       // Auto-play failures should not interrupt the conversation flow.
       debugPrint('Auto TTS failed: $e');
       if (mounted) {
-        setState(() => _playingMessageId = null);
+        setState(() {
+          _playingMessageId = null;
+          _speakingText = null;
+        });
         if (_characterState == CharacterState.speaking) {
           _setCharacterState(CharacterState.idle);
         }
@@ -539,7 +572,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (_playingMessageId == messageId) {
       // Stop playing
       await _ttsPlaybackService.stop();
-      if (mounted) setState(() => _playingMessageId = null);
+      if (mounted) {
+        setState(() {
+          _playingMessageId = null;
+          _speakingText = null;
+        });
+      }
       if (_characterState == CharacterState.speaking) {
         _setCharacterState(CharacterState.idle);
       }
@@ -547,7 +585,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     try {
-      setState(() => _playingMessageId = messageId);
+      setState(() {
+        _playingMessageId = messageId;
+        _speakingText = text;
+      });
       _setCharacterState(CharacterState.speaking);
 
       final profileRepo = ref.read(profileRepoProvider);
@@ -555,12 +596,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       if (ttsProfile == null) {
         if (mounted) {
+          final l = AppLocalizations.of(context);
           _showConfigNeeded(
-            'Text-to-Speech is not configured',
-            'Add a TTS provider to hear the AI tutor speak aloud.',
+            l.t('chat.config_needed_tts_title'),
+            l.t('chat.config_needed_tts_body'),
           );
         }
-        setState(() => _playingMessageId = null);
+        setState(() {
+          _playingMessageId = null;
+          _speakingText = null;
+        });
         _setCharacterState(CharacterState.idle);
         return;
       }
@@ -574,10 +619,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
     } catch (e) {
       if (mounted) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('TTS error: ${_safeError(e)}')));
-        setState(() => _playingMessageId = null);
+        ).showSnackBar(
+          SnackBar(content: Text(l.tArg('chat.tts_error', {'error': _safeError(e)}))),
+        );
+        setState(() {
+          _playingMessageId = null;
+          _speakingText = null;
+        });
         _setCharacterState(CharacterState.idle);
       }
     }
@@ -592,7 +643,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ) {
       if (state.processingState == ProcessingState.completed) {
         if (!mounted) return;
-        setState(() => _playingMessageId = null);
+        setState(() {
+          _playingMessageId = null;
+          _speakingText = null;
+        });
         if (_characterState == CharacterState.speaking) {
           _setCharacterState(CharacterState.idle);
         }
@@ -605,6 +659,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// missing during chat — gives the user a one-tap shortcut to fix it
   /// instead of leaving them stranded with a generic error.
   void _showConfigNeeded(String title, String body) {
+    final l = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Column(
@@ -618,7 +673,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ),
         duration: const Duration(seconds: 6),
         action: SnackBarAction(
-          label: 'Configure',
+          label: l.t('common.configure'),
           onPressed: () => context.push('/service-config'),
         ),
       ),
@@ -626,9 +681,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _showSessionOptions(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.bgTertiary,
+      backgroundColor:
+          isLight ? AppColors.lightBgSecondary : AppColors.bgTertiary,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
@@ -642,7 +700,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 Icons.archive,
                 color: AppColors.textSecondary,
               ),
-              title: const Text('Archive Session'),
+              title: Text(l.t('chat.archive_session')),
               onTap: () async {
                 final repo = ref.read(chatRepoProvider);
                 await repo.archiveSession(widget.sessionId);
@@ -654,9 +712,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.delete, color: AppColors.error),
-              title: const Text(
-                'Delete Session',
-                style: TextStyle(color: AppColors.error),
+              title: Text(
+                l.t('chat.delete_session'),
+                style: const TextStyle(color: AppColors.error),
               ),
               onTap: () async {
                 // Confirm before destructive action — deletes the session
@@ -665,19 +723,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 final confirmed = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: const Text('Delete this conversation?'),
-                    content: const Text(
-                      'All messages and corrections from this session will be permanently removed.',
-                    ),
+                    title: Text(l.t('chat.delete_confirm_title')),
+                    content: Text(l.t('chat.delete_confirm_body')),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel'),
+                        child: Text(l.t('common.cancel')),
                       ),
                       TextButton(
                         style: TextButton.styleFrom(foregroundColor: AppColors.error),
                         onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Delete'),
+                        child: Text(l.t('common.delete')),
                       ),
                     ],
                   ),
@@ -686,15 +742,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 try {
                   await ref.read(chatRepoProvider).deleteSession(widget.sessionId);
                   if (mounted) {
+                    final ll = AppLocalizations.of(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Conversation deleted')),
+                      SnackBar(content: Text(ll.t('chat.deleted'))),
                     );
                     context.go('/');
                   }
                 } catch (e) {
                   if (mounted) {
+                    final ll = AppLocalizations.of(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Delete failed: ${_safeError(e)}')),
+                      SnackBar(
+                        content: Text(
+                          ll.tArg('chat.delete_failed', {'error': _safeError(e)}),
+                        ),
+                      ),
                     );
                   }
                 }
@@ -733,6 +795,7 @@ class _ChatMessageList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final messagesAsync = ref.watch(_messagesProvider(sessionId));
     // Watch the corrections-by-message provider in parallel so that when
     // _messagesProvider is invalidated (after the user sends a message +
@@ -756,14 +819,14 @@ class _ChatMessageList extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  'Start a conversation!',
+                  l.t('chat.start_conversation'),
                   style: Theme.of(
                     context,
                   ).textTheme.bodyLarge?.copyWith(color: AppColors.textMuted),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Type a message or tap the mic button',
+                  l.t('chat.start_hint'),
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
@@ -802,7 +865,9 @@ class _ChatMessageList extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(
+        child: Text(l.tArg('chat.error', {'error': e.toString()})),
+      ),
     );
   }
 }
@@ -942,6 +1007,7 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final bubbleColor = isUser ? AppColors.bubbleUser : AppColors.bubbleAi;
     final accent = isUser ? AppColors.accentSecondary : AppColors.accentPrimary;
 
@@ -979,6 +1045,25 @@ class _ChatBubble extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(message, style: Theme.of(context).textTheme.bodyLarge),
+                // Inline corrections for user messages — the LLM may return
+                // grammar/vocabulary fixes for what the user said. Shown
+                // right-aligned (the bubble itself is already right-aligned)
+                // with a small "grammar suggestions" title above the list.
+                if (isUser && corrections.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      l.t('chat.suggestion_title'),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  ...corrections.map((c) => _CorrectionInline(correction: c)),
+                ],
                 // Inline corrections for AI messages.
                 if (!isUser && corrections.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.sm),
@@ -1018,7 +1103,7 @@ class _ChatBubble extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              isPlaying ? 'Stop' : 'Listen',
+                              isPlaying ? l.t('chat.stop') : l.t('chat.listen'),
                               style: TextStyle(
                                 color: AppColors.accentSecondary,
                                 fontSize: 12,
@@ -1056,14 +1141,14 @@ class _CorrectionInline extends StatelessWidget {
     }
   }
 
-  String _typeLabel(CorrectionType type) {
+  String _typeLabel(BuildContext context, CorrectionType type) {
     switch (type) {
       case CorrectionType.grammar:
-        return 'Grammar';
+        return AppLocalizations.of(context).t('correction.type_grammar');
       case CorrectionType.vocabulary:
-        return 'Vocabulary';
+        return AppLocalizations.of(context).t('correction.type_vocabulary');
       case CorrectionType.pronunciation:
-        return 'Pronunciation';
+        return AppLocalizations.of(context).t('correction.type_pronunciation');
     }
   }
 
@@ -1099,7 +1184,7 @@ class _CorrectionInline extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),
                 child: Text(
-                  _typeLabel(correction.type),
+                  _typeLabel(context, correction.type),
                   style: TextStyle(
                     color: typeColor,
                     fontSize: 10,
@@ -1156,7 +1241,13 @@ class _CorrectionInline extends StatelessWidget {
   }
 }
 
-class _ChatInputBar extends ConsumerWidget {
+/// Input mode for [_ChatInputBar]. Voice is the default — the user sees a
+/// single large mic button; tapping it records, and on stop the transcript is
+/// auto-sent (STT → text → send). Text mode restores the classic
+/// TextField + record + send row for users who want to type or edit.
+enum _InputMode { voice, text }
+
+class _ChatInputBar extends ConsumerStatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isRecording;
@@ -1174,10 +1265,53 @@ class _ChatInputBar extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // canSend is now derived inside the ValueListenableBuilder below so
-    // that only the Send button + its Semantics wrapper rebuild on each
-    // keystroke instead of the whole _ChatInputBar.
+  ConsumerState<_ChatInputBar> createState() => _ChatInputBarState();
+}
+
+class _ChatInputBarState extends ConsumerState<_ChatInputBar>
+    with SingleTickerProviderStateMixin {
+  _InputMode _inputMode = _InputMode.voice;
+
+  // Scale pulse for the big voice-mode mic button while recording.
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _pulseScale = Tween<double>(begin: 1.0, end: 1.08).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    if (widget.isRecording) _pulseController.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ChatInputBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isRecording != oldWidget.isRecording) {
+      if (widget.isRecording) {
+        _pulseController.repeat(reverse: true);
+      } else {
+        _pulseController.stop();
+        _pulseController.value = 0.0;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
     // Bottom padding: the parent Scaffold has `resizeToAvoidBottomInset:
     // true`, which shrinks the body by `viewInsets.bottom` when the
     // keyboard opens — so the input bar already sits on top of the
@@ -1195,115 +1329,239 @@ class _ChatInputBar extends ConsumerWidget {
         bottom: bottomPad,
       ),
       decoration: BoxDecoration(
-        color: AppColors.bgSecondary,
-        border: Border(top: BorderSide(color: AppColors.glassBorder)),
+        color: isLight ? AppColors.lightBgSecondary : AppColors.bgSecondary,
+        border: Border(
+            top: BorderSide(
+                color: isLight
+                    ? AppColors.lightGlassBorder
+                    : AppColors.glassBorder)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isOffline) const _OfflineHint(),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // Record button — pulsing glow when recording, using GlowButton
-              // (which has its own AnimationController). 48x48 meets the 44x44
-              // minimum touch target. Semantics exposes the state to screen
-              // readers; the Tooltip shows the same on hover for mouse users.
-              Semantics(
-                button: true,
-                enabled: !isLoading,
-                label: isRecording ? 'Stop recording' : 'Start voice recording',
-                hint: isRecording
-                    ? 'Double tap to stop and transcribe'
-                    : 'Double tap to record a voice message',
-                child: Tooltip(
-                  message: isRecording ? 'Stop recording' : 'Tap to record',
-                  child: _RecordButton(
-                    isRecording: isRecording,
-                    onTap: isLoading ? null : onRecordToggle,
-                  ),
-                ),
+          // Mode switch — top-right of the input area. Voice mode shows a
+          // keyboard icon (→ text), text mode shows a mic icon (→ voice).
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              tooltip: _inputMode == _InputMode.voice
+                  ? l.t('chat.switch_to_text')
+                  : l.t('chat.switch_to_voice'),
+              icon: Icon(
+                _inputMode == _InputMode.voice
+                    ? Icons.keyboard_outlined
+                    : Icons.mic_none,
               ),
-              const SizedBox(width: AppSpacing.sm),
-              // Text input — grows up to 5 lines on desktop/web so long
-              // messages stay readable without scrolling the field itself.
-              Expanded(
-                child: Container(
-                  constraints: const BoxConstraints(maxHeight: 160),
-                  decoration: BoxDecoration(
-                    color: AppColors.bgTertiary,
-                    borderRadius: BorderRadius.circular(AppRadius.xl),
-                    border: Border.all(
-                      color: isRecording
-                          ? AppColors.error.withValues(alpha: 0.6)
-                          : AppColors.glassBorder,
-                    ),
-                  ),
-                  child: TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    enabled: !isLoading,
-                    style: const TextStyle(color: AppColors.textPrimary),
-                    textInputAction: TextInputAction.send,
-                    maxLines: null,
-                    minLines: 1,
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      hintStyle: TextStyle(color: AppColors.textMuted),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.sm + 4,
-                      ),
-                    ),
-                    onSubmitted: (_) {
-                      // Derive canSend directly from the controller so we don't
-                      // rely on the parent rebuilding before onSubmitted fires.
-                      final canSubmit =
-                          controller.text.trim().isNotEmpty && !isLoading;
-                      if (canSubmit) onSend();
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              // Send button — wraps in a ValueListenableBuilder on the
-              // TextEditingController (which is itself a ValueNotifier) so only
-              // this button rebuilds when text changes. The whole
-              // _ChatInputBar no longer needs a setState on each keystroke.
-              ValueListenableBuilder<TextEditingValue>(
-                valueListenable: controller,
-                builder: (context, value, _) {
-                  final canSend = value.text.trim().isNotEmpty && !isLoading;
-                  return Semantics(
-                    button: true,
-                    enabled: canSend,
-                    label: 'Send message',
-                    hint: canSend
-                        ? 'Double tap to send'
-                        : 'Type a message first to send',
-                    child: Opacity(
-                      opacity: canSend ? 1.0 : 0.4,
+              onPressed: () {
+                setState(() {
+                  _inputMode = _inputMode == _InputMode.voice
+                      ? _InputMode.text
+                      : _InputMode.voice;
+                });
+              },
+            ),
+          ),
+          if (_inputMode == _InputMode.voice)
+            _buildVoiceInput(l)
+          else
+            _buildTextInputRow(l),
+        ],
+      ),
+    );
+  }
+
+  /// Voice-default mode: one large centered mic button. Tapping starts
+  /// recording; tapping again stops → STT → transcript is filled into the
+  /// (hidden) controller and auto-sent via [_handleRecordToggle] →
+  /// [_handleSend]. The button turns red and pulses while recording.
+  Widget _buildVoiceInput(AppLocalizations l) {
+    final isRecording = widget.isRecording;
+    final isLoading = widget.isLoading;
+    final color =
+        isRecording ? AppColors.error : AppColors.accentSecondary;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Semantics(
+            button: true,
+            enabled: !isLoading,
+            label: isRecording
+                ? l.t('chat.stop_recording')
+                : l.t('chat.start_voice'),
+            child: Tooltip(
+              message: isRecording
+                  ? l.t('chat.stop_recording')
+                  : l.t('chat.tap_to_record'),
+              child: GestureDetector(
+                onTap: isLoading ? null : widget.onRecordToggle,
+                child: AnimatedBuilder(
+                  animation: _pulseScale,
+                  builder: (context, _) {
+                    final scale = isRecording ? _pulseScale.value : 1.0;
+                    return Transform.scale(
+                      scale: scale,
                       child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: const BoxDecoration(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: AppColors.gradientPrimary,
+                          color: color,
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.4),
+                              blurRadius: isRecording ? 24 : 12,
+                              spreadRadius: isRecording ? 4 : 0,
+                            ),
+                          ],
                         ),
-                        child: IconButton(
-                          icon: const Icon(Icons.send, color: Colors.white),
-                          onPressed: canSend ? onSend : null,
+                        child: Icon(
+                          isRecording ? Icons.stop : Icons.mic,
+                          color: Colors.white,
+                          size: 32,
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            isRecording
+                ? l.t('chat.stop_recording')
+                : l.t('chat.tap_to_record'),
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  /// Text mode: the classic record button + TextField + send button row.
+  Widget _buildTextInputRow(AppLocalizations l) {
+    final isRecording = widget.isRecording;
+    final isLoading = widget.isLoading;
+    final controller = widget.controller;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Record button — pulsing glow when recording, using GlowButton
+        // (which has its own AnimationController). 48x48 meets the 44x44
+        // minimum touch target. Semantics exposes the state to screen
+        // readers; the Tooltip shows the same on hover for mouse users.
+        Semantics(
+          button: true,
+          enabled: !isLoading,
+          label: isRecording
+              ? l.t('chat.stop_recording')
+              : l.t('chat.start_voice'),
+          hint: isRecording
+              ? 'Double tap to stop and transcribe'
+              : 'Double tap to record a voice message',
+          child: Tooltip(
+            message: isRecording
+                ? l.t('chat.stop_recording')
+                : l.t('chat.tap_to_record'),
+            child: _RecordButton(
+              isRecording: isRecording,
+              onTap: isLoading ? null : widget.onRecordToggle,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        // Text input — grows up to 5 lines on desktop/web so long
+        // messages stay readable without scrolling the field itself.
+        Expanded(
+          child: Container(
+            constraints: const BoxConstraints(maxHeight: 160),
+            decoration: BoxDecoration(
+              color: isLight
+                  ? AppColors.lightBgSurface
+                  : AppColors.bgTertiary,
+              borderRadius: BorderRadius.circular(AppRadius.xl),
+              border: Border.all(
+                color: isRecording
+                    ? AppColors.error.withValues(alpha: 0.6)
+                    : (isLight
+                        ? AppColors.lightGlassBorder
+                        : AppColors.glassBorder),
+              ),
+            ),
+            child: TextField(
+              controller: controller,
+              focusNode: widget.focusNode,
+              enabled: !isLoading,
+              style: TextStyle(
+                  color: isLight
+                      ? AppColors.lightTextPrimary
+                      : AppColors.textPrimary),
+              textInputAction: TextInputAction.send,
+              maxLines: null,
+              minLines: 1,
+              decoration: InputDecoration(
+                hintText: l.t('chat.type_message'),
+                hintStyle: TextStyle(
+                    color: isLight
+                        ? AppColors.lightTextMuted
+                        : AppColors.textMuted),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm + 4,
+                ),
+              ),
+              onSubmitted: (_) {
+                // Derive canSend directly from the controller so we don't
+                // rely on the parent rebuilding before onSubmitted fires.
+                final canSubmit =
+                    controller.text.trim().isNotEmpty && !isLoading;
+                if (canSubmit) widget.onSend();
+              },
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        // Send button — wraps in a ValueListenableBuilder on the
+        // TextEditingController (which is itself a ValueNotifier) so only
+        // this button rebuilds when text changes. The whole
+        // _ChatInputBar no longer needs a setState on each keystroke.
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller,
+          builder: (context, value, _) {
+            final canSend = value.text.trim().isNotEmpty && !isLoading;
+            return Semantics(
+              button: true,
+              enabled: canSend,
+              label: l.t('chat.send'),
+              hint: canSend
+                  ? 'Double tap to send'
+                  : 'Type a message first to send',
+              child: Opacity(
+                opacity: canSend ? 1.0 : 0.4,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: AppColors.gradientPrimary,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white),
+                    onPressed: canSend ? widget.onSend : null,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -1316,6 +1574,7 @@ class _OfflineHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.symmetric(
@@ -1339,8 +1598,7 @@ class _OfflineHint extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              "You're offline — voice & AI replies are unavailable. "
-              'Your history and review still work.',
+              l.t('chat.offline_hint'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.warning,
                     height: 1.3,
@@ -1506,6 +1764,10 @@ class _CharacterPanel extends StatelessWidget {
   final String tutorName;
   final String tutorAvatar;
 
+  /// Text the avatar is currently "speaking" via TTS — passed straight to
+  /// VirtualCharacter for lip-sync. Null when not speaking.
+  final String? speakingText;
+
   /// Wide-layout only: forces a fixed column width.
   final double? panelWidth;
 
@@ -1519,6 +1781,7 @@ class _CharacterPanel extends StatelessWidget {
     required this.state,
     required this.tutorName,
     required this.tutorAvatar,
+    this.speakingText,
     this.panelWidth,
     this.panelHeight,
     this.compact = false,
@@ -1527,16 +1790,17 @@ class _CharacterPanel extends StatelessWidget {
   /// Human-readable label for the current character state, used for the
   /// screen-reader live region so blind users can follow the voice flow
   /// (listening → thinking → speaking) without seeing the avatar.
-  String _stateLabel(CharacterState s) {
+  String _stateLabel(BuildContext context, CharacterState s) {
+    final l = AppLocalizations.of(context);
     switch (s) {
       case CharacterState.idle:
-        return '$tutorName is ready';
+        return '$tutorName · ${l.t('chat.ready')}';
       case CharacterState.listening:
-        return 'Listening to your voice';
+        return l.t('chat.listening');
       case CharacterState.thinking:
-        return 'Thinking';
+        return l.t('chat.thinking');
       case CharacterState.speaking:
-        return 'Speaking';
+        return l.t('chat.speaking');
     }
   }
 
@@ -1550,13 +1814,14 @@ class _CharacterPanel extends StatelessWidget {
       state: state,
       size: size,
       showLabel: !compact,
+      speakingText: speakingText,
     );
 
     // Live region: screen readers announce state changes (e.g. "Thinking",
     // "Speaking") without the user needing to focus the avatar.
     final labelled = Semantics(
       liveRegion: true,
-      label: _stateLabel(state),
+      label: _stateLabel(context, state),
       child: child,
     );
 
@@ -1598,6 +1863,7 @@ class _AppBarStatusDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final color = switch (state) {
       CharacterState.idle => AppColors.textMuted,
       CharacterState.listening => AppColors.accentSecondary,
@@ -1607,10 +1873,10 @@ class _AppBarStatusDot extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       label: switch (state) {
-        CharacterState.idle => 'Ready',
-        CharacterState.listening => 'Listening',
-        CharacterState.thinking => 'Thinking',
-        CharacterState.speaking => 'Speaking',
+        CharacterState.idle => l.t('chat.ready'),
+        CharacterState.listening => l.t('chat.listening'),
+        CharacterState.thinking => l.t('chat.thinking'),
+        CharacterState.speaking => l.t('chat.speaking'),
       },
       child: Container(
         width: 12,
