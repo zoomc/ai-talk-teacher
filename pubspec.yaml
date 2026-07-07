@@ -24,6 +24,7 @@ dependencies:
 
   # Database
   sqflite: ^2.4.2
+  sqflite_common_ffi_web: ^1.1.2
   path: ^1.9.1
   path_provider: ^2.1.5
 

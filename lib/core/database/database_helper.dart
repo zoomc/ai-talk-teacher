@@ -1,6 +1,12 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+// Conditional import: web uses the FFI WebAssembly factory, other
+// platforms use the default sqflite platform channel.
+import 'database_init_stub.dart'
+    if (dart.library.js_interop) 'database_init_web.dart' as db_init;
 
 class DatabaseHelper {
   static Database? _database;
@@ -14,8 +20,17 @@ class DatabaseHelper {
   }
 
   static Future<Database> _initDatabase() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final path = join(dir.path, _dbName);
+    // Set up the correct database factory before opening (no-op on native).
+    db_init.initDatabaseFactory();
+    final String path;
+    if (kIsWeb) {
+      // On web the FFI factory stores files in IndexedDB — just the name
+      // is sufficient; getApplicationDocumentsDirectory() doesn't exist.
+      path = _dbName;
+    } else {
+      final dir = await getApplicationDocumentsDirectory();
+      path = p.join(dir.path, _dbName);
+    }
     return openDatabase(
       path,
       version: _dbVersion,
