@@ -2,12 +2,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/i18n/app_localizations.dart';
 
 /// AI Virtual Character Widget.
 ///
 /// Renders a real, painter-drawn human-like avatar (no emoji) with:
 ///   - 20 mouth shapes (visemes) — see [Viseme]
-///   - 10 body gestures / poses — see [Gesture]
+///   - 20 body gestures / poses — see [Gesture]
 ///   - text-driven viseme + gesture matching when [speakingText] is set
 ///   - state-driven default behaviour for [idle] / [listening] / [thinking]
 ///     / [speaking]
@@ -137,18 +138,21 @@ class _VirtualCharacterState extends State<VirtualCharacter>
     switch (state) {
       case CharacterState.idle:
         _visemeController.stop();
-        _viseme = Viseme.closed;
+        // Gentle natural smile at rest.
+        _viseme = Viseme.smile;
         _setGesture(Gesture.idle, loop: false);
         _lastScheduledText = null;
         break;
       case CharacterState.listening:
         _visemeController.stop();
+        // Attentive: slightly open mouth + head tilted toward the speaker.
         _viseme = Viseme.slightOpen;
-        _setGesture(Gesture.nod, loop: true);
+        _setGesture(Gesture.tiltLeft, loop: true);
         _lastScheduledText = null;
         break;
       case CharacterState.thinking:
         _visemeController.stop();
+        // Biting lip + hand-on-chin thinking pose, looping.
         _viseme = Viseme.biteLip;
         _setGesture(Gesture.thinkPose, loop: true);
         _lastScheduledText = null;
@@ -158,8 +162,8 @@ class _VirtualCharacterState extends State<VirtualCharacter>
         final t = text ?? '';
         _setGesture(_gestureForKeyword(t), loop: true);
         if (t.isEmpty) {
-          // No text — gentle open/close pattern.
-          _viseme = Viseme.mediumOpen;
+          // No text — gentle smile-open pattern (teeth visible, friendly).
+          _viseme = Viseme.smileOpen;
           _visemeController.stop();
           _lastScheduledText = null;
         } else if (t != _lastScheduledText) {
@@ -189,18 +193,65 @@ class _VirtualCharacterState extends State<VirtualCharacter>
     _gesture = g;
     _gestureController.stop();
     if (g == Gesture.idle) {
+      // idle is rendered as a static, value=0 pose — no animation needed.
       _gestureController.value = 0;
       return;
     }
-    _gestureController.duration = Duration(
-      milliseconds: g == Gesture.bounce
-          ? 1100
-          : g == Gesture.shake
-              ? 700
-              : g == Gesture.nod
-                  ? 1400
-                  : 1000,
-    );
+    // Per-gesture duration table (ms). Bigger / heavier motions get longer
+    // cycles; quick ticks (shake, clap, peaceSign) stay snappy.
+    final int ms;
+    switch (g) {
+      case Gesture.bounce:
+        ms = 1100;
+        break;
+      case Gesture.shake:
+        ms = 700;
+        break;
+      case Gesture.nod:
+        ms = 1400;
+        break;
+      case Gesture.deepNod:
+        ms = 1500;
+        break;
+      case Gesture.clap:
+        ms = 900;
+        break;
+      case Gesture.shrug:
+        ms = 1200;
+        break;
+      case Gesture.lookUp:
+        ms = 1600;
+        break;
+      case Gesture.lookDown:
+        ms = 1600;
+        break;
+      case Gesture.tiltLeft:
+        ms = 2000;
+        break;
+      case Gesture.tiltRight:
+        ms = 2000;
+        break;
+      case Gesture.handOnHip:
+        ms = 1300;
+        break;
+      case Gesture.crossArms:
+        ms = 1300;
+        break;
+      case Gesture.peaceSign:
+        ms = 1000;
+        break;
+      // wave, tiltHead, raiseHand, pointUp, thinkPose, openPalm — default.
+      case Gesture.wave:
+      case Gesture.tiltHead:
+      case Gesture.raiseHand:
+      case Gesture.pointUp:
+      case Gesture.thinkPose:
+      case Gesture.openPalm:
+      case Gesture.idle: // unreachable (handled above) — kept for exhaustiveness.
+        ms = 1000;
+        break;
+    }
+    _gestureController.duration = Duration(milliseconds: ms);
     if (loop) {
       _gestureController.repeat(reverse: true);
     } else {
@@ -210,7 +261,10 @@ class _VirtualCharacterState extends State<VirtualCharacter>
 
   @override
   void dispose() {
-    _visemeController.removeListener(_advanceViseme);
+    // The viseme advance is wired through an anonymous status-listener
+    // closure (see initState), so there's no named listener to remove
+    // here — `_visemeController.dispose()` below cleans up all attached
+    // listeners automatically.
     _breathController.dispose();
     _glowController.dispose();
     _gestureController.dispose();
@@ -232,15 +286,16 @@ class _VirtualCharacterState extends State<VirtualCharacter>
   }
 
   String get _stateText {
+    final l = AppLocalizations.of(context);
     switch (widget.state) {
       case CharacterState.idle:
-        return 'Ready';
+        return l.t('chat.ready');
       case CharacterState.listening:
-        return 'Listening…';
+        return l.t('chat.listening');
       case CharacterState.thinking:
-        return 'Thinking…';
+        return l.t('chat.thinking');
       case CharacterState.speaking:
-        return 'Speaking…';
+        return l.t('chat.speaking');
     }
   }
 
@@ -466,6 +521,37 @@ class _VirtualCharacterState extends State<VirtualCharacter>
     if (has(['great', 'awesome', '太棒', '棒', 'excellent', 'wow'])) {
       return Gesture.raiseHand;
     }
+    // ── R2 additions (10 new keyword → gesture mappings) ──
+    if (has(['不知道', "don't know", 'don’t know', 'idk', '不清楚', '不懂'])) {
+      return Gesture.shrug;
+    }
+    if (has(['好耶', 'yay', 'awesome', '太好了', '太棒了', '好棒'])) {
+      return Gesture.clap;
+    }
+    if (has(['好的', 'ok', 'okay', 'sure', '行', '好嘞', '没问题'])) {
+      return Gesture.peaceSign;
+    }
+    if (has(['等等', 'wait', 'hold on', '稍等', '等一下'])) {
+      return Gesture.handOnHip;
+    }
+    if (has(['嗯哼', 'uh-huh', 'uh huh', 'mmhmm', '嗯啊', '嗯嗯'])) {
+      return Gesture.tiltRight;
+    }
+    if (has(['哇', 'wow', 'whoa', 'woah', '天啊', '哇哦'])) {
+      return Gesture.lookUp;
+    }
+    if (has(['抱歉', 'sorry', 'apologize', '对不起', '不好意思'])) {
+      return Gesture.lookDown;
+    }
+    if (has(['感谢配合', 'thanks for your cooperation', '谢谢配合', '多谢配合'])) {
+      return Gesture.deepNod;
+    }
+    if (has(['听着', 'listen', 'hey', '注意', '听好'])) {
+      return Gesture.tiltLeft;
+    }
+    if (has(['必须', 'must', 'definitely', 'absolutely', '一定', '肯定'])) {
+      return Gesture.crossArms;
+    }
     return Gesture.bounce;
   }
 }
@@ -496,7 +582,7 @@ enum Viseme {
   wideFlat, // 宽扁
 }
 
-// ── Gesture catalogue (10) ─────────────────────────────────────────────────
+// ── Gesture catalogue (20) ─────────────────────────────────────────────────
 enum Gesture {
   idle, // 默认（双手下垂或交叠）
   wave, // 挥手
@@ -508,6 +594,16 @@ enum Gesture {
   openPalm, // 张开手掌（欢迎）
   shake, // 摇头
   bounce, // 小幅上下浮动
+  tiltLeft, // 向左歪头（聆听）
+  tiltRight, // 向右歪头（应和）
+  shrug, // 耸肩（不知道）
+  clap, // 鼓掌
+  peaceSign, // 比 ✌
+  handOnHip, // 单手叉腰
+  crossArms, // 双手交叉
+  lookUp, // 抬头看上方（惊叹）
+  lookDown, // 低头（抱歉/害羞）
+  deepNod, // 深深点头（致谢配合）
 }
 
 // ── Painter ────────────────────────────────────────────────────────────────
@@ -557,16 +653,26 @@ class _CharacterPainter extends CustomPainter {
       ..strokeWidth = size.width * 0.012;
     canvas.drawCircle(Offset(cx, cy), r * 0.98, ringPaint);
 
-    // ── Compute gesture-driven offsets ──
+    // ── Compute gesture-driven offsets (all 20 gestures) ──
     // progress 0..0.5..1 with sine for smooth ping-pong.
     final p = gestureProgress;
     final swing = math.sin(p * math.pi); // 0..1..0
     double headDx = 0, headDy = 0, bodyDy = 0, tiltRad = 0;
     double leftHandDy = 0, rightHandDy = 0;
     double leftHandDx = 0, rightHandDx = 0;
+    double gazeDy = 0; // iris vertical offset for lookUp / lookDown
+    // shoulderLift: shoulder-line vertical offset (negative = up). Applied
+    // ONCE and consistently — to the torso shoulder line, the arm's shoulder
+    // anchor, the arm's hand endpoint, and the hand dot — all with the SAME
+    // sign via shoulderBaseY / handBaseY, so the shoulder+arm+hand assembly
+    // rises/falls as a unit. (R1 had no shoulderLift and a bodyDy-only
+    // breathing model; R2 adds it for the shrug gesture and a subtle
+    // breathing shoulder rise. There is no double-add and no sign mismatch.)
+    double shoulderLift = 0;
     switch (gesture) {
       case Gesture.idle:
         bodyDy = (breath - 1) * size.width * 0.5; // tiny breathing
+        shoulderLift = (breath - 1) * size.width * 0.8; // subtle shoulder rise
         break;
       case Gesture.wave:
         rightHandDx = swing * size.width * 0.10;
@@ -605,58 +711,240 @@ class _CharacterPainter extends CustomPainter {
         bodyDy = -swing * size.width * 0.04;
         headDy = -swing * size.width * 0.02;
         break;
+      case Gesture.tiltLeft:
+        // Attentive lean toward the viewer's left (listening pose).
+        tiltRad = -0.16 + swing * 0.03;
+        break;
+      case Gesture.tiltRight:
+        tiltRad = 0.16 - swing * 0.03;
+        break;
+      case Gesture.shrug:
+        // Shoulders rise, head dips slightly — "I don't know".
+        shoulderLift = -swing * size.width * 0.05;
+        headDy = -swing * size.width * 0.015;
+        tiltRad = (swing - 0.5) * 0.06;
+        break;
+      case Gesture.clap:
+        // Both hands meet in front, slightly raised.
+        leftHandDx = size.width * 0.16 - swing * size.width * 0.10;
+        rightHandDx = -size.width * 0.16 + swing * size.width * 0.10;
+        leftHandDy = -size.width * 0.10 - swing * size.width * 0.02;
+        rightHandDy = -size.width * 0.10 - swing * size.width * 0.02;
+        break;
+      case Gesture.peaceSign:
+        // Right hand up beside the face (✌).
+        rightHandDy = -size.width * 0.22;
+        rightHandDx = size.width * 0.10;
+        tiltRad = -swing * 0.04;
+        break;
+      case Gesture.handOnHip:
+        // Right hand back to the hip, elbow out.
+        rightHandDx = -size.width * 0.14;
+        rightHandDy = -size.width * 0.06;
+        break;
+      case Gesture.crossArms:
+        // Both hands crossed over the chest.
+        leftHandDx = size.width * 0.14;
+        rightHandDx = -size.width * 0.14;
+        leftHandDy = -size.width * 0.10;
+        rightHandDy = -size.width * 0.10;
+        break;
+      case Gesture.lookUp:
+        gazeDy = -size.width * 0.018;
+        headDy = -swing * size.width * 0.012;
+        break;
+      case Gesture.lookDown:
+        gazeDy = size.width * 0.018;
+        headDy = swing * size.width * 0.012;
+        break;
+      case Gesture.deepNod:
+        headDy = swing * size.width * 0.05;
+        break;
     }
 
-    // ── Shoulders / torso (simplified) ──
-    final torsoTop = cy + r * 0.45;
-    final shoulderPaint = Paint()
-      ..color = accent.withValues(alpha: 0.85)
-      ..style = PaintingStyle.fill;
-    final torsoPath = Path()
-      ..moveTo(cx - r * 0.55, torsoTop + bodyDy)
-      ..quadraticBezierTo(
-        cx - r * 0.40,
-        torsoTop - r * 0.05 + bodyDy,
-        cx - r * 0.18,
-        torsoTop - r * 0.02 + bodyDy,
-      )
-      ..lineTo(cx + r * 0.18, torsoTop - r * 0.02 + bodyDy)
-      ..quadraticBezierTo(
-        cx + r * 0.40,
-        torsoTop - r * 0.05 + bodyDy,
-        cx + r * 0.55,
-        torsoTop + bodyDy,
-      )
-      ..lineTo(cx + r * 0.55, cy + r + bodyDy)
-      ..lineTo(cx - r * 0.55, cy + r + bodyDy)
-      ..close();
-    canvas.drawPath(torsoPath, shoulderPaint);
-
-    // ── Arms (drawn before head so they sit behind) ──
-    final armPaint = Paint()
-      ..color = accent.withValues(alpha: 0.85)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.07
-      ..strokeCap = StrokeCap.round;
-    // Left arm baseline down.
-    canvas.drawLine(
-      Offset(cx - r * 0.45, torsoTop + bodyDy),
-      Offset(cx - r * 0.55 + leftHandDx, torsoTop + r * 0.55 + bodyDy + leftHandDy),
-      armPaint,
-    );
-    // Right arm — modified by gesture.
-    canvas.drawLine(
-      Offset(cx + r * 0.45, torsoTop + bodyDy),
-      Offset(cx + r * 0.55 + rightHandDx, torsoTop + r * 0.55 + bodyDy + rightHandDy),
-      armPaint,
-    );
-
-    // ── Head ──
+    // ── Head geometry (needed early for back-hair sheet) ──
     final headCenter = Offset(
       cx + headDx,
       cy + headDy - size.width * 0.02,
     );
     final headR = r * 0.52;
+    const hairColor = Color(0xFF3D2C5F);
+
+    // ── Ground ellipse shadow (semi-transparent, at the base) ──
+    final groundY = cy + r * 0.92 + bodyDy * 0.3;
+    final groundPaint = Paint()
+      ..color = const Color(0xFF1A0E2E).withValues(alpha: 0.22);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(cx, groundY),
+        width: r * 1.05,
+        height: r * 0.22,
+      ),
+      groundPaint,
+    );
+
+    // ── Back hair sheet (drawn first, behind torso/head) ──
+    // Long feminine hair framing the head and flowing past the shoulders.
+    final backHairPaint = Paint()
+      ..color = hairColor
+      ..style = PaintingStyle.fill;
+    final backHairPath = Path()
+      ..moveTo(headCenter.dx - headR * 0.95, headCenter.dy - headR * 0.20)
+      ..quadraticBezierTo(
+        headCenter.dx - headR * 1.30,
+        headCenter.dy + headR * 0.5,
+        headCenter.dx - headR * 1.05,
+        headCenter.dy + headR * 1.55,
+      )
+      ..quadraticBezierTo(
+        headCenter.dx - headR * 0.50,
+        headCenter.dy + headR * 1.70,
+        headCenter.dx,
+        headCenter.dy + headR * 1.60,
+      )
+      ..quadraticBezierTo(
+        headCenter.dx + headR * 0.50,
+        headCenter.dy + headR * 1.70,
+        headCenter.dx + headR * 1.05,
+        headCenter.dy + headR * 1.55,
+      )
+      ..quadraticBezierTo(
+        headCenter.dx + headR * 1.30,
+        headCenter.dy + headR * 0.5,
+        headCenter.dx + headR * 0.95,
+        headCenter.dy - headR * 0.20,
+      )
+      ..quadraticBezierTo(
+        headCenter.dx + headR * 0.85,
+        headCenter.dy - headR * 1.15,
+        headCenter.dx,
+        headCenter.dy - headR * 1.10,
+      )
+      ..quadraticBezierTo(
+        headCenter.dx - headR * 0.85,
+        headCenter.dy - headR * 1.15,
+        headCenter.dx - headR * 0.95,
+        headCenter.dy - headR * 0.20,
+      )
+      ..close();
+    canvas.drawPath(backHairPath, backHairPaint);
+
+    // ── Torso (LinearGradient cream → lavender + chest curve + V-neck) ──
+    final torsoTop = cy + r * 0.45;
+    // shoulderLift applied ONCE here (shoulder baseline); the torso BOTTOM
+    // uses only bodyDy, so a shrug stretches the torso slightly (correct).
+    final shoulderBaseY = torsoTop + bodyDy + shoulderLift;
+    final torsoBottomY = cy + r + bodyDy;
+    final torsoRect = Rect.fromLTRB(
+      cx - r * 0.55,
+      shoulderBaseY,
+      cx + r * 0.55,
+      torsoBottomY,
+    );
+    final torsoPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFFF5E6D3), // cream
+          const Color(0xFFD9C7EE), // soft lavender
+          const Color(0xFFB8A8E0), // deeper lavender
+        ],
+        stops: const [0.0, 0.55, 1.0],
+      ).createShader(torsoRect);
+    final torsoPath = Path()
+      ..moveTo(cx - r * 0.55, shoulderBaseY + r * 0.05)
+      ..quadraticBezierTo(
+        cx - r * 0.40,
+        shoulderBaseY - r * 0.05,
+        cx - r * 0.18,
+        shoulderBaseY - r * 0.02,
+      )
+      ..lineTo(cx + r * 0.18, shoulderBaseY - r * 0.02)
+      ..quadraticBezierTo(
+        cx + r * 0.40,
+        shoulderBaseY - r * 0.05,
+        cx + r * 0.55,
+        shoulderBaseY + r * 0.05,
+      )
+      ..lineTo(cx + r * 0.55, torsoBottomY)
+      ..lineTo(cx - r * 0.55, torsoBottomY)
+      ..close();
+    canvas.drawPath(torsoPath, torsoPaint);
+
+    // Chest curve (soft shading under the collarbones).
+    final chestPaint = Paint()
+      ..color = const Color(0xFF000000).withValues(alpha: 0.05)
+      ..style = PaintingStyle.fill;
+    final chestPath = Path()
+      ..moveTo(cx - r * 0.35, shoulderBaseY + r * 0.06)
+      ..quadraticBezierTo(
+        cx,
+        shoulderBaseY + r * 0.22,
+        cx + r * 0.35,
+        shoulderBaseY + r * 0.06,
+      )
+      ..lineTo(cx + r * 0.30, shoulderBaseY + r * 0.30)
+      ..quadraticBezierTo(
+        cx,
+        shoulderBaseY + r * 0.18,
+        cx - r * 0.30,
+        shoulderBaseY + r * 0.30,
+      )
+      ..close();
+    canvas.drawPath(chestPath, chestPaint);
+
+    // V-neck collar (accent stroke).
+    final vneckPaint = Paint()
+      ..color = accent.withValues(alpha: 0.75)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.018
+      ..strokeCap = StrokeCap.round;
+    final vneckPath = Path()
+      ..moveTo(cx - r * 0.18, shoulderBaseY - r * 0.02)
+      ..lineTo(cx, shoulderBaseY + r * 0.22)
+      ..lineTo(cx + r * 0.18, shoulderBaseY - r * 0.02);
+    canvas.drawPath(vneckPath, vneckPaint);
+
+    // ── Arms (drawn before head so they sit behind) ──
+    // shoulderLift carried ONCE via shoulderBaseY (shoulder anchor) and
+    // handBaseY (hand anchor) — both include it with the same sign, so the
+    // whole arm lifts with the shoulder. No double-add.
+    final armPaint = Paint()
+      ..color = const Color(0xFFC9B6E4) // lavender sleeve
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.075
+      ..strokeCap = StrokeCap.round;
+    final handBaseY = torsoTop + r * 0.55 + bodyDy + shoulderLift;
+    canvas.drawLine(
+      Offset(cx - r * 0.45, shoulderBaseY),
+      Offset(cx - r * 0.55 + leftHandDx, handBaseY + leftHandDy),
+      armPaint,
+    );
+    canvas.drawLine(
+      Offset(cx + r * 0.45, shoulderBaseY),
+      Offset(cx + r * 0.55 + rightHandDx, handBaseY + rightHandDy),
+      armPaint,
+    );
+
+    // Accent cuffs on sleeves (small rings near the wrists).
+    final cuffPaint = Paint()
+      ..color = accent.withValues(alpha: 0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.022
+      ..strokeCap = StrokeCap.round;
+    final leftCuffY = handBaseY + leftHandDy - size.width * 0.05;
+    final rightCuffY = handBaseY + rightHandDy - size.width * 0.05;
+    canvas.drawLine(
+      Offset(cx - r * 0.54 + leftHandDx, leftCuffY),
+      Offset(cx - r * 0.56 + leftHandDx, leftCuffY + size.width * 0.03),
+      cuffPaint,
+    );
+    canvas.drawLine(
+      Offset(cx + r * 0.54 + rightHandDx, rightCuffY),
+      Offset(cx + r * 0.56 + rightHandDx, rightCuffY + size.width * 0.03),
+      cuffPaint,
+    );
 
     // Save layer for head rotation (tilt).
     canvas.save();
@@ -664,31 +952,88 @@ class _CharacterPainter extends CustomPainter {
     canvas.rotate(tiltRad);
     canvas.translate(-headCenter.dx, -headCenter.dy);
 
-    // Neck (small connector).
+    // ── Neck + jaw shadow ──
     final neckPaint = Paint()
       ..color = const Color(0xFFE8B58E); // skin shadow
     final neckPath = Path()
-      ..moveTo(headCenter.dx - headR * 0.18, headCenter.dy + headR * 0.85)
-      ..lineTo(headCenter.dx + headR * 0.18, headCenter.dy + headR * 0.85)
-      ..lineTo(headCenter.dx + headR * 0.20, headCenter.dy + headR * 1.05)
-      ..lineTo(headCenter.dx - headR * 0.20, headCenter.dy + headR * 1.05)
+      ..moveTo(headCenter.dx - headR * 0.20, headCenter.dy + headR * 0.82)
+      ..lineTo(headCenter.dx + headR * 0.20, headCenter.dy + headR * 0.82)
+      ..lineTo(headCenter.dx + headR * 0.24, headCenter.dy + headR * 1.08)
+      ..lineTo(headCenter.dx - headR * 0.24, headCenter.dy + headR * 1.08)
       ..close();
     canvas.drawPath(neckPath, neckPaint);
-
-    // Face base (skin).
-    final skinPaint = Paint()
-      ..color = const Color(0xFFF5C8A4)
+    // Jaw shadow (soft crescent under the chin).
+    final jawShadowPaint = Paint()
+      ..color = const Color(0xFF000000).withValues(alpha: 0.10)
       ..style = PaintingStyle.fill;
+    final jawPath = Path()
+      ..moveTo(headCenter.dx - headR * 0.30, headCenter.dy + headR * 0.78)
+      ..quadraticBezierTo(
+        headCenter.dx,
+        headCenter.dy + headR * 1.02,
+        headCenter.dx + headR * 0.30,
+        headCenter.dy + headR * 0.78,
+      )
+      ..quadraticBezierTo(
+        headCenter.dx,
+        headCenter.dy + headR * 0.88,
+        headCenter.dx - headR * 0.30,
+        headCenter.dy + headR * 0.78,
+      )
+      ..close();
+    canvas.drawPath(jawPath, jawShadowPaint);
+
+    // ── Ears (with conch inner detail) ──
+    final earPaint = Paint()
+      ..color = const Color(0xFFF0C09A)
+      ..style = PaintingStyle.fill;
+    final earConchPaint = Paint()
+      ..color = const Color(0xFFD8A079)
+      ..style = PaintingStyle.fill;
+    final earL = Offset(headCenter.dx - headR * 0.85, headCenter.dy + headR * 0.05);
+    final earR = Offset(headCenter.dx + headR * 0.85, headCenter.dy + headR * 0.05);
     canvas.drawOval(
-      Rect.fromCenter(center: headCenter, width: headR * 1.7, height: headR * 1.9),
-      skinPaint,
+      Rect.fromCenter(center: earL, width: headR * 0.22, height: headR * 0.34),
+      earPaint,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: earR, width: headR * 0.22, height: headR * 0.34),
+      earPaint,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: earL, width: headR * 0.10, height: headR * 0.18),
+      earConchPaint,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: earR, width: headR * 0.10, height: headR * 0.18),
+      earConchPaint,
     );
 
-    // Hair (top cap).
+    // ── Face base (RadialGradient skin: highlight → base → shadow) ──
+    final faceRect = Rect.fromCenter(
+      center: headCenter,
+      width: headR * 1.7,
+      height: headR * 1.9,
+    );
+    final skinPaint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.25, -0.30),
+        radius: 0.9,
+        colors: [
+          const Color(0xFFFAD4B8), // highlight
+          const Color(0xFFF5C8A4), // base
+          const Color(0xFFE8B58E), // shadow
+        ],
+        stops: const [0.0, 0.55, 1.0],
+      ).createShader(faceRect);
+    canvas.drawOval(faceRect, skinPaint);
+
+    // ── Front hair: cap + side bangs + highlight strands ──
     final hairPaint = Paint()
-      ..color = const Color(0xFF3D2C5F)
+      ..color = hairColor
       ..style = PaintingStyle.fill;
-    final hairPath = Path()
+    // Top cap.
+    final hairCap = Path()
       ..moveTo(headCenter.dx - headR * 0.92, headCenter.dy - headR * 0.15)
       ..quadraticBezierTo(
         headCenter.dx - headR * 0.85,
@@ -715,12 +1060,56 @@ class _CharacterPainter extends CustomPainter {
         headCenter.dy - headR * 0.15,
       )
       ..close();
-    canvas.drawPath(hairPath, hairPaint);
+    canvas.drawPath(hairCap, hairPaint);
+    // Side bangs (asymmetric, feminine sweep).
+    final bangsPath = Path()
+      ..moveTo(headCenter.dx - headR * 0.90, headCenter.dy - headR * 0.18)
+      ..quadraticBezierTo(
+        headCenter.dx - headR * 0.40,
+        headCenter.dy - headR * 0.55,
+        headCenter.dx - headR * 0.05,
+        headCenter.dy - headR * 0.30,
+      )
+      ..quadraticBezierTo(
+        headCenter.dx + headR * 0.20,
+        headCenter.dy - headR * 0.45,
+        headCenter.dx + headR * 0.55,
+        headCenter.dy - headR * 0.10,
+      )
+      ..quadraticBezierTo(
+        headCenter.dx + headR * 0.30,
+        headCenter.dy - headR * 0.05,
+        headCenter.dx + headR * 0.05,
+        headCenter.dy + headR * 0.02,
+      )
+      ..quadraticBezierTo(
+        headCenter.dx - headR * 0.30,
+        headCenter.dy - headR * 0.05,
+        headCenter.dx - headR * 0.90,
+        headCenter.dy - headR * 0.18,
+      )
+      ..close();
+    canvas.drawPath(bangsPath, hairPaint);
+    // Highlight strands (a couple of lighter streaks).
+    final hairHighlightPaint = Paint()
+      ..color = const Color(0xFF6B4F8E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.008
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(headCenter.dx - headR * 0.55, headCenter.dy - headR * 0.75),
+      Offset(headCenter.dx - headR * 0.30, headCenter.dy - headR * 0.35),
+      hairHighlightPaint,
+    );
+    canvas.drawLine(
+      Offset(headCenter.dx + headR * 0.50, headCenter.dy - headR * 0.72),
+      Offset(headCenter.dx + headR * 0.25, headCenter.dy - headR * 0.30),
+      hairHighlightPaint,
+    );
 
     // ── Eyes ──
     final eyeY = headCenter.dy - headR * 0.05;
     final eyeDx = headR * 0.32;
-    // State-based eye treatment.
     final isThinking = state == CharacterState.thinking;
     final isListening = state == CharacterState.listening;
     _drawEye(
@@ -729,6 +1118,7 @@ class _CharacterPainter extends CustomPainter {
       headR * 0.10,
       isThinking,
       isListening,
+      gazeDy,
     );
     _drawEye(
       canvas,
@@ -736,37 +1126,37 @@ class _CharacterPainter extends CustomPainter {
       headR * 0.10,
       isThinking,
       isListening,
+      gazeDy,
     );
 
-    // ── Eyebrows ──
+    // ── Brow arch (subtle feminine arcs above eyes) ──
     final browY = headCenter.dy - headR * 0.22;
     final browPaint = Paint()
-      ..color = const Color(0xFF3D2C5F)
+      ..color = hairColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.012
+      ..strokeWidth = size.width * 0.013
       ..strokeCap = StrokeCap.round;
-    // Left brow.
     final leftBrow = Path()
-      ..moveTo(headCenter.dx - eyeDx - headR * 0.14, browY + (isThinking ? headR * 0.04 : 0))
+      ..moveTo(headCenter.dx - eyeDx - headR * 0.16,
+          browY + (isThinking ? headR * 0.04 : headR * 0.01))
       ..quadraticBezierTo(
         headCenter.dx - eyeDx,
-        browY - headR * 0.06 - (isThinking ? headR * 0.04 : 0),
-        headCenter.dx - eyeDx + headR * 0.14,
-        browY,
+        browY - headR * 0.08 - (isThinking ? headR * 0.04 : 0),
+        headCenter.dx - eyeDx + headR * 0.16,
+        browY + headR * 0.01,
       );
     canvas.drawPath(leftBrow, browPaint);
-    // Right brow.
     final rightBrow = Path()
-      ..moveTo(headCenter.dx + eyeDx - headR * 0.14, browY)
+      ..moveTo(headCenter.dx + eyeDx - headR * 0.16, browY + headR * 0.01)
       ..quadraticBezierTo(
         headCenter.dx + eyeDx,
-        browY - headR * 0.06 - (isThinking ? headR * 0.04 : 0),
-        headCenter.dx + eyeDx + headR * 0.14,
-        browY + (isThinking ? headR * 0.04 : 0),
+        browY - headR * 0.08 - (isThinking ? headR * 0.04 : 0),
+        headCenter.dx + eyeDx + headR * 0.16,
+        browY + (isThinking ? headR * 0.04 : headR * 0.01),
       );
     canvas.drawPath(rightBrow, browPaint);
 
-    // ── Nose (subtle) ──
+    // ── Nose (wing + nostril dots) ──
     final nosePaint = Paint()
       ..color = const Color(0xFFE0AC8C)
       ..style = PaintingStyle.stroke
@@ -775,56 +1165,82 @@ class _CharacterPainter extends CustomPainter {
     final nosePath = Path()
       ..moveTo(headCenter.dx, headCenter.dy + headR * 0.02)
       ..quadraticBezierTo(
-        headCenter.dx - headR * 0.05,
-        headCenter.dy + headR * 0.18,
+        headCenter.dx - headR * 0.06,
+        headCenter.dy + headR * 0.20,
+        headCenter.dx - headR * 0.02,
+        headCenter.dy + headR * 0.24,
+      )
+      ..quadraticBezierTo(
         headCenter.dx,
-        headCenter.dy + headR * 0.22,
+        headCenter.dy + headR * 0.26,
+        headCenter.dx + headR * 0.02,
+        headCenter.dy + headR * 0.24,
+      )
+      ..quadraticBezierTo(
+        headCenter.dx + headR * 0.06,
+        headCenter.dy + headR * 0.20,
+        headCenter.dx,
+        headCenter.dy + headR * 0.02,
       );
     canvas.drawPath(nosePath, nosePaint);
-
-    // ── Mouth (viseme-driven) ──
-    _drawMouth(
-      canvas,
-      Offset(headCenter.dx, headCenter.dy + headR * 0.45),
-      headR * 0.35,
+    // Nostril dots.
+    final nostrilPaint = Paint()..color = const Color(0xFFC98A6A);
+    canvas.drawCircle(
+      Offset(headCenter.dx - headR * 0.025, headCenter.dy + headR * 0.235),
+      size.width * 0.006,
+      nostrilPaint,
+    );
+    canvas.drawCircle(
+      Offset(headCenter.dx + headR * 0.025, headCenter.dy + headR * 0.235),
+      size.width * 0.006,
+      nostrilPaint,
     );
 
-    // ── Cheek blush (subtle warmth) ──
+    // ── Cheek blush (semi-transparent pink) ──
     final blushPaint = Paint()
-      ..color = const Color(0xFFFF9E8A).withValues(alpha: 0.35);
+      ..color = const Color(0xFFFF8A8A).withValues(alpha: 0.32);
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(headCenter.dx - headR * 0.55, headCenter.dy + headR * 0.30),
-        width: headR * 0.30,
-        height: headR * 0.18,
+        center: Offset(headCenter.dx - headR * 0.55, headCenter.dy + headR * 0.32),
+        width: headR * 0.32,
+        height: headR * 0.20,
       ),
       blushPaint,
     );
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(headCenter.dx + headR * 0.55, headCenter.dy + headR * 0.30),
-        width: headR * 0.30,
-        height: headR * 0.18,
+        center: Offset(headCenter.dx + headR * 0.55, headCenter.dy + headR * 0.32),
+        width: headR * 0.32,
+        height: headR * 0.20,
       ),
       blushPaint,
+    );
+
+    // ── Mouth (viseme-driven) + chin shadow ──
+    final mouthCenter = Offset(headCenter.dx, headCenter.dy + headR * 0.45);
+    _drawMouth(canvas, mouthCenter, headR * 0.35);
+    // Chin shadow (soft, under the lower lip).
+    final chinShadowPaint = Paint()
+      ..color = const Color(0xFF000000).withValues(alpha: 0.08)
+      ..style = PaintingStyle.fill;
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(mouthCenter.dx, mouthCenter.dy + headR * 0.16),
+        width: headR * 0.34,
+        height: headR * 0.10,
+      ),
+      chinShadowPaint,
     );
 
     canvas.restore();
 
-    // ── Hand dots (drawn last, on top) ──
-    final handPaint = Paint()
-      ..color = const Color(0xFFF5C8A4)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(
-      Offset(cx - r * 0.55 + leftHandDx, torsoTop + r * 0.55 + bodyDy + leftHandDy),
-      size.width * 0.05,
-      handPaint,
-    );
-    canvas.drawCircle(
-      Offset(cx + r * 0.55 + rightHandDx, torsoTop + r * 0.55 + bodyDy + rightHandDy),
-      size.width * 0.05,
-      handPaint,
-    );
+    // ── Hands (drawn last, on top) — radial palm + finger separators ──
+    final leftHandPos =
+        Offset(cx - r * 0.55 + leftHandDx, handBaseY + leftHandDy);
+    final rightHandPos =
+        Offset(cx + r * 0.55 + rightHandDx, handBaseY + rightHandDy);
+    _drawHand(canvas, leftHandPos, size.width * 0.05);
+    _drawHand(canvas, rightHandPos, size.width * 0.05);
   }
 
   void _drawEye(
@@ -833,16 +1249,17 @@ class _CharacterPainter extends CustomPainter {
     double radius,
     bool thinking,
     bool listening,
+    double gazeDy,
   ) {
     if (thinking) {
-      // Closed eye — curved arc.
+      // Closed eye — curved arc (happy/squint).
       final paint = Paint()
         ..color = const Color(0xFF2A1F45)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = radius * 0.5
+        ..strokeWidth = radius * 0.55
         ..strokeCap = StrokeCap.round;
       canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
+        Rect.fromCircle(center: center, radius: radius * 1.1),
         math.pi,
         math.pi,
         false,
@@ -850,24 +1267,110 @@ class _CharacterPainter extends CustomPainter {
       );
       return;
     }
-    final paint = Paint()
+    // Sclera (white) — slightly taller when listening (attention).
+    final scleraH = listening ? radius * 2.2 : radius * 1.9;
+    final scleraW = listening ? radius * 2.4 : radius * 2.1;
+    final scleraPaint = Paint()..color = const Color(0xFFFFFFFF);
+    canvas.drawOval(
+      Rect.fromCenter(center: center, width: scleraW, height: scleraH),
+      scleraPaint,
+    );
+    // Upper eyelash line (dark, thick arc over the top of the sclera).
+    final lashPaint = Paint()
       ..color = const Color(0xFF2A1F45)
-      ..style = PaintingStyle.fill;
-    if (listening) {
-      // Slightly wider eye (attention).
-      canvas.drawOval(
-        Rect.fromCenter(center: center, width: radius * 2.4, height: radius * 2.0),
-        paint,
-      );
-    } else {
-      canvas.drawCircle(center, radius, paint);
-    }
-    // Specular highlight.
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = radius * 0.42
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      Rect.fromCenter(center: center, width: scleraW, height: scleraH),
+      math.pi,
+      math.pi * 0.95,
+      false,
+      lashPaint,
+    );
+    // Iris (RadialGradient brown).
+    final irisR = radius * 0.95;
+    final irisCenter = Offset(center.dx, center.dy + gazeDy);
+    final irisPaint = Paint()
+      ..shader = RadialGradient(
+        center: Alignment.center,
+        radius: 1.0,
+        colors: [
+          const Color(0xFF8B5A2B), // light brown rim
+          const Color(0xFF6B4423), // mid
+          const Color(0xFF3D2410), // deep
+        ],
+        stops: const [0.0, 0.6, 1.0],
+      ).createShader(Rect.fromCircle(center: irisCenter, radius: irisR));
+    canvas.drawCircle(irisCenter, irisR, irisPaint);
+    // Pupil.
+    final pupilPaint = Paint()..color = const Color(0xFF1A0E08);
+    canvas.drawCircle(irisCenter, irisR * 0.45, pupilPaint);
+    // Dual reflection points (white sparkles) — the "pretty eye" sparkle.
     final hl = Paint()..color = const Color(0xFFFFFFFF);
     canvas.drawCircle(
-      Offset(center.dx - radius * 0.35, center.dy - radius * 0.35),
-      radius * 0.30,
+      Offset(irisCenter.dx - irisR * 0.35, irisCenter.dy - irisR * 0.35),
+      irisR * 0.30,
       hl,
+    );
+    canvas.drawCircle(
+      Offset(irisCenter.dx + irisR * 0.30, irisCenter.dy + irisR * 0.30),
+      irisR * 0.16,
+      hl,
+    );
+    // Lower eyelash (thin).
+    final lowerLashPaint = Paint()
+      ..color = const Color(0xFF2A1F45)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = radius * 0.22
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: center,
+        width: scleraW * 0.95,
+        height: scleraH * 0.95,
+      ),
+      0,
+      math.pi * 0.9,
+      false,
+      lowerLashPaint,
+    );
+  }
+
+  /// Draw a hand with a radial-gradient palm + finger separator lines.
+  void _drawHand(Canvas canvas, Offset center, double radius) {
+    final palmPaint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.3, -0.3),
+        radius: 0.9,
+        colors: [
+          const Color(0xFFFAD4B8), // highlight
+          const Color(0xFFF5C8A4), // base
+          const Color(0xFFE8B58E), // shadow
+        ],
+        stops: const [0.0, 0.6, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+    canvas.drawCircle(center, radius, palmPaint);
+    // Finger separator lines (thin grooves fanning across the palm).
+    final fingerPaint = Paint()
+      ..color = const Color(0xFFD8A079)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = radius * 0.18
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(center.dx - radius * 0.35, center.dy - radius * 0.7),
+      Offset(center.dx - radius * 0.35, center.dy - radius * 0.1),
+      fingerPaint,
+    );
+    canvas.drawLine(
+      Offset(center.dx, center.dy - radius * 0.8),
+      Offset(center.dx, center.dy - radius * 0.1),
+      fingerPaint,
+    );
+    canvas.drawLine(
+      Offset(center.dx + radius * 0.35, center.dy - radius * 0.7),
+      Offset(center.dx + radius * 0.35, center.dy - radius * 0.1),
+      fingerPaint,
     );
   }
 
@@ -1082,6 +1585,17 @@ class _CharacterPainter extends CustomPainter {
         canvas.drawPath(makeOval(w * 0.80, h * 0.20), lipPaint);
         break;
     }
+    // Lip gloss: a soft white sheen on the lower lip for a glossy finish.
+    final glossPaint = Paint()
+      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.55);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(center.dx, center.dy + h * 0.18),
+        width: w * 0.30,
+        height: h * 0.12,
+      ),
+      glossPaint,
+    );
     // Reset paint style for safety (paints are reused across frames).
     lipPaint.style = PaintingStyle.fill;
   }

@@ -8,6 +8,7 @@ import '../../../../core/util/responsive.dart';
 import '../../../../shared/providers.dart';
 import '../../../profile/domain/profile_models.dart';
 import '../../../profile/domain/provider_catalog.dart';
+import '../../../profile/domain/services/connection_tester.dart';
 
 /// First-run wizard. The user picks a provider for each of LLM / STT / TTS,
 /// pastes an API key, and we auto-fill the rest from the catalog. Only the API
@@ -43,6 +44,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _ttsKeyController = TextEditingController();
 
   bool _isSaving = false;
+
+  // Tracks which service (llm/stt/tts) is currently being connection-tested,
+  // so the matching button shows a spinner and the others are disabled.
+  String? _testingService;
 
   @override
   void initState() {
@@ -204,6 +209,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final labelColor =
         isLight ? AppColors.lightTextPrimary : AppColors.textPrimary;
     return [
+      _buildTestButton('llm', () async {
+        final def = LlmProviderCatalog.byId(_llmProviderId);
+        final profile = LlmProfile(
+          name: '_temp',
+          providerId: _llmProviderId,
+          baseUrl: _llmUrlController.text.trim().isEmpty
+              ? def.defaultBaseUrl
+              : _llmUrlController.text.trim(),
+          apiKey: _llmKeyController.text,
+          model: _llmModelController.text.trim().isEmpty
+              ? (def.defaultModel ?? 'gpt-3.5-turbo')
+              : _llmModelController.text.trim(),
+          isActive: true,
+        );
+        return ConnectionTester.testLlm(profile);
+      }),
       const SizedBox(height: AppSpacing.md),
       Text(
         _l.t('onboarding.base_url'),
@@ -269,6 +290,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final labelColor =
         isLight ? AppColors.lightTextPrimary : AppColors.textPrimary;
     return [
+      _buildTestButton('stt', () async {
+        final def = SttProviderCatalog.byId(_sttProviderId);
+        final profile = SttProfile(
+          name: '_temp',
+          providerId: _sttProviderId,
+          baseUrl: _sttUrlController.text.trim().isEmpty
+              ? def.defaultBaseUrl
+              : _sttUrlController.text.trim(),
+          apiKey: _sttKeyController.text,
+          model: def.defaultModel ?? '',
+          language: 'en-US',
+          isActive: true,
+        );
+        return ConnectionTester.testStt(profile);
+      }),
       const SizedBox(height: AppSpacing.md),
       Text(
         _l.t('onboarding.base_url'),
@@ -309,6 +345,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   List<Widget> _buildTtsExtraFields() {
     return [
+      _buildTestButton('tts', () async {
+        final def = TtsProviderCatalog.byId(_ttsProviderId);
+        final profile = TtsProfile(
+          name: '_temp',
+          providerId: _ttsProviderId,
+          baseUrl: def.defaultBaseUrl,
+          apiKey: _ttsKeyController.text,
+          model: def.defaultModel ?? '',
+          voiceId: def.defaultVoice,
+          voiceName: def.defaultVoice,
+          speed: 1.0,
+          isActive: true,
+        );
+        return ConnectionTester.testTts(profile);
+      }),
       const SizedBox(height: AppSpacing.md),
       // "Reuse STT provider & key" shortcut — copies the STT provider,
       // base URL and API key into the TTS form (with a provider-id
@@ -368,6 +419,49 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(_l.t('onboarding.no_active_stt'))));
+    }
+  }
+
+  /// Builds the "Test Connection" button shown below the API key field on
+  /// each service page. [serviceId] identifies which button is active (so
+  /// only the matching one shows a spinner); [builder] constructs the
+  /// temporary profile from current form values and runs the probe.
+  Widget _buildTestButton(
+    String serviceId,
+    Future<ConnectionTestResult> Function() builder,
+  ) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: _isSaving || _testingService != null
+            ? null
+            : () => _runTest(serviceId, builder),
+        icon: _testingService == serviceId
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.wifi_tethering, size: 18),
+        label: Text(_l.t('common.test_connection')),
+      ),
+    );
+  }
+
+  Future<void> _runTest(
+    String service,
+    Future<ConnectionTestResult> Function() builder,
+  ) async {
+    setState(() => _testingService = service);
+    try {
+      final result = await builder();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.message)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _testingService = null);
     }
   }
 
@@ -622,10 +716,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   /// Skip the entire wizard — completes onboarding with no profiles saved.
   Future<void> _skipAll() async {
+    final repo = ref.read(profileRepoProvider);
     setState(() => _isSaving = true);
     try {
-      await ref.read(profileRepoProvider).setOnboardingCompleted();
-      if (mounted) context.go('/placement');
+      await repo.setOnboardingCompleted();
+      final hasPlacement = await repo.hasCompletedPlacement();
+      if (!mounted) return;
+      context.go(hasPlacement ? '/' : '/placement');
     } catch (_) {
       // Best-effort — let the user retry.
     } finally {
@@ -723,8 +820,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
       await repo.setOnboardingCompleted();
 
+      final hasPlacement = await repo.hasCompletedPlacement();
       if (mounted) {
-        context.go('/placement');
+        context.go(hasPlacement ? '/' : '/placement');
       }
     } catch (e) {
       if (mounted) {

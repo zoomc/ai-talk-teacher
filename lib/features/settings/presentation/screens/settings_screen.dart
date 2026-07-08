@@ -9,6 +9,7 @@ import '../../../../core/services/version_service.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../../chat/data/tts_playback_service.dart';
+import '../../../profile/domain/services/connection_tester.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -102,6 +103,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: _l.t('settings.service_config'),
                       subtitle: _l.t('settings.service_config_subtitle'),
                       onTap: () => context.push('/service-config'),
+                    ),
+                    _SettingsTile(
+                      icon: Icons.wifi_tethering,
+                      title: _l.t('settings.test_current_profile'),
+                      subtitle: _l.t('settings.test_current_profile_sub'),
+                      onTap: _testCurrentProfile,
+                    ),
+                    _SettingsTile(
+                      icon: Icons.restart_alt,
+                      title: _l.t('settings.rerun_onboarding'),
+                      subtitle: _l.t('settings.rerun_onboarding_sub'),
+                      onTap: () => context.push('/onboarding'),
                     ),
                   ],
                 ),
@@ -221,6 +234,92 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
       }
     }
+  }
+
+  Future<void> _testCurrentProfile() async {
+    final repo = ref.read(profileRepoProvider);
+    // Capture the root navigator BEFORE any await — after an unmount the
+    // widget's `context` is dead, but the root navigator's state lives for
+    // the whole app, so we can still pop the loading dialog we're about
+    // to push.
+    final rootNav = Navigator.of(context, rootNavigator: true);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Dialog(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Testing…'),
+            ],
+          ),
+        ),
+      ),
+    );
+    final lines = <String>[];
+    try {
+      final llm = await repo.getActiveLlmProfile();
+      if (llm == null) {
+        lines.add(
+          'LLM: ${_l.tArg('settings.test_no_active', {'kind': 'LLM'})}',
+        );
+      } else {
+        final r = await ConnectionTester.testLlm(llm);
+        lines.add('LLM: ${r.message}');
+      }
+      final stt = await repo.getActiveSttProfile();
+      if (stt == null) {
+        lines.add(
+          'STT: ${_l.tArg('settings.test_no_active', {'kind': 'STT'})}',
+        );
+      } else {
+        final r = await ConnectionTester.testStt(stt);
+        lines.add('STT: ${r.message}');
+      }
+      final tts = await repo.getActiveTtsProfile();
+      if (tts == null) {
+        lines.add(
+          'TTS: ${_l.tArg('settings.test_no_active', {'kind': 'TTS'})}',
+        );
+      } else {
+        final r = await ConnectionTester.testTts(tts);
+        lines.add('TTS: ${r.message}');
+      }
+    } catch (e) {
+      lines.add('✗ ${e.toString()}');
+    }
+    // Always pop the loading dialog — even on unmount — so it can't
+    // outlive the probe.
+    rootNav.pop();
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(_l.t('settings.test_results_title')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: lines
+              .map(
+                (l) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(l),
+                ),
+              )
+              .toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(_l.t('common.confirm')),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showCorrectionStrengthDialog() {

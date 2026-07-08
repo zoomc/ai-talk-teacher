@@ -15,6 +15,15 @@ class PlacementScreen extends ConsumerStatefulWidget {
 }
 
 class _PlacementScreenState extends ConsumerState<PlacementScreen> {
+  // TODO(placement-rewrite): The current placement is a short static
+  // self-assessment quiz with a hand-tuned scoring heuristic. The spec
+  // calls for an AI-conversation-based placement: open a short (3–5 turn)
+  // voice chat with the active LlmProfile, then have the LLM emit a
+  // `{"level": "beginner|intermediate|advanced"}` verdict. When that
+  // lands, replace `_questions` + `_computeLevel` with a thin wrapper
+  // around the chat flow and keep `setUserLevel` +
+  // `setPlacementCompleted` + `createSession` as the post-flow side
+  // effects. Tracked in projects.md under "Placement → AI assessment".
   final List<Map<String, dynamic>> _questions = [
     {
       'question': 'How would you describe your English speaking level?',

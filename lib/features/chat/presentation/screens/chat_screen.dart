@@ -184,7 +184,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           leading: IconButton(
             tooltip: l.t('chat.back_home'),
             icon: const Icon(Icons.arrow_back_ios_new),
-            onPressed: () => context.go('/'),
+            onPressed: () => _exitWithSummary(),
           ),
           title: Row(
             children: [
@@ -430,7 +430,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(
-          SnackBar(content: Text(l.tArg('chat.error', {'error': _safeError(e)}))),
+          SnackBar(content: Text(l.tArg('chat.error', {'error': _friendlyError(e)}))),
         );
       }
     } finally {
@@ -500,13 +500,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           final l = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(l.tArg('chat.recording_error', {'error': _safeError(e)})),
+              content: Text(l.tArg('chat.recording_error', {'error': _friendlyError(e)})),
             ),
           );
           _setCharacterState(CharacterState.idle);
         }
       }
     } else {
+      // Barge-in: if TTS is playing, stop it immediately when the user
+      // starts speaking — mirrors real conversation ("you talk, they stop").
+      await _ttsPlaybackService.stop();
+      if (mounted) {
+        setState(() {
+          _playingMessageId = null;
+          _speakingText = null;
+        });
+        if (_characterState == CharacterState.speaking) {
+          _setCharacterState(CharacterState.idle);
+        }
+      }
       try {
         await _recordingService.startRecording();
         setState(() => _isRecording = true);
@@ -517,7 +529,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                l.tArg('chat.cannot_start_recording', {'error': _safeError(e)}),
+                l.tArg('chat.cannot_start_recording', {'error': _friendlyError(e)}),
               ),
             ),
           );
@@ -623,7 +635,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(
-          SnackBar(content: Text(l.tArg('chat.tts_error', {'error': _safeError(e)}))),
+          SnackBar(content: Text(l.tArg('chat.tts_error', {'error': _friendlyError(e)}))),
         );
         setState(() {
           _playingMessageId = null;
@@ -775,6 +787,95 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final raw = e.toString();
     if (raw.length > 160) return '${raw.substring(0, 160)}...';
     return raw;
+  }
+
+  /// Map raw exceptions to user-friendly categories (auth, rate limit,
+  /// server, network) so the user sees a clear, actionable message
+  /// instead of a verbose provider response body. Falls back to
+  /// [_safeError] for errors that don't match a known category.
+  String _friendlyError(Object e) {
+    final l = AppLocalizations.of(context);
+    final raw = e.toString().toLowerCase();
+    if (RegExp(r'\b40[13]\b').hasMatch(raw) ||
+        raw.contains('unauthorized') ||
+        raw.contains('invalid api key') ||
+        raw.contains('invalid_api_key') ||
+        raw.contains('permission')) {
+      return l.t('chat.err_auth');
+    }
+    if (RegExp(r'\b429\b').hasMatch(raw) ||
+        raw.contains('rate limit') ||
+        raw.contains('rate_limit') ||
+        raw.contains('quota') ||
+        raw.contains('insufficient') ||
+        raw.contains('balance')) {
+      return l.t('chat.err_rate_limit');
+    }
+    if (RegExp(r'\b5\d\d\b').hasMatch(raw) ||
+        raw.contains('server error') ||
+        raw.contains('internal error') ||
+        raw.contains('bad gateway') ||
+        raw.contains('service unavailable')) {
+      return l.t('chat.err_server');
+    }
+    if (raw.contains('timeout') ||
+        raw.contains('socket') ||
+        raw.contains('connection refused') ||
+        raw.contains('network') ||
+        raw.contains('host unreachable')) {
+      return l.t('chat.err_network');
+    }
+    return _safeError(e);
+  }
+
+  /// Exit the chat screen, showing a session summary SnackBar when the
+  /// user had a meaningful conversation (≥2 messages). Falls back to a
+  /// plain navigation if anything goes wrong — never block the exit.
+  Future<void> _exitWithSummary() async {
+    try {
+      final repo = ref.read(chatRepoProvider);
+      final messages = await repo.getMessages(widget.sessionId);
+      if (messages.length < 2) {
+        if (mounted) context.go('/');
+        return;
+      }
+      final corrections = await repo.getCorrectionsForSession(widget.sessionId);
+      final session = await repo.getSession(widget.sessionId);
+      final start = session?.createdAt ?? messages.first.createdAt;
+      final end = DateTime.now();
+      final minutes = end.difference(start).inMinutes.clamp(0, 999);
+      final l = AppLocalizations.of(context);
+      final msgCount = messages.length.toString();
+      final corrCount = corrections.length.toString();
+      final minutesStr = minutes.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l.t('chat.session_summary_title'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(l.tArg('chat.session_summary_body', {
+                'msgCount': msgCount,
+                'corrCount': corrCount,
+                'minutes': minutesStr,
+              })),
+              const SizedBox(height: 4),
+              Text(l.t('chat.session_summary_encourage')),
+            ],
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (mounted) context.go('/');
+    } catch (_) {
+      if (mounted) context.go('/');
+    }
   }
 }
 
