@@ -127,14 +127,14 @@ class AppTheme {
       brightness: Brightness.light,
       scaffoldBackgroundColor: AppColors.lightBgPrimary,
       colorScheme: const ColorScheme.light(
-        primary: AppColors.accentPrimary,
-        onPrimary: AppColors.textOnAccent,
-        secondary: AppColors.accentSecondary,
-        onSecondary: AppColors.textOnAccent,
+        primary: AppColors.lightAccentPrimary,
+        onPrimary: AppColors.lightTextOnAccent,
+        secondary: AppColors.lightAccentSecondary,
+        onSecondary: AppColors.lightTextOnAccent,
         surface: AppColors.lightBgSecondary,
         onSurface: AppColors.lightTextPrimary,
-        error: AppColors.error,
-        onError: AppColors.textOnAccent,
+        error: AppColors.lightError,
+        onError: AppColors.lightTextOnAccent,
       ),
       textTheme: TextTheme(
         displayLarge: AppTextStyles.display.copyWith(
@@ -243,12 +243,13 @@ class AppTheme {
         space: 1,
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.lightTextPrimary,
+        backgroundColor: AppColors.lightGlassBg,
         contentTextStyle: AppTextStyles.caption.copyWith(
-          color: AppColors.lightTextOnAccent,
+          color: AppColors.lightTextPrimary,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
+          side: const BorderSide(color: AppColors.lightGlassBorder),
         ),
         behavior: SnackBarBehavior.floating,
       ),

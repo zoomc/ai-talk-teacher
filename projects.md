@@ -1,13 +1,74 @@
 # SpeakFlow — AI 口语练习应用
 
 > 跨平台 AI 英语口语练习应用
-> 更新日期：2026-07-07
+> 更新日期：2026-07-08
 > 技术栈：Flutter（Dart）
 > 目标平台：macOS · Web · iOS · Android
 
 ---
 
-## 0. 当前状态（2026-07-07 i18n + 浅色主题 + 虚拟人物重做 + voice-first）
+## 0. 当前状态（2026-07-08 3D 虚拟外教 + 浅色/玻璃统一 + 引导流程 + 语音对话流程）
+
+本轮针对用户提出的 5 项要求进行了全面改造：(1) 所有页面统一浅色背景、
+(2) 所有页面 iOS 26 玻璃风格、(3) 真 3D 类人女性 AI 外教（20 口型 + 20 动作，
+文本/音频驱动，兼容浏览器 + APP，低性能低占用）、(4) 首次打开 + 设置内引导
+配置流程梳理、(5) AI 实时对话流程自然化（对标 Praktika/Speak/ELSA Speak）。
+先做了 3D 方案全网调研（Three.js + Ready Player Me GLB 选定），形成临时开发
+计划 checklist 文件指导实施，再做 3 轮 review（正确性/UI 交互/打磨）+ 多轮
+静态测试。
+
+### 已落地（本轮）
+
+- **3D 虚拟外教**（工作流 C）：Three.js + Ready Player Me 女性 GLB（带 ARKit +
+  Oculus Visemes morph targets），通过 `HtmlElementView`（web）+ `webview_flutter`
+  （移动）嵌入 Flutter，一套 `assets/3d/avatar.html` 两端复用。WebGL GPU 渲染
+  60fps（idle 降 30fps）；GLB 从 CDN 流式加载 ~2-5MB 可缓存；three.js ~150KB gzip。
+  20 口型（Oculus 15 + smile/laugh/sad/surprise/disgust）+ 20 动作（idle/wave/nod…
+  + crossArms/clap/thumbsUp/bow…）。条件导入 `_web.dart`/`_mobile.dart`/`_platform.dart`
+  统一 `AvatarHost` API；8s isReady 轮询失败回退 CustomPainter。`visemeForChar`/
+  `gestureForKeyword` 公开 static 让 3D 与 painter 共用映射。TtsPlaybackService
+  合成振幅流（50ms tick）驱动 3D 角色口型。
+- **引导流程改进**（工作流 D）：placement 接 i18n + 加 Skip + 不再 createSession
+  （落地 Home）；Settings 加「重新运行引导」「重新定级」tile + 真 About 对话框；
+  ChatScreen 顶部持久 banner（语音未配置 → 点击去设置）；onboarding docs URL
+  可点（url_launcher）；service_config active profile 的 Delete 在 UI 禁用带提示。
+- **语音对话流程改进**（工作流 E）：E1 连续模式下 TTS 完成后自动重开麦（hands-free）；
+  E2 barge-in（录音前先停 TTS，可打断 AI）；E3 解耦 loading/TTS（autoplay fire-and-
+  forget，input bar 立即可用）；E5 连续模式开关 chip；E11 AppError mapper
+  （auth/rate-limit/server/timeout/offline/mic-permission → 本地化消息 + Retry/
+  Configure/Open-Settings 动作）；E12 替换所有 `_safeError` SnackBar；E13 空转录
+  给可操作改进提示；E16 LLM 超时 60s→30s；E17 redact API key。
+- **3 轮 review + 多轮静态测试**：Round 1（正确性：import/i18n key/AppColors/
+  跨文件一致性，3D 文件由子代理逐文件确认无编译问题）；Round 2（UI/交互：浅色对比度、
+  玻璃一致性、引导顺畅、对话流畅、3D 回退）；Round 3（打磨：无死 tile、token 一致）。
+
+### 验证状态
+
+- 沙箱内 **无 Flutter/Dart 工具链**，`flutter analyze` / `flutter test`
+  无法运行。本轮依靠严谨代码审查验证：所有 import 路径解析、所有 i18n key
+  存在于 zh+en 目录、所有 AppColors 字段存在、AvatarHost API 跨 4 文件一致、
+  `_ChatInputBar` 新参数调用点已更新、placement 不再 createSession。下次有
+  Flutter 工具链的环境应补跑 `flutter analyze` + `flutter test` + `flutter build
+  web --release` 后再发版。
+
+### 仍未做（后续工作）
+
+- LLM Streaming（SSE）、Placement 重写为 AI 对话评估、reduce-motion 支持、
+  发音音素级评分、`chat_screen.dart` 拆分（~1900 行）、Retry 指数退避、
+  LlmUsage 持久化、请求取消（CancelToken）、Inter 字体打包、路由转场动画、
+  accessibility。
+- onboarding D1（Test Connection 按钮）、D3（Advanced 折叠）、D17（profile_form
+  硬编码迁 i18n）、D18（STT→TTS 映射抽 helper）、D19（router redirect 用
+  Riverpod provider）等较低优先级项可后续补。
+- 工作流 E 的 P1/P2/P3 项：E7 thinking filler 音频、E9 情感驱动表情、E10
+  backchanneling、E14 TTS 失败 inline 重试、E18-E23 纠错流与会话连续性。
+- home/scenarios/review/progress 仍有部分 pre-existing 硬编码英文文案
+
+---
+
+## 历史状态
+
+### 2026-07-07 i18n + 浅色主题 + 虚拟人物重做 + voice-first
 
 本轮针对用户提出的 8 项要求进行了全面改造：onboarding 对比度/跳过/
 TTS 复用 STT/Deepgram TTS/STT-TTS URL/国内 provider、浏览器语言自动

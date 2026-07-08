@@ -267,7 +267,9 @@ class _SideNavRail extends StatelessWidget {
       // browser chrome / iPad Split-View top inset. bottom:true keeps
       // the last nav item clear of the home indicator.
       child: Container(
-        color: AppColors.bgSecondary,
+        color: Theme.of(context).brightness == Brightness.light
+            ? AppColors.lightBgSecondary
+            : AppColors.bgSecondary,
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
         width: extended ? 200 : 72,
         child: Column(

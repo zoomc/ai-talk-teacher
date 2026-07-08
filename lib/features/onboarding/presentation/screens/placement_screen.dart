@@ -1,12 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 
+/// Quick English-level assessment shown after first-run onboarding.
+///
+/// Design notes:
+/// - Question/option text stays in English on purpose — the user is here to
+///   learn English, so the assessment content itself is English. Only the UI
+///   chrome (title, counter, buttons, result) is localized.
+/// - Skip is always available: skipping marks placement complete and lands
+///   the user on Home (no chat session is auto-created here — D10).
+/// - On completion we set the level + mark placement done, then go to Home.
+///   The user opens a chat themselves when ready.
 class PlacementScreen extends ConsumerStatefulWidget {
   const PlacementScreen({super.key});
 
@@ -65,14 +76,22 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   final List<String> _answers = [];
   bool _isComplete = false;
 
+  AppLocalizations get _l => AppLocalizations.of(context);
+
   @override
   Widget build(BuildContext context) {
     if (_isComplete) {
       return _buildResultScreen();
     }
 
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final headingColor =
+        isLight ? AppColors.lightTextPrimary : AppColors.textPrimary;
+    final bodyColor =
+        isLight ? AppColors.lightTextSecondary : AppColors.textSecondary;
     return Scaffold(
-      backgroundColor: AppColors.bgPrimary,
+      backgroundColor:
+          isLight ? AppColors.lightBgPrimary : AppColors.bgPrimary,
       body: SafeArea(
         child: Center(
           // Constrain on iPad so the question text + option cards don't
@@ -87,6 +106,15 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Top row: back/skip on the right.
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _skip,
+                      child: Text(_l.t('placement.skip')),
+                    ),
+                  ),
+
                   // Progress
                   Row(
                     children: List.generate(_questions.length, (i) {
@@ -97,8 +125,10 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                           decoration: BoxDecoration(
                             color: i <= _currentQuestion
                                 ? AppColors.accentPrimary
-                                : AppColors.bgTertiary,
-                            borderRadius: BorderRadius.circular(2),
+                                : (isLight
+                                    ? AppColors.lightBgTertiary
+                                    : AppColors.bgTertiary),
+                            borderRadius: BorderRadius.circular(AppRadius.xs),
                           ),
                         ),
                       );
@@ -111,25 +141,31 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                   // question + option list have room. The whole column
                   // is now scrollable so nothing clips.
                   Text(
-                    'Quick Assessment',
-                    style: Responsive.isShortViewport(context)
-                        ? Theme.of(context).textTheme.headlineMedium
-                        : Theme.of(context).textTheme.displayLarge,
+                    _l.t('placement.title'),
+                    style: (Responsive.isShortViewport(context)
+                            ? Theme.of(context).textTheme.headlineMedium
+                            : Theme.of(context).textTheme.displayLarge)
+                        ?.copyWith(color: headingColor),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    'Question ${_currentQuestion + 1} of ${_questions.length}',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
+                    _l.tArg('placement.question', {
+                      'n': '${_currentQuestion + 1}',
+                      'total': '${_questions.length}',
+                    }),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyLarge
+                        ?.copyWith(color: bodyColor),
                   ),
                   const SizedBox(height: AppSpacing.xl),
 
                   Text(
                     _questions[_currentQuestion]['question'],
-                    style: Responsive.isShortViewport(context)
+                    style: (Responsive.isShortViewport(context)
                         ? Theme.of(context).textTheme.titleLarge
-                        : Theme.of(context).textTheme.headlineLarge,
+                        : Theme.of(context).textTheme.headlineLarge)
+                        ?.copyWith(color: headingColor),
                   ),
                   const SizedBox(height: AppSpacing.xl),
 
@@ -163,8 +199,8 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                               child: Center(
                                 child: Text(
                                   String.fromCharCode(65 + index),
-                                  style: const TextStyle(
-                                    color: AppColors.textSecondary,
+                                  style: TextStyle(
+                                    color: bodyColor,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -174,7 +210,10 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                             Flexible(
                               child: Text(
                                 option,
-                                style: Theme.of(context).textTheme.bodyLarge,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyLarge
+                                    ?.copyWith(color: headingColor),
                               ),
                             ),
                           ],
@@ -231,8 +270,14 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     final String level = _computeLevel();
     final String displayLevel = level[0].toUpperCase() + level.substring(1);
 
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final headingColor =
+        isLight ? AppColors.lightTextPrimary : AppColors.textPrimary;
+    final bodyColor =
+        isLight ? AppColors.lightTextSecondary : AppColors.textSecondary;
     return Scaffold(
-      backgroundColor: AppColors.bgPrimary,
+      backgroundColor:
+          isLight ? AppColors.lightBgPrimary : AppColors.bgPrimary,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -255,24 +300,28 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 Text(
-                  'Assessment Complete!',
-                  style: Theme.of(context).textTheme.displayLarge,
+                  _l.t('placement.complete_title'),
+                  style: Theme.of(context)
+                      .textTheme
+                      .displayLarge
+                      ?.copyWith(color: headingColor),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  'Your level: $displayLevel',
+                  _l.tArg('placement.your_level', {'level': displayLevel}),
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     color: AppColors.accentSecondary,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'We\'ll adjust the conversation difficulty to match your level.',
+                  _l.t('placement.adjust_hint'),
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyLarge
+                      ?.copyWith(color: bodyColor),
                 ),
                 const SizedBox(height: AppSpacing.xxl),
                 ElevatedButton(
@@ -280,7 +329,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 56),
                   ),
-                  child: const Text('Start Practicing'),
+                  child: Text(_l.t('placement.start_practicing')),
                 ),
               ],
             ),
@@ -290,23 +339,33 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     );
   }
 
+  /// Skip the assessment — mark placement complete and go to Home. We don't
+  /// set a level here; getUserLevel() already defaults to 'intermediate'
+  /// when unset, so skipping is safe.
+  Future<void> _skip() async {
+    try {
+      await ref.read(profileRepoProvider).setPlacementCompleted();
+    } catch (_) {
+      // Best-effort.
+    }
+    if (mounted) context.go('/');
+  }
+
+  /// Complete the assessment — save the computed level, mark placement done,
+  /// and land on Home (NOT a chat session). D10: let the user open a chat
+  /// themselves when ready.
   Future<void> _completeSetup() async {
     final repo = ref.read(profileRepoProvider);
-    final chatRepo = ref.read(chatRepoProvider);
-
-    // Save level
     final String level = _computeLevel();
-    await repo.setUserLevel(level);
-    await repo.setPlacementCompleted();
-
-    // Create first session
-    final session = await chatRepo.createSession(
-      topic: 'Free Talk',
-      levelTag: level,
-    );
+    try {
+      await repo.setUserLevel(level);
+      await repo.setPlacementCompleted();
+    } catch (_) {
+      // Best-effort — still proceed to Home.
+    }
 
     if (mounted) {
-      context.go('/chat/${session.id}');
+      context.go('/');
     }
   }
 }

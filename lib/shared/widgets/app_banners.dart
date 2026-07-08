@@ -10,6 +10,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/services/install_prompt_service.dart';
 import '../../core/services/version_service.dart';
 import '../../core/theme/app_colors.dart';
+import 'glass_widgets.dart';
 
 /// Routes where banners should never appear — these are first-run /
 /// full-screen flows with no AppBar where an install/update banner
@@ -229,9 +230,11 @@ class _InstallBanner extends ConsumerWidget {
   }
 
   void _showIosA2HsSheet(BuildContext context, {required VoidCallback onDismiss}) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.bgSecondary,
+      backgroundColor:
+          isLight ? AppColors.lightBgSecondary : AppColors.bgSecondary,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
@@ -373,56 +376,45 @@ class _BannerCard extends StatelessWidget {
         AppSpacing.sm,
         AppSpacing.xs,
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.bgSecondary.withValues(alpha: 0.96),
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: iconColor.withValues(alpha: 0.45)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 14,
-                offset: const Offset(0, 4),
+      child: GlassCard(
+        borderRadius: AppRadius.lg,
+        glowColor: iconColor,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor, size: 20),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                message,
+                // 2 lines so the version detail "1.0.0+1 → 1.0.1+2"
+                // doesn't truncate on iPhone SE (320pt). The parent
+                // _MeasureSize already supports height changes via the
+                // RenderProxyBox reporter, so growing to 2 lines is
+                // safe and the MediaQuery padding injection below
+                // updates automatically.
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? AppColors.lightTextPrimary
+                          : AppColors.textPrimary,
+                      height: 1.3,
+                    ),
               ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.xs,
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: iconColor, size: 20),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  message,
-                  // 2 lines so the version detail "1.0.0+1 → 1.0.1+2"
-                  // doesn't truncate on iPhone SE (320pt). The parent
-                  // _MeasureSize already supports height changes via the
-                  // RenderProxyBox reporter, so growing to 2 lines is
-                  // safe and the MediaQuery padding injection below
-                  // updates automatically.
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textPrimary,
-                        height: 1.3,
-                      ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              _ActionButton(
-                label: actionLabel,
-                color: iconColor,
-                onTap: onAction,
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              _DismissButton(onTap: onDismiss),
-            ],
-          ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            _ActionButton(
+              label: actionLabel,
+              color: iconColor,
+              onTap: onAction,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            _DismissButton(onTap: onDismiss),
+          ],
         ),
       ),
     )

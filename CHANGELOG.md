@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### 3D virtual tutor + light/glass consistency + onboarding flow + voice chat flow
+
+Conducted a comprehensive pass addressing 5 user requirements: (1) unify all
+pages to light background, (2) iOS 26 Liquid Glass across all pages, (3) a
+real 3D humanoid female AI tutor with 20 visemes + 20 gestures driven by
+text/audio, (4) first-run + in-settings onboarding flow review, (5) natural
+real-time voice conversation flow modelled on Praktika/Speak/ELSA Speak. A
+temporary dev-plan checklist guided implementation; three review rounds
+(correctness / UI-interaction / polish) and multi-pass static verification
+were performed.
+
+#### Added — 3D virtual tutor (workflow C)
+- **Three.js + Ready Player Me GLB** with ARKit + Oculus Visemes morph
+  targets, embedded via `HtmlElementView` (web) + `webview_flutter`
+  (iOS/Android/macOS) — one shared `assets/3d/avatar.html` bundle for both
+  platforms. WebGL GPU rendering (60fps, idle drops to 30fps); GLB streamed
+  from RPM CDN (~2-5MB, cacheable); three.js ~150KB gzip from jsDelivr —
+  minimal disk/traffic footprint.
+- **20 visemes** (Oculus 15 + smile/laugh/sad/surprise/disgust) +
+  **20 gestures** (idle/wave/nod/tiltHead/raiseHand/pointUp/thinkPose/
+  openPalm/shake/bounce + crossArms/clap/thumbsUp/bow/handOnHip/adjustHair/
+  lookAround/stretch/yawn/wink), driven by text (char→viseme, keyword→gesture)
+  and synthesized audio amplitude.
+- `lib/shared/widgets/virtual_character_3d.dart` (354 lines): conditional
+  import selects web/mobile platform host; 8s isReady polling then painter
+  fallback; `_AvatarMode` enum (loading/ready3d/fallback).
+- `virtual_character_3d_web.dart` / `_mobile.dart` / `_platform.dart`:
+  per-instance `AvatarHost` with `setState/setViseme/setGesture/
+  setAudioLevel/isReady/buildView/dispose`. Web uses `js_util` eval bridge
+  over an iframe; mobile uses `runJavaScript`.
+- `virtual_character.dart`: `visemeForChar` + `gestureForKeyword` promoted
+  to public static so the 3D widget reuses the same mapping as the painter
+  fallback (single source of truth).
+- `tts_playback_service.dart`: synthesized amplitude stream (50ms tick,
+  slow envelope + fast jitter) drives the 3D avatar's jawOpen since
+  just_audio doesn't expose real-time PCM amplitude.
+- `chat_screen.dart`: `_CharacterPanel` now renders `VirtualCharacter3D`
+  with the amplitude stream wired in (both sideBySide + compact layouts).
+
+#### Changed — onboarding flow (workflow D)
+- `placement_screen.dart`: wired `placement.*` i18n keys (D7); added Skip
+  button (D9); removed `createSession` — lands on Home so the user opens a
+  chat when ready (D10); light-theme text colors.
+- `settings_screen.dart`: added "Re-run onboarding" tile (D14, clears
+  onboarding + placement flags → /onboarding), "Retake placement" tile
+  (D9), and a real About dialog with version + description (D12).
+- `chat_screen.dart`: persistent voice-not-configured banner above the
+  message list (D11) with tap-to-configure, replacing transient snackbars.
+- `onboarding_screen.dart`: docs URL is now tappable via `url_launcher`
+  (D4, underlined link).
+
+#### Changed — voice chat flow (workflow E)
+- **E1 auto-listen**: after TTS completes, in continuous mode the mic
+  auto-rearms for hands-free conversation (Praktika/Speak pattern).
+- **E2 barge-in**: tapping mic during TTS stops playback first so the user
+  can interrupt the AI mid-sentence.
+- **E3 decoupled loading/TTS**: `_autoplayTts` is now fire-and-forget;
+  `_isLoading` clears as soon as the AI message is saved, so the input bar
+  is immediately usable (TTS state tracked via `_playingMessageId`).
+- **E5 continuous mode toggle**: a compact chip in the input bar flips
+  auto-listen + barge-in on/off (per-session preference).
+- **E11 AppError mapper** (`lib/features/chat/domain/app_error.dart`):
+  maps exceptions to typed errors (auth/rate-limit/server/timeout/offline/
+  mic-permission) with localized messages + Retry/Configure/Open-Settings
+  actions.
+- **E12**: all `_safeError(e)` SnackBars replaced with `_showAppError(e)`.
+- **E13**: empty STT transcript now shows an actionable hint ("move closer
+  to the mic / speak louder / quieter environment") instead of a bare error.
+- **E16**: LLM request timeout reduced 60s → 30s for faster failure feedback.
+- **E17**: `AppError.redact` strips sk-/Bearer/key patterns before any error
+  text reaches the UI.
+
+#### Changed — service config (workflow D)
+- `service_config_screen.dart`: active profile's Delete is now disabled in
+  the popup menu with a "switch active first" hint (D15) instead of
+  surfacing the error only after confirmation.
+
 ### i18n + light-theme polish + virtual character rebuild + voice-first chat
 
 Conducted a comprehensive pass addressing 8 user requirements:

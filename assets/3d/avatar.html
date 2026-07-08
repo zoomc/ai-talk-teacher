@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>SpeakFlow Avatar</title>
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent;}
+  #c{width:100%;height:100%;display:block;touch-action:none;}
+  #s{position:absolute;top:6px;left:8px;font:11px/1.4 -apple-system,system-ui,sans-serif;color:rgba(120,120,130,.9);pointer-events:none;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="s">Loading avatar…</div>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+
+// ── Config ──────────────────────────────────────────────────────────────
+// Female Ready Player Me avatar with ARKit + Oculus viseme morph targets.
+// Override via ?avatar=<url> from the Dart side (per-tutor URL).
+const p = new URLSearchParams(location.search);
+const AVATAR_URL = p.get('avatar') ||
+  'https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb?morphTargets=ARKit,Oculus+Visemes&textureAtlas=1024';
+const statusEl = document.getElementById('s');
+
+// ── Renderer / scene / camera ───────────────────────────────────────────
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true, powerPreference:'low-power'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+camera.position.set(0, 1.5, 2.2);
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0, 1.3, 0);
+controls.enableDamping = true;
+controls.enablePan = false;
+controls.minDistance = 1.2;
+controls.maxDistance = 4;
+controls.minPolarAngle = Math.PI * 0.25;
+controls.maxPolarAngle = Math.PI * 0.6;
+
+// ── Lighting (soft 3-point) ─────────────────────────────────────────────
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444466, 0.9));
+const key = new THREE.DirectionalLight(0xffffff, 1.2); key.position.set(2, 3, 2); scene.add(key);
+const fill = new THREE.DirectionalLight(0xa0c4ff, 0.5); fill.position.set(-2, 1.5, 1); scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffd9a0, 0.6); rim.position.set(0, 2, -3); scene.add(rim);
+
+// ── Avatar ──────────────────────────────────────────────────────────────
+let model = null, bones = {}, morphs = null;
+const loader = new GLTFLoader();
+loader.load(AVATAR_URL, (gltf) => {
+  model = gltf.scene;
+  model.traverse((o) => {
+    if (o.isBone) bones[o.name] = o;
+    if (o.morphTargetDictionary && !morphs) {
+      morphs = {dict: o.morphTargetDictionary, inf: o.morphTargetInfluences};
+    }
+  });
+  scene.add(model);
+  statusEl.textContent = '';
+  setGesture('idle');
+}, undefined, (err) => {
+  console.error('Avatar load failed', err);
+  statusEl.textContent = 'Avatar unavailable';
+  if (window.speakflowAvatar && window.speakflowAvatar._onError) {
+    window.speakflowAvatar._onError('load');
+  }
+});
+
+// ── 20 viseme presets → ARKit blendshape weights ────────────────────────
+// ARKit standard names use _L/_R suffixes; RPM GLB preserves them.
+const MOUTH_KEYS = ['jawOpen','mouthFunnel','mouthStretch_L','mouthPress_L','mouthPress_R',
+  'mouthSmile_L','mouthSmile_R','mouthFrown_L','mouthFrown_R','mouthShrugLower',
+  'mouthLowerDown_L','tongueOut'];
+const VISEMES = {
+  closed:       {},
+  slightOpen:   {jawOpen:0.15},
+  smallOpen:    {jawOpen:0.3},
+  mediumOpen:   {jawOpen:0.5},
+  wideOpen:     {jawOpen:0.85},
+  roundedSmall: {jawOpen:0.3, mouthFunnel:0.4},
+  roundedLarge: {jawOpen:0.6, mouthFunnel:0.3},
+  wide:         {jawOpen:0.2, mouthStretch_L:0.5},
+  flat:         {jawOpen:0.1, mouthPress_L:0.5, mouthPress_R:0.5},
+  smile:        {mouthSmile_L:0.7, mouthSmile_R:0.7},
+  smileOpen:    {jawOpen:0.3, mouthSmile_L:0.7, mouthSmile_R:0.7},
+  frown:        {mouthFrown_L:0.7, mouthFrown_R:0.7},
+  pucker:       {mouthFunnel:0.7, jawOpen:0.1},
+  teeth:        {jawOpen:0.05, mouthShrugLower:0.4},
+  tongueUp:     {jawOpen:0.2},
+  tongueOut:    {jawOpen:0.3, tongueOut:0.8},
+  biteLip:      {jawOpen:0.05, mouthPress_L:0.7, mouthLowerDown_L:0.3},
+  openTeeth:    {jawOpen:0.5, mouthShrugLower:0.5},
+  oval:         {jawOpen:0.4, mouthFunnel:0.2, mouthStretch_L:0.2},
+  wideFlat:     {jawOpen:0.2, mouthStretch_L:0.6, mouthPress_L:0.3, mouthPress_R:0.3},
+};
+let currentViseme = 'closed';
+let audioLevel = 0;
+
+function applyViseme(name) { currentViseme = name || 'closed'; }
+
+function applyMorphs() {
+  if (!morphs) return;
+  const v = VISEMES[currentViseme] || {};
+  MOUTH_KEYS.forEach((k) => {
+    const i = morphs.dict[k];
+    if (i !== undefined) morphs.inf[i] = v[k] || 0;
+  });
+  // Audio level drives jaw openness on top of the viseme base so the
+  // mouth tracks the TTS amplitude in real time.
+  const ji = morphs.dict['jawOpen'];
+  if (ji !== undefined) {
+    const base = v['jawOpen'] || 0;
+    morphs.inf[ji] = Math.min(1, base * 0.5 + audioLevel * 0.9);
+  }
+}
+
+// ── 20 gesture presets → bone rotations ─────────────────────────────────
+// RPM uses the Mixamo skeleton (mixamorig* bone names).
+function bone(name, x, y, z) {
+  const b = bones[name];
+  if (b) b.rotation.set(x || 0, y || 0, z || 0);
+}
+const GESTURES = {
+  idle:        () => {},
+  wave:        (t) => bone('mixamorigRightArm', 0, 0, -1.2 + Math.sin(t*6)*0.3),
+  nod:         (t) => bone('mixamorigHead', Math.sin(t*4)*0.15, 0, 0),
+  tiltHead:    (t) => bone('mixamorigHead', 0, 0, Math.sin(t*2)*0.3),
+  raiseHand:   ()  => bone('mixamorigRightArm', 0, 0, -1.8),
+  pointUp:     ()  => bone('mixamorigRightArm', 0, 0, -2.2),
+  thinkPose:   ()  => { bone('mixamorigRightArm', 0, 0, -1.4); bone('mixamorigRightForeArm', 0, 0, 1.2); },
+  openPalm:    (t) => bone('mixamorigRightArm', 0, 0, -1.0 + Math.sin(t*3)*0.1),
+  shake:       (t) => bone('mixamorigHead', 0, Math.sin(t*6)*0.25, 0),
+  bounce:      (t) => { if (model) model.position.y = Math.sin(t*4)*0.03; },
+  crossArms:   ()  => { bone('mixamorigLeftArm', 0, 0, 0.8); bone('mixamorigRightArm', 0, 0, -0.8); },
+  clap:        (t) => { bone('mixamorigLeftArm', 0, 0, 0.6 + Math.sin(t*8)*0.2); bone('mixamorigRightArm', 0, 0, -0.6 - Math.sin(t*8)*0.2); },
+  thumbsUp:    ()  => bone('mixamorigRightArm', 0, 0, -1.6),
+  bow:         (t) => bone('mixamorigSpine', Math.sin(t*2)*0.4, 0, 0),
+  handOnHip:   ()  => { bone('mixamorigRightArm', 0, 0, -0.6); bone('mixamorigRightForeArm', 0, 0, 0.8); },
+  adjustHair:  ()  => bone('mixamorigRightArm', 0, 0, -2.4),
+  lookAround:  (t) => bone('mixamorigHead', 0, Math.sin(t*1.5)*0.4, 0),
+  stretch:     (t) => { bone('mixamorigLeftArm', 0, 0, 2.4 + Math.sin(t*3)*0.1); bone('mixamorigRightArm', 0, 0, -2.4 - Math.sin(t*3)*0.1); },
+  yawn:        (t) => bone('mixamorigHead', Math.sin(t*2)*0.2, 0, 0),
+  wink:        ()  => bone('mixamorigHead', 0, 0, 0.15),
+};
+let currentGesture = 'idle';
+function setGesture(name) { currentGesture = name || 'idle'; }
+
+// ── Render loop with idle frame-rate reduction ──────────────────────────
+const clock = new THREE.Clock();
+let frameSkip = 0;
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== w || canvas.height !== h) {
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+}
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  // Idle (closed mouth + idle gesture + silent): render ~30fps to save battery.
+  const active = currentViseme !== 'closed' || currentGesture !== 'idle' || audioLevel > 0.01;
+  frameSkip++;
+  if (!active && frameSkip % 2 === 0) { resize(); return; }
+  resize();
+  controls.update();
+  applyMorphs();
+  const g = GESTURES[currentGesture];
+  if (g) g(t);
+  renderer.render(scene, camera);
+  // Decay audio level when not being fed each frame.
+  audioLevel *= 0.85;
+}
+animate();
+window.addEventListener('resize', resize);
+
+// ── JS bridge for Dart (HtmlElementView on web; webview_flutter on mobile)
+// Dart calls these via js_interop (web) or runJavaScript (mobile). ─────────
+window.speakflowAvatar = {
+  setState:        (_s)  => { /* state drives gesture/viseme via the setters */ },
+  setViseme:       (n)   => applyViseme(n),
+  setGesture:      (n)   => setGesture(n),
+  setAudioLevel:   (lv)  => { audioLevel = Math.max(0, Math.min(1, Number(lv) || 0)); },
+  setSpeakingText: (_t)  => { /* text-driven fallback is handled Dart-side */ },
+  isReady:         ()    => !!model,
+  _onError:        null,
+};
+statusEl.textContent = 'Ready';
+</script>
+</body>
+</html>

@@ -12,12 +12,14 @@ import '../../../../core/services/connectivity_check.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/widgets/virtual_character.dart';
+import '../../../../shared/widgets/virtual_character_3d.dart';
 import '../../../../shared/providers.dart';
 import '../../data/llm_service.dart';
 import '../../data/stt_service.dart';
 import '../../data/tts_service.dart';
 import '../../data/recording_service.dart';
 import '../../data/tts_playback_service.dart';
+import '../../domain/app_error.dart';
 import '../../domain/chat_models.dart';
 import '../../domain/tutor.dart';
 import '../../domain/tutor_prompts.dart';
@@ -55,6 +57,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   String _tutorName = 'AI Tutor';
   String _tutorAvatar = '👩‍🏫';
 
+  // D11: whether STT+TTS are both configured. When false we show a persistent
+  // banner above the chat (not a transient snackbar) so the user always knows
+  // voice is unavailable and can tap to configure.
+  bool _voiceConfigured = true;
+
+  // E5: continuous conversation mode. When on, after the AI finishes speaking
+  // (TTS completes) the mic auto-rearms so the user can reply hands-free
+  // (E1). Also enables barge-in so tapping mic during TTS stops playback.
+  bool _continuousMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -65,6 +77,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // opacity toggles when text becomes empty/non-empty.
     _loadTutorIdentity();
     _loadTtsSpeed();
+    _checkVoiceConfigured();
     // Auto-focus the input on wide (desktop/web) layouts where there's no
     // risk of popping the soft keyboard unexpectedly. On mobile we leave
     // focus alone so the user controls when the keyboard appears.
@@ -108,6 +121,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
     } catch (_) {
       // Keep the default tutor identity on any error.
+    }
+  }
+
+  /// Check whether STT + TTS profiles exist so we can show a persistent
+  /// banner when voice is unavailable (D11). We read once on screen entry;
+  /// if the user configures a profile mid-session they can re-enter to clear
+  /// the banner.
+  Future<void> _checkVoiceConfigured() async {
+    try {
+      final profileRepo = ref.read(profileRepoProvider);
+      final stt = await profileRepo.getActiveSttProfile();
+      final tts = await profileRepo.getActiveTtsProfile();
+      if (mounted) {
+        setState(() => _voiceConfigured = stt != null && tts != null);
+      }
+    } catch (_) {
+      // Best-effort — assume configured so we don't false-flag.
     }
   }
 
@@ -238,6 +268,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       tutorName: _tutorName,
                       tutorAvatar: _tutorAvatar,
                       speakingText: _speakingText,
+                      audioLevelStream: _ttsPlaybackService.amplitudeStream,
                       panelWidth: Responsive.sidePanelWidth(context),
                     ),
                     const VerticalDivider(
@@ -257,6 +288,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       tutorName: _tutorName,
                       tutorAvatar: _tutorAvatar,
                       speakingText: _speakingText,
+                      audioLevelStream: _ttsPlaybackService.amplitudeStream,
                       panelHeight: Responsive.characterPanelHeight(context),
                       compact: true,
                     ),
@@ -269,8 +301,50 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _chatColumn(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Column(
       children: [
+        // D11: persistent banner when voice services aren't configured.
+        if (!_voiceConfigured)
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => context.push('/service-config'),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.15),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: AppColors.warning.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.mic_off,
+                        size: 18, color: AppColors.warning),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        l.t('chat.voice_not_configured'),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.warning,
+                            ),
+                      ),
+                    ),
+                    Icon(Icons.chevron_right,
+                        size: 16, color: AppColors.warning),
+                  ],
+                ),
+              ),
+            ),
+          ),
         // Chat messages area — constrained on wide screens for readability.
         Expanded(
           child: Center(
@@ -300,8 +374,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               focusNode: _messageFocusNode,
               isRecording: _isRecording,
               isLoading: _isLoading,
+              continuousMode: _continuousMode,
               onSend: _handleSend,
               onRecordToggle: _handleRecordToggle,
+              onToggleContinuous: (v) =>
+                  setState(() => _continuousMode = v),
             ),
           ),
         ),
@@ -422,16 +499,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       // correction chips in the new AI bubble render without a manual reload.
       ref.invalidate(_correctionsByMessageProvider(widget.sessionId));
 
+      // E3: clear the loading state as soon as the AI message is saved so the
+      // input bar is immediately usable. TTS is fire-and-forget — its state
+      // is tracked independently via _playingMessageId / CharacterState.
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+
       // Auto-play TTS for the AI reply + animate speaking state.
-      await _autoplayTts(aiResponse.id, response.content);
+      // Fire-and-forget (E3): don't block the finally block on TTS.
+      _autoplayTts(aiResponse.id, response.content);
     } catch (e) {
       if (mounted) {
-        final l = AppLocalizations.of(context);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
-          SnackBar(content: Text(l.tArg('chat.error', {'error': _friendlyError(e)}))),
-        );
+        _showAppError(e);
       }
     } finally {
       if (mounted) {
@@ -489,32 +569,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           if (mounted) _messageFocusNode.requestFocus();
           await _handleSend();
         } else if (mounted) {
+          // E13: empty transcript — give an actionable hint rather than a
+          // bare "couldn't transcribe" so the user knows how to fix it.
           final l = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l.t('chat.transcribe_failed'))),
+            SnackBar(content: Text(l.t('chat.transcribe_empty_hint'))),
           );
           _setCharacterState(CharacterState.idle);
         }
       } catch (e) {
         if (mounted) {
-          final l = AppLocalizations.of(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l.tArg('chat.recording_error', {'error': _friendlyError(e)})),
-            ),
-          );
+          _showAppError(e);
           _setCharacterState(CharacterState.idle);
         }
       }
     } else {
-      // Barge-in: if TTS is playing, stop it immediately when the user
-      // starts speaking — mirrors real conversation ("you talk, they stop").
-      await _ttsPlaybackService.stop();
-      if (mounted) {
-        setState(() {
-          _playingMessageId = null;
-          _speakingText = null;
-        });
+      // E2 barge-in: if TTS is playing, stop it before starting to record so
+      // the user can interrupt the AI mid-sentence (like a real conversation).
+      if (_playingMessageId != null) {
+        await _ttsPlaybackService.stop();
+        if (mounted) {
+          setState(() {
+            _playingMessageId = null;
+            _speakingText = null;
+          });
+        }
         if (_characterState == CharacterState.speaking) {
           _setCharacterState(CharacterState.idle);
         }
@@ -525,14 +604,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _setCharacterState(CharacterState.listening);
       } catch (e) {
         if (mounted) {
-          final l = AppLocalizations.of(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                l.tArg('chat.cannot_start_recording', {'error': _friendlyError(e)}),
-              ),
-            ),
-          );
+          _showAppError(e);
         }
       }
     }
@@ -631,12 +703,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
     } catch (e) {
       if (mounted) {
-        final l = AppLocalizations.of(context);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
-          SnackBar(content: Text(l.tArg('chat.tts_error', {'error': _friendlyError(e)}))),
-        );
+        _showAppError(e);
         setState(() {
           _playingMessageId = null;
           _speakingText = null;
@@ -661,6 +728,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         });
         if (_characterState == CharacterState.speaking) {
           _setCharacterState(CharacterState.idle);
+        }
+        // E1: in continuous mode, auto-rearm the mic after the AI finishes
+        // speaking so the user can reply hands-free — mirroring how real
+        // conversation flows (Praktika/Speak both do this). Gated by the
+        // toggle so users who prefer manual control aren't surprised.
+        if (_continuousMode && !_isRecording && !_isLoading && _voiceConfigured) {
+          _handleRecordToggle();
         }
       }
     });
@@ -766,7 +840,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          ll.tArg('chat.delete_failed', {'error': _safeError(e)}),
+                          ll.tArg('chat.delete_failed', {
+                            'error': AppError.redact(e.toString()),
+                          }),
                         ),
                       ),
                     );
@@ -780,52 +856,55 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  /// Strip verbose API response bodies from exception messages before
-  /// surfacing them in a SnackBar — error.text may contain provider hints
-  /// or partial payload we don't want to display.
-  String _safeError(Object e) {
-    final raw = e.toString();
-    if (raw.length > 160) return '${raw.substring(0, 160)}...';
-    return raw;
-  }
-
-  /// Map raw exceptions to user-friendly categories (auth, rate limit,
-  /// server, network) so the user sees a clear, actionable message
-  /// instead of a verbose provider response body. Falls back to
-  /// [_safeError] for errors that don't match a known category.
-  String _friendlyError(Object e) {
+  /// E11/E12: map an arbitrary exception to a typed [AppError] and show a
+  /// SnackBar with the appropriate localized message + action (Retry /
+  /// Configure / Open Settings). Replaces the old generic `_safeError(e)`
+  /// SnackBars so users always get an actionable error instead of a raw
+  /// exception string (which could leak API keys).
+  void _showAppError(Object e) {
     final l = AppLocalizations.of(context);
-    final raw = e.toString().toLowerCase();
-    if (RegExp(r'\b40[13]\b').hasMatch(raw) ||
-        raw.contains('unauthorized') ||
-        raw.contains('invalid api key') ||
-        raw.contains('invalid_api_key') ||
-        raw.contains('permission')) {
-      return l.t('chat.err_auth');
+    final err = AppError.from(e);
+    var message = l.t(err.messageKey);
+    if (err.appendDetail) {
+      final detail = AppError.redact(e.toString());
+      if (detail.length > 120) {
+        message = '$message\n${detail.substring(0, 120)}…';
+      } else {
+        message = '$message\n$detail';
+      }
     }
-    if (RegExp(r'\b429\b').hasMatch(raw) ||
-        raw.contains('rate limit') ||
-        raw.contains('rate_limit') ||
-        raw.contains('quota') ||
-        raw.contains('insufficient') ||
-        raw.contains('balance')) {
-      return l.t('chat.err_rate_limit');
+    SnackBarAction? action;
+    if (err.actionLabelKey != null) {
+      final label = l.t(err.actionLabelKey!);
+      action = SnackBarAction(
+        label: label,
+        onPressed: () {
+          switch (err.action) {
+            case AppErrorAction.configure:
+              context.push('/service-config');
+              break;
+            case AppErrorAction.retry:
+              // Retry is context-specific; the user re-triggers the failed
+              // action manually (send / record / play). No-op here.
+              break;
+            case AppErrorAction.openSettings:
+              // Open the app settings page (service-config is the closest
+              // in-app equivalent for mic permission guidance).
+              context.push('/service-config');
+              break;
+            case AppErrorAction.none:
+              break;
+          }
+        },
+      );
     }
-    if (RegExp(r'\b5\d\d\b').hasMatch(raw) ||
-        raw.contains('server error') ||
-        raw.contains('internal error') ||
-        raw.contains('bad gateway') ||
-        raw.contains('service unavailable')) {
-      return l.t('chat.err_server');
-    }
-    if (raw.contains('timeout') ||
-        raw.contains('socket') ||
-        raw.contains('connection refused') ||
-        raw.contains('network') ||
-        raw.contains('host unreachable')) {
-      return l.t('chat.err_network');
-    }
-    return _safeError(e);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 5),
+        action: action,
+      ),
+    );
   }
 
   /// Exit the chat screen, showing a session summary SnackBar when the
@@ -1047,7 +1126,9 @@ class _TypingBubbleState extends State<_TypingBubble>
           vertical: AppSpacing.md,
         ),
         decoration: BoxDecoration(
-          color: AppColors.bubbleAi,
+          color: Theme.of(context).brightness == Brightness.light
+              ? AppColors.lightBubbleAi
+              : AppColors.bubbleAi,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(AppRadius.lg),
             topRight: Radius.circular(AppRadius.lg),
@@ -1109,7 +1190,10 @@ class _ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final bubbleColor = isUser ? AppColors.bubbleUser : AppColors.bubbleAi;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final bubbleColor = isUser
+        ? (isLight ? AppColors.lightBubbleUser : AppColors.bubbleUser)
+        : (isLight ? AppColors.lightBubbleAi : AppColors.bubbleAi);
     final accent = isUser ? AppColors.accentSecondary : AppColors.accentPrimary;
 
     // LayoutBuilder gives us the actual chat-column width (which on desktop
@@ -1263,7 +1347,9 @@ class _CorrectionInline extends StatelessWidget {
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: AppColors.bubbleCorrection,
+        color: Theme.of(context).brightness == Brightness.light
+            ? AppColors.lightBubbleCorrection
+            : AppColors.bubbleCorrection,
         borderRadius: BorderRadius.circular(AppRadius.sm),
         border: Border.all(
           color: AppColors.success.withValues(alpha: 0.3),
@@ -1353,16 +1439,20 @@ class _ChatInputBar extends ConsumerStatefulWidget {
   final FocusNode focusNode;
   final bool isRecording;
   final bool isLoading;
+  final bool continuousMode;
   final VoidCallback onSend;
   final VoidCallback onRecordToggle;
+  final ValueChanged<bool> onToggleContinuous;
 
   const _ChatInputBar({
     required this.controller,
     required this.focusNode,
     required this.isRecording,
     required this.isLoading,
+    required this.continuousMode,
     required this.onSend,
     required this.onRecordToggle,
+    required this.onToggleContinuous,
   });
 
   @override
@@ -1441,27 +1531,38 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar>
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isOffline) const _OfflineHint(),
-          // Mode switch — top-right of the input area. Voice mode shows a
-          // keyboard icon (→ text), text mode shows a mic icon (→ voice).
-          Align(
-            alignment: Alignment.centerRight,
-            child: IconButton(
-              tooltip: _inputMode == _InputMode.voice
-                  ? l.t('chat.switch_to_text')
-                  : l.t('chat.switch_to_voice'),
-              icon: Icon(
-                _inputMode == _InputMode.voice
-                    ? Icons.keyboard_outlined
-                    : Icons.mic_none,
+          // Top row: continuous-mode toggle (left) + voice/text switch (right).
+          // E5: continuous mode auto-rearms the mic after the AI replies for
+          // hands-free conversation.
+          Row(
+            children: [
+              // Continuous-mode toggle — only meaningful in voice mode.
+              if (_inputMode == _InputMode.voice)
+                _ContinuousToggle(
+                  enabled: widget.continuousMode,
+                  onChanged: widget.onToggleContinuous,
+                ),
+              const Spacer(),
+              // Mode switch — Voice mode shows a keyboard icon (→ text),
+              // text mode shows a mic icon (→ voice).
+              IconButton(
+                tooltip: _inputMode == _InputMode.voice
+                    ? l.t('chat.switch_to_text')
+                    : l.t('chat.switch_to_voice'),
+                icon: Icon(
+                  _inputMode == _InputMode.voice
+                      ? Icons.keyboard_outlined
+                      : Icons.mic_none,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _inputMode = _inputMode == _InputMode.voice
+                        ? _InputMode.text
+                        : _InputMode.voice;
+                  });
+                },
               ),
-              onPressed: () {
-                setState(() {
-                  _inputMode = _inputMode == _InputMode.voice
-                      ? _InputMode.text
-                      : _InputMode.voice;
-                });
-              },
-            ),
+            ],
           ),
           if (_inputMode == _InputMode.voice)
             _buildVoiceInput(l)
@@ -1731,6 +1832,54 @@ class _RecordButton extends StatefulWidget {
   State<_RecordButton> createState() => _RecordButtonState();
 }
 
+/// E5: a compact "Continuous conversation" toggle chip shown in the input
+/// bar. When on, the mic auto-rearms after the AI finishes speaking so the
+/// user can converse hands-free. Tapping flips the switch and persists
+/// nothing (it's a per-session preference, reset on screen exit).
+class _ContinuousToggle extends StatelessWidget {
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  const _ContinuousToggle({required this.enabled, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final active = enabled
+        ? AppColors.accentPrimary
+        : (isLight ? AppColors.lightTextMuted : AppColors.textMuted);
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppRadius.full),
+      onTap: () => onChanged(!enabled),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              enabled ? Icons.graphic_eq : Icons.record_voice_over_outlined,
+              size: 16,
+              color: active,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              l.t('chat.continuous_mode'),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: active,
+                    fontWeight: enabled ? FontWeight.w600 : FontWeight.normal,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _RecordButtonState extends State<_RecordButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -1869,6 +2018,10 @@ class _CharacterPanel extends StatelessWidget {
   /// VirtualCharacter for lip-sync. Null when not speaking.
   final String? speakingText;
 
+  /// TTS amplitude stream forwarded to the 3D avatar for audio-driven
+  /// lip-sync (blended onto jawOpen on top of the text viseme).
+  final Stream<double>? audioLevelStream;
+
   /// Wide-layout only: forces a fixed column width.
   final double? panelWidth;
 
@@ -1883,6 +2036,7 @@ class _CharacterPanel extends StatelessWidget {
     required this.tutorName,
     required this.tutorAvatar,
     this.speakingText,
+    this.audioLevelStream,
     this.panelWidth,
     this.panelHeight,
     this.compact = false,
@@ -1909,13 +2063,14 @@ class _CharacterPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = Responsive.characterSize(context) * (compact ? 0.8 : 1.0);
 
-    final child = VirtualCharacter(
+    final child = VirtualCharacter3D(
       tutorName: tutorName,
       tutorAvatar: tutorAvatar,
       state: state,
       size: size,
       showLabel: !compact,
       speakingText: speakingText,
+      audioLevelStream: audioLevelStream,
     );
 
     // Live region: screen readers announce state changes (e.g. "Thinking",

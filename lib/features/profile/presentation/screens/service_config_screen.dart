@@ -51,8 +51,10 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return Scaffold(
-      backgroundColor: AppColors.bgPrimary,
+      backgroundColor:
+          isLight ? AppColors.lightBgPrimary : AppColors.bgPrimary,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
@@ -282,7 +284,9 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
             )
           else
             PopupMenuButton<String>(
-              color: AppColors.bgSecondary,
+              color: Theme.of(context).brightness == Brightness.light
+                  ? AppColors.lightBgSecondary
+                  : AppColors.bgSecondary,
               icon: const Icon(
                 Icons.more_vert,
                 size: 20,
@@ -330,20 +334,43 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                     ],
                   ),
                 ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.delete_outline,
-                        size: 18,
-                        color: AppColors.error,
-                      ),
-                      SizedBox(width: AppSpacing.sm),
-                      Text('Delete', style: TextStyle(color: AppColors.error)),
-                    ],
+                // D15: when the profile is active, Delete is disabled with a
+                // hint so the user learns *why* (switch active first) instead
+                // of hitting a snackbar after confirming.
+                if (isActive)
+                  const PopupMenuItem(
+                    enabled: false,
+                    value: '_disabled_delete',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: AppColors.textMuted,
+                        ),
+                        SizedBox(width: AppSpacing.sm),
+                        Text(
+                          'Delete (switch active first)',
+                          style: TextStyle(color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: AppColors.error,
+                        ),
+                        SizedBox(width: AppSpacing.sm),
+                        Text('Delete', style: TextStyle(color: AppColors.error)),
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
         ],
@@ -401,7 +428,10 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
         await showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            backgroundColor: AppColors.bgTertiary,
+            backgroundColor:
+                Theme.of(context).brightness == Brightness.light
+                    ? AppColors.lightBgTertiary
+                    : AppColors.bgTertiary,
             title: const Text('Export Complete'),
             content: Text('Profiles exported to:\n${file.path}'),
             actions: [
@@ -427,7 +457,10 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgTertiary,
+        backgroundColor:
+            Theme.of(context).brightness == Brightness.light
+                ? AppColors.lightBgTertiary
+                : AppColors.bgTertiary,
         title: const Text('Import Profiles'),
         content: SizedBox(
           width: double.maxFinite,

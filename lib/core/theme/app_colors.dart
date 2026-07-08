@@ -9,10 +9,19 @@ class AppColors {
   static const Color bgTertiary = Color(0xFF1A2035);
   static const Color bgSurface = Color(0x0FFFFFFF); // white 6%
 
-  // Glass
+  // Glass — dark
   static const Color glassBg = Color(0x0FFFFFFF); // white 6%
   static const Color glassBgHover = Color(0x1AFFFFFF); // white 10%
+  static const Color glassBgActive = Color(0x24FFFFFF); // white 14% (pressed)
   static const Color glassBorder = Color(0x14FFFFFF); // white 8%
+  static const Color glassShadow = Color(0x4D000000); // black 30% depth
+  static const Color glassSpecular = Color(0x40FFFFFF); // white 25% rim
+  static const double glassBlur = 20;
+  static const LinearGradient glassTintGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0x14FFFFFF), Color(0x00000000)],
+  );
 
   // Accent
   static const Color accentPrimary = Color(0xFF6C5CE7); // purple
@@ -59,7 +68,15 @@ class AppColors {
   // Light glass (frosted white overlay on bright surfaces)
   static const Color lightGlassBg = Color(0xCCFFFFFF); // white 80%
   static const Color lightGlassBgHover = Color(0xE6FFFFFF); // white 90%
+  static const Color lightGlassBgActive = Color(0xF2FFFFFF); // white 95%
   static const Color lightGlassBorder = Color(0x1A000000); // black 10% visible border
+  static const Color lightGlassShadow = Color(0x14000000); // black 8% depth
+  static const Color lightGlassSpecular = Color(0xE6FFFFFF); // white 90% rim
+  static const LinearGradient lightGlassTintGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xF2FFFFFF), Color(0xCCFFFFFF)],
+  );
 
   // Light accents (deeper than dark variants for white-bg contrast)
   static const Color lightAccentPrimary = Color(0xFF5A4BD1); // deeper purple
@@ -88,6 +105,12 @@ class AppColors {
     end: Alignment.bottomRight,
     colors: [lightAccentPrimary, lightAccentSecondary],
   );
+
+  // Light semantic colors (deeper than dark variants for white-bg AA contrast)
+  static const Color lightSuccess = Color(0xFF16A34A);
+  static const Color lightWarning = Color(0xFFD97706);
+  static const Color lightError = Color(0xFFDC2626);
+  static const Color lightInfo = Color(0xFF2563EB);
 
   // Chat bubble colors
   static const Color bubbleAi = Color(0x1A6C5CE7); // purple 10%

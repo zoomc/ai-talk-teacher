@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
 import '../../../../shared/providers.dart';
+import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../profile/domain/profile_models.dart';
 import '../../../profile/domain/provider_catalog.dart';
 import '../../../profile/domain/services/connection_tester.dart';
@@ -52,6 +54,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
+    // D6: pick sensible default providers by locale so the first-run form
+    // isn't stuck on a CN-only default for international users (and vice
+    // versa). zh → DeepSeek/Deepgram/Fish Audio; anything else →
+    // OpenAI/OpenAI Whisper/OpenAI TTS. The user can still change each.
+    final isZh = ref.read(localeProvider) == AppLocale.zh;
+    _llmProviderId = isZh ? 'deepseek' : 'openai';
+    _sttProviderId = isZh ? 'deepgram' : 'openai_whisper';
+    _ttsProviderId = isZh ? 'fish_audio' : 'openai_tts';
     _applyLlmDefaults();
     _applySttDefaults();
     _applyTtsDefaults();
@@ -94,12 +104,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     // Use theme-aware background so the light theme no longer shows the
     // old deep-navy gradient (which had poor contrast against dark text).
-    final isLight = Theme.of(context).brightness == Brightness.light;
     return Scaffold(
-      backgroundColor:
-          isLight ? AppColors.lightBgPrimary : AppColors.bgPrimary,
-      body: SafeArea(
-        child: Center(
+      backgroundColor: Colors.transparent,
+      body: GlassBackground(
+        child: SafeArea(
+          child: Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: Responsive.contentMaxWidth(context),
@@ -117,6 +126,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }
@@ -497,26 +507,31 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Progress indicator
-          Row(
-            children: List.generate(4, (i) {
-              return Expanded(
-                child: Container(
-                  height: 4,
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  decoration: BoxDecoration(
-                    color: i <= _currentPage
-                        ? AppColors.accentPrimary
-                        : (isLight
-                            ? AppColors.lightGlassBorder
-                            : AppColors.bgTertiary),
-                    borderRadius: BorderRadius.circular(2),
+          // Progress indicator — 3 segments for the 3 services (LLM/STT/TTS).
+          // The welcome page (index 0) shows no progress; service pages map
+          // currentPage 1/2/3 → segment index 0/1/2.
+          if (_currentPage > 0) ...[
+            Row(
+              children: List.generate(3, (i) {
+                final active = i <= _currentPage - 1;
+                return Expanded(
+                  child: Container(
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    decoration: BoxDecoration(
+                      color: active
+                          ? AppColors.accentPrimary
+                          : (isLight
+                              ? AppColors.lightGlassBorder
+                              : AppColors.bgTertiary),
+                      borderRadius: BorderRadius.circular(AppRadius.xs),
+                    ),
                   ),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: AppSpacing.xxl),
+                );
+              }),
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+          ],
 
           Text(emoji, style: const TextStyle(fontSize: 48)),
           const SizedBox(height: AppSpacing.md),
@@ -572,11 +587,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ],
           if (def.docsUrl.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xs),
-            Text(
-              '${_l.t('onboarding.docs')}: ${def.docsUrl}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.accentSecondary,
-                  ),
+            // D4: docs URL is tappable — opens the provider's docs in the
+            // browser via url_launcher so the user can grab an API key.
+            InkWell(
+              onTap: () => _launchUrl(def.docsUrl),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text(
+                  '${_l.t('onboarding.docs')}: ${def.docsUrl}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.accentSecondary,
+                        decoration: TextDecoration.underline,
+                        decorationColor: AppColors.accentSecondary,
+                      ),
+                ),
+              ),
             ),
           ],
           const SizedBox(height: AppSpacing.lg),
@@ -686,6 +711,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         return _l.t('onboarding.region_global');
       case ProviderRegion.local:
         return _l.t('onboarding.region_local');
+    }
+  }
+
+  /// D4: open a docs URL in the platform browser. Best-effort — if the URL
+  /// can't be launched (e.g. no browser on a headless device) we silently
+  /// ignore rather than blocking the wizard.
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // Best-effort.
     }
   }
 

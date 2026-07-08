@@ -136,6 +136,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       subtitle: '${_ttsSpeed}x',
                       onTap: _showTtsSpeedDialog,
                     ),
+                    _SettingsTile(
+                      icon: Icons.restart_alt,
+                      title: _l.t('placement.retake'),
+                      subtitle: _l.t('placement.retake_sub'),
+                      onTap: _retakePlacement,
+                    ),
                   ],
                 ),
 
@@ -184,11 +190,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: _l.t('settings.about'),
                   children: [
                     _SettingsTile(
+                      icon: Icons.refresh,
+                      title: _l.t('settings.rerun_setup'),
+                      subtitle: _l.t('settings.rerun_setup_sub'),
+                      onTap: _rerunOnboarding,
+                    ),
+                    _SettingsTile(
                       icon: Icons.info_outline,
-                      title: 'SpeakFlow',
+                      title: _l.t('app.name'),
                       subtitle: _l.tArg('settings.version',
                           {'version': kAppVersion}),
-                      onTap: () {},
+                      onTap: _showAboutDialog,
                     ),
                   ],
                 ),
@@ -316,6 +328,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(_l.t('common.confirm')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Re-run the first-run wizard: clear the onboarding + placement flags so
+  /// the router redirect sends the user back to /onboarding. Existing
+  /// profiles are kept so they can be reused or edited.
+  Future<void> _rerunOnboarding() async {
+    final repo = ref.read(profileRepoProvider);
+    await repo.setSetting('onboarding_completed', 'false');
+    await repo.setSetting('placement_completed', 'false');
+    if (mounted) context.go('/onboarding');
+  }
+
+  /// Re-take just the placement test (keeps onboarding + profiles intact).
+  Future<void> _retakePlacement() async {
+    await ref
+        .read(profileRepoProvider)
+        .setSetting('placement_completed', 'false');
+    if (mounted) context.go('/placement');
+  }
+
+  void _showAboutDialog() {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor:
+            isLight ? AppColors.lightBgSecondary : AppColors.bgTertiary,
+        title: Text(_l.t('app.name')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_l.tArg('settings.version', {'version': kAppVersion})),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              _l.t('settings.about_body'),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(_l.t('common.back')),
           ),
         ],
       ),

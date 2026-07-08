@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:typed_data';
+import 'dart:math' as math;
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
@@ -11,6 +13,57 @@ class TtsPlaybackService {
   // user's speed preference (0.75 / 1.0 / 1.25 / 1.5) takes effect without
   // having to re-synthesize audio — the same cached bytes play faster.
   double _speed = 1.0;
+
+  // ── Amplitude stream for avatar lip-sync ──────────────────────────────
+  // just_audio does not expose real-time PCM amplitude, so we synthesise a
+  // speech-like envelope (0..1) while the player is playing and emit 0 when
+  // idle. The 3D avatar blends this onto `jawOpen` on top of the
+  // text-driven viseme, giving natural-looking motion without a real
+  // analyser. Cheap (50 ms tick) and only runs during playback.
+  final StreamController<double> _amplitudeController =
+      StreamController<double>.broadcast();
+  Timer? _amplitudeTimer;
+  double _amplitudePhase = 0;
+  StreamSubscription<bool>? _playingSub;
+
+  TtsPlaybackService() {
+    // Drive the synthetic amplitude off the player's playing state so it
+    // starts/stops automatically with every play()/stop()/completion.
+    _playingSub = _player.playingStream.listen((playing) {
+      if (playing) {
+        _startAmplitude();
+      } else {
+        _stopAmplitude();
+      }
+    });
+  }
+
+  void _startAmplitude() {
+    _amplitudeTimer?.cancel();
+    _amplitudeTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      _amplitudePhase += 0.5;
+      // Layer a slow envelope + a faster jitter to mimic syllabic cadence.
+      final envelope = 0.5 + 0.4 * math.sin(_amplitudePhase * 0.6);
+      final jitter = 0.15 * math.sin(_amplitudePhase * 2.3);
+      final level = (envelope + jitter).clamp(0.05, 0.95);
+      if (!_amplitudeController.isClosed) {
+        _amplitudeController.add(level);
+      }
+    });
+  }
+
+  void _stopAmplitude() {
+    _amplitudeTimer?.cancel();
+    _amplitudeTimer = null;
+    if (!_amplitudeController.isClosed) {
+      _amplitudeController.add(0.0);
+    }
+  }
+
+  /// Synthetic amplitude stream (0..1) for avatar lip-sync. Emits 0 when
+  /// not playing. The stream is broadcast so multiple listeners (e.g. the
+  /// 3D avatar) can listen without conflict.
+  Stream<double> get amplitudeStream => _amplitudeController.stream;
 
   /// In-memory cache: text key -> audio bytes, to avoid re-writing files.
   static final Map<String, Uint8List> _memCache = {};
@@ -133,6 +186,9 @@ class TtsPlaybackService {
 
   /// Dispose resources
   Future<void> dispose() async {
+    _amplitudeTimer?.cancel();
+    await _playingSub?.cancel();
+    await _amplitudeController.close();
     await player.dispose();
   }
 

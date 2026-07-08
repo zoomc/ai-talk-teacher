@@ -184,8 +184,10 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return Scaffold(
-      backgroundColor: AppColors.bgPrimary,
+      backgroundColor:
+          isLight ? AppColors.lightBgPrimary : AppColors.bgPrimary,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
@@ -269,8 +271,14 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         const SizedBox(height: AppSpacing.xs),
         DropdownButtonFormField<String>(
           value: _providerId,
-          dropdownColor: AppColors.bgTertiary,
-          style: const TextStyle(color: AppColors.textPrimary),
+          dropdownColor:
+              Theme.of(context).brightness == Brightness.light
+                  ? AppColors.lightBgTertiary
+                  : AppColors.bgTertiary,
+          style: TextStyle(
+              color: Theme.of(context).brightness == Brightness.light
+                  ? AppColors.lightTextPrimary
+                  : AppColors.textPrimary),
           decoration: const InputDecoration(hintText: 'Select provider'),
           items: _buildProviderDropdownItems(),
           onChanged: (v) {
@@ -508,8 +516,14 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         const SizedBox(height: AppSpacing.xs),
         DropdownButtonFormField<double>(
           value: _selectedSpeed,
-          dropdownColor: AppColors.bgTertiary,
-          style: const TextStyle(color: AppColors.textPrimary),
+          dropdownColor:
+              Theme.of(context).brightness == Brightness.light
+                  ? AppColors.lightBgTertiary
+                  : AppColors.bgTertiary,
+          style: TextStyle(
+              color: Theme.of(context).brightness == Brightness.light
+                  ? AppColors.lightTextPrimary
+                  : AppColors.textPrimary),
           decoration: const InputDecoration(hintText: 'Select TTS speed'),
           items: const [
             DropdownMenuItem(value: 0.75, child: Text('0.75x (Slower)')),
@@ -572,8 +586,14 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     final valid = voices.contains(current);
     return DropdownButtonFormField<String>(
       value: valid ? current : (voices.isNotEmpty ? voices.first : null),
-      dropdownColor: AppColors.bgTertiary,
-      style: const TextStyle(color: AppColors.textPrimary),
+      dropdownColor:
+          Theme.of(context).brightness == Brightness.light
+              ? AppColors.lightBgTertiary
+              : AppColors.bgTertiary,
+      style: TextStyle(
+          color: Theme.of(context).brightness == Brightness.light
+              ? AppColors.lightTextPrimary
+              : AppColors.textPrimary),
       decoration: const InputDecoration(hintText: 'Select voice'),
       items: voices
           .map((v) => DropdownMenuItem<String>(value: v, child: Text(v)))
@@ -801,7 +821,10 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgTertiary,
+        backgroundColor:
+            Theme.of(context).brightness == Brightness.light
+                ? AppColors.lightBgTertiary
+                : AppColors.bgTertiary,
         title: Text(title),
         content: SizedBox(
           width: double.maxFinite,

@@ -35,7 +35,7 @@ class LlmService {
             'max_tokens': 400,
           }),
         )
-        .timeout(const Duration(seconds: 60));
+        .timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
       throw LlmException(

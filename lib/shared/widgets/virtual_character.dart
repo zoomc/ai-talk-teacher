@@ -160,7 +160,7 @@ class _VirtualCharacterState extends State<VirtualCharacter>
       case CharacterState.speaking:
         // Pick a gesture from text keywords once; stepper drives visemes.
         final t = text ?? '';
-        _setGesture(_gestureForKeyword(t), loop: true);
+        _setGesture(gestureForKeyword(t), loop: true);
         if (t.isEmpty) {
           // No text — gentle smile-open pattern (teeth visible, friendly).
           _viseme = Viseme.smileOpen;
@@ -169,7 +169,7 @@ class _VirtualCharacterState extends State<VirtualCharacter>
         } else if (t != _lastScheduledText) {
           _lastScheduledText = t;
           _visemeCharIndex = 0;
-          _viseme = _visemeForChar(t, 0);
+          _viseme = visemeForChar(t, 0);
           _visemeController.repeat();
         }
         break;
@@ -183,7 +183,7 @@ class _VirtualCharacterState extends State<VirtualCharacter>
     _visemeCharIndex = (_visemeCharIndex + 1) % t.length;
     if (mounted) {
       setState(() {
-        _viseme = _visemeForChar(t, _visemeCharIndex);
+        _viseme = visemeForChar(t, _visemeCharIndex);
       });
     }
   }
@@ -239,6 +239,28 @@ class _VirtualCharacterState extends State<VirtualCharacter>
         break;
       case Gesture.peaceSign:
         ms = 1000;
+        break;
+      // ── Extended gesture durations ──
+      case Gesture.thumbsUp:
+        ms = 1000;
+        break;
+      case Gesture.bow:
+        ms = 1500;
+        break;
+      case Gesture.adjustHair:
+        ms = 1200;
+        break;
+      case Gesture.lookAround:
+        ms = 1800;
+        break;
+      case Gesture.stretch:
+        ms = 2000;
+        break;
+      case Gesture.yawn:
+        ms = 2500;
+        break;
+      case Gesture.wink:
+        ms = 800;
         break;
       // wave, tiltHead, raiseHand, pointUp, thinkPose, openPalm — default.
       case Gesture.wave:
@@ -426,7 +448,11 @@ class _VirtualCharacterState extends State<VirtualCharacter>
   }
 
   /// Map a single character (at index [i] in [text]) to a [Viseme].
-  Viseme _visemeForChar(String text, int i) {
+  ///
+  /// Public + static so the 3D avatar widget can reuse the exact same
+  /// text→viseme mapping without duplicating the catalogue (the painter
+  /// and the WebGL avatar share one source of truth for lip-sync).
+  static Viseme visemeForChar(String text, int i) {
     if (i >= text.length) return Viseme.closed;
     final ch = text[i].toLowerCase();
     // Skip whitespace keeps the previous shape briefly; pick a neutral.
@@ -497,7 +523,11 @@ class _VirtualCharacterState extends State<VirtualCharacter>
   }
 
   /// Map text content to a body gesture using keyword rules (CN + EN).
-  Gesture _gestureForKeyword(String text) {
+  ///
+  /// Public + static for the same reason as [visemeForChar] — shared
+  /// between the painter fallback and the 3D avatar so keyword→gesture
+  /// behaviour stays in sync.
+  static Gesture gestureForKeyword(String text) {
     final t = text.toLowerCase();
     bool has(List<String> kws) => kws.any((k) => t.contains(k));
     if (has(['你好', 'hello', 'hi', 'welcome', '欢迎', '嗨'])) {
@@ -552,6 +582,22 @@ class _VirtualCharacterState extends State<VirtualCharacter>
     if (has(['必须', 'must', 'definitely', 'absolutely', '一定', '肯定'])) {
       return Gesture.crossArms;
     }
+    // ── Extended keyword → gesture mappings ──
+    if (has(['赞', 'good job', 'nice', '干得好', '干得漂亮', 'well done'])) {
+      return Gesture.thumbsUp;
+    }
+    if (has(['谢谢观看', '谢幕', '再见', 'bye', 'goodbye', 'farewell'])) {
+      return Gesture.bow;
+    }
+    if (has(['加油', 'come on', '你行的', 'you can', 'clap'])) {
+      return Gesture.clap;
+    }
+    if (has(['累了', '困了', 'tired', 'yawn', '哈欠'])) {
+      return Gesture.yawn;
+    }
+    if (has(['伸个懒腰', 'stretch', '放松'])) {
+      return Gesture.stretch;
+    }
     return Gesture.bounce;
   }
 }
@@ -582,7 +628,7 @@ enum Viseme {
   wideFlat, // 宽扁
 }
 
-// ── Gesture catalogue (20) ─────────────────────────────────────────────────
+// ── Gesture catalogue (27) ─────────────────────────────────────────────────
 enum Gesture {
   idle, // 默认（双手下垂或交叠）
   wave, // 挥手
@@ -604,6 +650,14 @@ enum Gesture {
   lookUp, // 抬头看上方（惊叹）
   lookDown, // 低头（抱歉/害羞）
   deepNod, // 深深点头（致谢配合）
+  // ── Extended gestures ──
+  thumbsUp, // 竖大拇指
+  bow, // 鞠躬
+  adjustHair, // 撸头发
+  lookAround, // 环顾
+  stretch, // 伸懒腰
+  yawn, // 打哈欠
+  wink, // 眨眼
 }
 
 // ── Painter ────────────────────────────────────────────────────────────────
@@ -759,6 +813,36 @@ class _CharacterPainter extends CustomPainter {
         break;
       case Gesture.deepNod:
         headDy = swing * size.width * 0.05;
+        break;
+      // ── Extended gesture cases ──
+      case Gesture.thumbsUp:
+        rightHandDy = -size.width * 0.28;
+        rightHandDx = size.width * 0.08;
+        break;
+      case Gesture.bow:
+        bodyDy = swing * size.width * 0.06;
+        headDy = swing * size.width * 0.08;
+        break;
+      case Gesture.adjustHair:
+        rightHandDy = -size.width * 0.35;
+        rightHandDx = -size.width * 0.04;
+        break;
+      case Gesture.lookAround:
+        headDx = (swing - 0.5) * size.width * 0.12;
+        break;
+      case Gesture.stretch:
+        leftHandDy = -swing * size.width * 0.30;
+        rightHandDy = -swing * size.width * 0.30;
+        leftHandDx = -size.width * 0.08;
+        rightHandDx = size.width * 0.08;
+        break;
+      case Gesture.yawn:
+        headDy = size.width * 0.04;
+        tiltRad = 0.05;
+        break;
+      case Gesture.wink:
+        tiltRad = 0.06;
+        headDx = size.width * 0.02;
         break;
     }
 
