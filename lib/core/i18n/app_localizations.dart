@@ -1464,7 +1464,7 @@ const Map<String, String> _fr = {
   'settings.services': 'Services',
   'settings.test_current_profile': 'Tester le Profile actuel',
   'settings.test_current_profile_sub': 'Tester LLM, STT, TTS en une fois',
-  'settings.rerun_onboarding': 'Refaire l'onboarding',
+  'settings.rerun_onboarding': 'Refaire l\'onboarding',
   'settings.rerun_onboarding_sub': 'Reconfigurer les fournisseurs et clés API',
   'settings.test_running': 'Test de connexion…',
   'settings.test_results_title': 'Résultats du test',

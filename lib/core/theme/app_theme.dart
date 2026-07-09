@@ -171,7 +171,6 @@ class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
-        side: const BorderSide(color: AppColors.lightGlassBorder),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,

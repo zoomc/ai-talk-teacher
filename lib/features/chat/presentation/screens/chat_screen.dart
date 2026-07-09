@@ -1648,6 +1648,7 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar>
 
   /// Text mode: the classic record button + TextField + send button row.
   Widget _buildTextInputRow(AppLocalizations l) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     final isRecording = widget.isRecording;
     final isLoading = widget.isLoading;
     final controller = widget.controller;

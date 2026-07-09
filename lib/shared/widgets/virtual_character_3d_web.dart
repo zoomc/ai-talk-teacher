@@ -78,7 +78,7 @@ class AvatarHost {
     if (cw == null) return false;
     try {
       final bridge = js_util.getProperty(cw as Object, 'speakflowAvatar');
-      if (bridge == null || js_util.isNull(bridge)) return false;
+      if (bridge == null) return false;
       final r = js_util.callMethod(bridge, 'isReady', []);
       return r == true;
     } catch (_) {

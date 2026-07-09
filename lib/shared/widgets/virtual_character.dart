@@ -48,6 +48,16 @@ class VirtualCharacter extends StatefulWidget {
 
   @override
   State<VirtualCharacter> createState() => _VirtualCharacterState();
+
+  /// Public + static so the 3D avatar widget can reuse the exact same
+  /// text→viseme mapping without duplicating the catalogue.
+  static Viseme visemeForChar(String text, int i) =>
+      _VirtualCharacterState.visemeForChar(text, i);
+
+  /// Public + static for the same reason as [visemeForChar] — shared
+  /// between the painter fallback and the 3D avatar.
+  static Gesture gestureForKeyword(String text) =>
+      _VirtualCharacterState.gestureForKeyword(text);
 }
 
 class _VirtualCharacterState extends State<VirtualCharacter>

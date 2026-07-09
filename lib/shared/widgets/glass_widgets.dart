@@ -237,8 +237,7 @@ class ShimmerBox extends StatelessWidget {
             borderRadius: BorderRadius.circular(borderRadius),
           ),
         ),
-      ),
-    );
+      );
   }
 }
 
