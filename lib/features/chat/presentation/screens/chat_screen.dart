@@ -1747,11 +1747,19 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar>
                     return Transform.scale(
                       scale: scale,
                       child: Container(
-                        width: 72,
-                        height: 72,
+                        width: 224,
+                        height: 62,
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: color,
+                          borderRadius: BorderRadius.circular(AppRadius.full),
+                          gradient: isRecording
+                              ? LinearGradient(colors: [color, AppColors.error])
+                              : const LinearGradient(
+                                  colors: [
+                                    Color(0xFF11DDE1),
+                                    Color(0xFF6CB9FF),
+                                    Color(0xFFF038DA),
+                                  ],
+                                ),
                           boxShadow: [
                             BoxShadow(
                               color: color.withValues(alpha: 0.4),
@@ -1760,10 +1768,26 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar>
                             ),
                           ],
                         ),
-                        child: Icon(
-                          isRecording ? Icons.stop : Icons.mic,
-                          color: Colors.white,
-                          size: 32,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              isRecording ? Icons.stop : Icons.mic,
+                              color: Colors.white,
+                              size: 26,
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Text(
+                              isRecording
+                                  ? l.t('chat.stop_recording')
+                                  : l.t('chat.tap_to_record'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -2213,17 +2237,66 @@ class _CharacterPanel extends StatelessWidget {
     );
 
     if (compact) {
-      // Stacked strip above chat on mobile.
+      // Mobile is an immersive tutor stage: the portrait owns the top of the
+      // screen, while chat naturally starts beneath it like the reference UI.
       return Container(
         height: panelHeight,
-        margin: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
+        margin: const EdgeInsets.fromLTRB(
+          AppSpacing.sm,
+          AppSpacing.xs,
+          AppSpacing.sm,
+          0,
         ),
-        child: GlassCard(
-          glowColor: AppColors.accentPrimary,
-          padding: EdgeInsets.zero,
-          child: Center(child: labelled),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [const Color(0xFFEAFBFF), AppColors.lightBgPrimary],
+                  ),
+                ),
+              ),
+              Positioned(
+                top: -90,
+                left: -70,
+                child: Container(
+                  width: 260,
+                  height: 260,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0x3322D3EE),
+                  ),
+                ),
+              ),
+              Center(child: labelled),
+              Positioned(
+                top: AppSpacing.md,
+                right: AppSpacing.sm,
+                child: Column(
+                  children: const [
+                    _StageIcon(icon: Icons.settings_outlined),
+                    SizedBox(height: AppSpacing.xs),
+                    _StageIcon(icon: Icons.volume_up_outlined),
+                    SizedBox(height: AppSpacing.xs),
+                    _StageIcon(icon: Icons.keyboard_arrow_up_rounded),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: AppSpacing.md,
+                bottom: AppSpacing.sm,
+                child: StatusPill(
+                  text: _stateLabel(context, state),
+                  color: AppColors.accentSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -2239,6 +2312,22 @@ class _CharacterPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+class _StageIcon extends StatelessWidget {
+  final IconData icon;
+  const _StageIcon({required this.icon});
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 36,
+    height: 36,
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.76),
+      shape: BoxShape.circle,
+      border: Border.all(color: Colors.white),
+    ),
+    child: Icon(icon, size: 20, color: AppColors.lightTextPrimary),
+  );
 }
 
 /// A tiny status indicator shown in the AppBar when the character panel

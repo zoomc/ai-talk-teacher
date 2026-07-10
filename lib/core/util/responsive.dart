@@ -88,8 +88,7 @@ class Responsive {
   // -- Orientation ------------------------------------------------------
 
   static bool isPortrait(BuildContext context) =>
-      MediaQuery.sizeOf(context).height >=
-      MediaQuery.sizeOf(context).width;
+      MediaQuery.sizeOf(context).height >= MediaQuery.sizeOf(context).width;
 
   static bool isLandscape(BuildContext context) => !isPortrait(context);
 
@@ -181,12 +180,12 @@ class Responsive {
           return 200;
       }
     }
-    // Stacked compact path — keep it small.
+    // Phone practice is a character-led stage, not a small utility strip.
     switch (breakpointOf(context)) {
       case Breakpoint.compact:
-        return 88;
+        return 230;
       case Breakpoint.medium:
-        return 120;
+        return 270;
       case Breakpoint.expanded:
         return 168;
     }
@@ -206,9 +205,9 @@ class Responsive {
     if (shouldUseSideBySide(context)) return double.infinity;
     switch (breakpointOf(context)) {
       case Breakpoint.compact:
-        return 140; // was 168 — tighter so chat has room
+        return 292;
       case Breakpoint.medium:
-        return 160;
+        return 340;
       case Breakpoint.expanded:
         return double.infinity;
     }
