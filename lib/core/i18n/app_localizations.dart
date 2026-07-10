@@ -157,6 +157,10 @@ const Map<String, String> _zh = {
   'common.fetch_models': '获取可用模型',
   'common.fetch_voices': '获取音色列表',
   'common.no_thanks': '不了，谢谢',
+  'common.ok': '好',
+  'common.import': '导入',
+  'common.export': '导出',
+  'common.invalid_json': 'JSON 格式无效',
   // Onboarding
   'onboarding.welcome_title': '欢迎使用 SpeakFlow',
   'onboarding.welcome_body':
@@ -232,6 +236,14 @@ const Map<String, String> _zh = {
   'chat.transcribe_empty_hint': '没听清楚，请靠近麦克风、说大声点，或换到安静环境再试',
   'chat.tts_unavailable_retry': '语音不可用，点击重试',
   'chat.auto_listening': '正在听…',
+  'chat.live_transcript': '语音已转写',
+  'chat.feedback_ready': '即时改进建议',
+  'chat.practice_live': '沉浸式口语练习',
+  'chat.practice_subtitle': '开口说，AI 会即时听、改、回应',
+  'chat.voice_flow_on': '语音对话已开启',
+  'chat.voice_flow_off': '配置语音后可开启沉浸式对话',
+  'chat.playback_stop_label': '停止播放',
+  'chat.playback_play_label': '播放这条回复',
   'error.auth': 'API key 无效或被拒绝，请检查后重试',
   'error.rate_limited': '请求过于频繁，请稍候重试',
   'error.server': '服务端出错，请重试',
@@ -247,7 +259,8 @@ const Map<String, String> _zh = {
   'chat.switch_to_voice': '切换到语音输入',
   'chat.suggestion_title': '语法建议',
   'chat.session_summary_title': '本次会话小结',
-  'chat.session_summary_body': '{msgCount} 条对话 · {corrCount} 处纠错 · 持续 {minutes} 分钟',
+  'chat.session_summary_body':
+      '{msgCount} 条对话 · {corrCount} 处纠错 · 持续 {minutes} 分钟',
   'chat.session_summary_encourage': '继续保持，每开口一次都在进步！',
   'chat.session_summary_empty': '本次会话还没有内容，下次聊完再来看小结吧。',
   // Settings
@@ -346,6 +359,20 @@ const Map<String, String> _zh = {
   'service.test_connection': '测试连接',
   'service.delete': '删除',
   'service.cannot_delete_active': '不能删除当前激活的配置',
+  'service.export_complete': '导出完成',
+  'service.exported_to': '配置已导出到：\n{path}',
+  'service.export_failed': '导出失败：{error}',
+  'service.import_profiles': '导入配置',
+  'service.import_hint': '粘贴已导出的 JSON',
+  'service.delete_profile': '删除配置',
+  'service.delete_profile_confirm': '确定要删除“{name}”吗？',
+  'service.profile_deleted': '配置已删除',
+  'service.llm_section': 'AI 对话',
+  'service.llm_section_subtitle': '对话生成模型',
+  'service.stt_section': '语音识别（STT）',
+  'service.stt_section_subtitle': '将语音转换成文字',
+  'service.tts_section': '语音合成（TTS）',
+  'service.tts_section_subtitle': '让 AI 用自然声音回复',
   // Tutor selection
   'tutor.select': '选择外教',
   'tutor.friendly': '友好',
@@ -365,6 +392,8 @@ const Map<String, String> _zh = {
   'home.scenarios': '场景练习',
   'home.review': '复习',
   'home.progress': '学习进度',
+  'home.welcome_back': '欢迎回来！',
+  'home.new_topic': '新话题',
   // Placement
   'placement.title': '水平定级',
   'placement.subtitle': '回答几个问题，让我们了解你的英语水平。',
@@ -397,6 +426,16 @@ const Map<String, String> _zh = {
   'progress.learning': '学习中',
   'progress.due_for_review': '待复习',
   'progress.daily_activity': '近 7 天活动',
+  'progress.error_types': '错误类型',
+  'progress.start_review': '开始复习',
+  'history.title': '对话历史',
+  'history.delete_conversation': '删除对话',
+  'history.delete_confirm': '删除这段对话？',
+  'history.deleted': '对话已删除',
+  'history.delete_failed': '删除失败：{error}',
+  'history.go_home': '返回首页',
+  'tutor.selected': '{name} 已选中',
+  'tutor.choose': '选择你的外教',
 };
 
 // ── English ─────────────────────────────────────────────────────────────────
@@ -429,6 +468,10 @@ const Map<String, String> _en = {
   'common.fetch_models': 'Fetch available models',
   'common.fetch_voices': 'Fetch voice list',
   'common.no_thanks': 'No thanks',
+  'common.ok': 'OK',
+  'common.import': 'Import',
+  'common.export': 'Export',
+  'common.invalid_json': 'Invalid JSON',
   'onboarding.welcome_title': 'Welcome to SpeakFlow',
   'onboarding.welcome_body':
       'Your AI English speaking practice companion.\n\nTo get started, configure 3 services. Pick a provider and paste an API key — the rest is filled in automatically. You can use a relay station or a self-hosted local model too.',
@@ -487,32 +530,51 @@ const Map<String, String> _en = {
   'chat.transcribe_failed': 'Could not transcribe audio',
   'chat.error': 'Error: {error}',
   'chat.tts_error': 'TTS error: {error}',
-  'chat.err_auth': 'API Key is invalid or insufficient permissions — check your Key and permissions in Service Config.',
-  'chat.err_rate_limit': 'Requests too frequent or insufficient account balance — try again later or check your quota.',
-  'chat.err_server': 'Provider temporarily unavailable (5xx) — please try again later or switch to another Profile.',
-  'chat.err_network': 'Network connection failed or timed out — please check your network and retry.',
+  'chat.err_auth':
+      'API Key is invalid or insufficient permissions — check your Key and permissions in Service Config.',
+  'chat.err_rate_limit':
+      'Requests too frequent or insufficient account balance — try again later or check your quota.',
+  'chat.err_server':
+      'Provider temporarily unavailable (5xx) — please try again later or switch to another Profile.',
+  'chat.err_network':
+      'Network connection failed or timed out — please check your network and retry.',
   'chat.config_needed_llm_title': 'AI Dialogue is not configured',
-  'chat.config_needed_llm_body': 'Add an LLM provider to start chatting with your AI tutor.',
+  'chat.config_needed_llm_body':
+      'Add an LLM provider to start chatting with your AI tutor.',
   'chat.config_needed_stt_title': 'Speech Recognition is not configured',
-  'chat.config_needed_stt_body': 'Add an STT provider to use the microphone for voice input.',
+  'chat.config_needed_stt_body':
+      'Add an STT provider to use the microphone for voice input.',
   'chat.config_needed_tts_title': 'Text-to-Speech is not configured',
-  'chat.config_needed_tts_body': 'Add a TTS provider to hear the AI tutor speak aloud.',
+  'chat.config_needed_tts_body':
+      'Add a TTS provider to hear the AI tutor speak aloud.',
   'chat.voice_not_configured': 'Voice services not configured — tap to set up',
   'chat.continuous_mode': 'Continuous',
   'chat.test_connection': 'Test Connection',
   'chat.test_ok': 'Connected',
   'chat.test_failed': 'Connection failed: {error}',
-  'chat.transcribe_empty_hint': "Didn't catch that — speak closer to the mic, a little louder, or try a quieter spot",
+  'chat.transcribe_empty_hint':
+      "Didn't catch that — speak closer to the mic, a little louder, or try a quieter spot",
   'chat.tts_unavailable_retry': 'Audio unavailable — tap to retry',
   'chat.auto_listening': 'Listening…',
+  'chat.live_transcript': 'Voice transcript',
+  'chat.feedback_ready': 'Instant improvement',
+  'chat.practice_live': 'Immersive speaking practice',
+  'chat.practice_subtitle':
+      'Speak naturally — AI listens, improves, and responds.',
+  'chat.voice_flow_on': 'Voice conversation is on',
+  'chat.voice_flow_off': 'Configure voice to enable immersive conversation',
+  'chat.playback_stop_label': 'Stop playback',
+  'chat.playback_play_label': 'Play this reply',
   'error.auth': 'API key rejected — please check it and retry',
   'error.rate_limited': 'Rate limited — please retry shortly',
   'error.server': 'Server error — please retry',
   'error.timeout': 'Request timed out — check your connection and retry',
   'error.offline': "Can't reach the network — check your connection and retry",
-  'error.mic_permission': 'Microphone permission denied — allow it in system settings',
+  'error.mic_permission':
+      'Microphone permission denied — allow it in system settings',
   'error.open_settings': 'Open Settings',
-  'chat.offline_hint': "You're offline — voice & AI replies are unavailable. Your history and review still work.",
+  'chat.offline_hint':
+      "You're offline — voice & AI replies are unavailable. Your history and review still work.",
   'chat.pick_tutor': 'Pick a tutor',
   'chat.more_options': 'More options',
   'chat.back_home': 'Back to home',
@@ -520,9 +582,12 @@ const Map<String, String> _en = {
   'chat.switch_to_voice': 'Switch to voice input',
   'chat.suggestion_title': 'Grammar suggestions',
   'chat.session_summary_title': 'Session Summary',
-  'chat.session_summary_body': '{msgCount} messages · {corrCount} corrections · {minutes} min',
-  'chat.session_summary_encourage': 'Keep going — every time you speak, you improve!',
-  'chat.session_summary_empty': 'No content in this session yet. Chat a bit and check back for a summary next time!',
+  'chat.session_summary_body':
+      '{msgCount} messages · {corrCount} corrections · {minutes} min',
+  'chat.session_summary_encourage':
+      'Keep going — every time you speak, you improve!',
+  'chat.session_summary_empty':
+      'No content in this session yet. Chat a bit and check back for a summary next time!',
   'settings.title': 'Settings',
   'settings.services': 'Services',
   'settings.test_current_profile': 'Test Current Profile',
@@ -563,15 +628,18 @@ const Map<String, String> _en = {
   'settings.tap_to_check': 'Tap to check now',
   'settings.show_install_again': 'Show install banner again',
   'settings.show_install_again_sub': 'Re-show the "Install SpeakFlow" prompt',
-  'settings.install_will_show': "Install banner will reappear shortly. Reload the page if it doesn't.",
+  'settings.install_will_show':
+      "Install banner will reappear shortly. Reload the page if it doesn't.",
   'settings.about': 'About',
   'settings.version': 'Version {version}',
   'settings.rerun_setup': 'Re-run setup',
   'settings.rerun_setup_sub': 'Re-pick providers and complete placement',
-  'settings.about_body': 'SpeakFlow is an AI English speaking practice app with a built-in 3D virtual tutor, real-time voice conversation, and personalised correction review.',
+  'settings.about_body':
+      'SpeakFlow is an AI English speaking practice app with a built-in 3D virtual tutor, real-time voice conversation, and personalised correction review.',
   'settings.licenses': 'Open-source licenses',
   'settings.docs': 'Documentation',
-  'settings.new_version_in_banner': 'New version {version} available — see banner at top.',
+  'settings.new_version_in_banner':
+      'New version {version} available — see banner at top.',
   'settings.latest_version': "You're on the latest version.",
   'profile.new_title': 'New {title}',
   'profile.edit_title': 'Edit {title}',
@@ -596,7 +664,8 @@ const Map<String, String> _en = {
   'profile.fill_api_key': 'Please fill the API Key first',
   'profile.fill_base_url_and_key': 'Please fill Base URL and API Key first',
   'profile.no_models': 'No models returned. Your provider may not list models.',
-  'profile.no_voices': 'No voices returned. You can still enter a voice id manually.',
+  'profile.no_voices':
+      'No voices returned. You can still enter a voice id manually.',
   'profile.fetch_models_failed': 'Failed to fetch models: {error}',
   'profile.fetch_voices_failed': 'Failed to fetch voices: {error}',
   'profile.connected': '✓ Connected ({ms}ms{extra})',
@@ -616,6 +685,20 @@ const Map<String, String> _en = {
   'service.test_connection': 'Test Connection',
   'service.delete': 'Delete',
   'service.cannot_delete_active': 'Cannot delete active profile',
+  'service.export_complete': 'Export complete',
+  'service.exported_to': 'Profiles exported to:\n{path}',
+  'service.export_failed': 'Export failed: {error}',
+  'service.import_profiles': 'Import profiles',
+  'service.import_hint': 'Paste exported JSON here',
+  'service.delete_profile': 'Delete profile',
+  'service.delete_profile_confirm': 'Are you sure you want to delete “{name}”?',
+  'service.profile_deleted': 'Profile deleted',
+  'service.llm_section': 'AI dialogue',
+  'service.llm_section_subtitle': 'Chat completion model',
+  'service.stt_section': 'Speech recognition (STT)',
+  'service.stt_section_subtitle': 'Convert speech to text',
+  'service.tts_section': 'Speech synthesis (TTS)',
+  'service.tts_section_subtitle': 'Let AI reply in a natural voice',
   'tutor.select': 'Select Tutor',
   'tutor.friendly': 'Friendly',
   'tutor.professional': 'Professional',
@@ -633,8 +716,11 @@ const Map<String, String> _en = {
   'home.scenarios': 'Scenarios',
   'home.review': 'Review',
   'home.progress': 'Learning Progress',
+  'home.welcome_back': 'Welcome back!',
+  'home.new_topic': 'New topic',
   'placement.title': 'Placement Test',
-  'placement.subtitle': 'Answer a few questions so we can gauge your English level.',
+  'placement.subtitle':
+      'Answer a few questions so we can gauge your English level.',
   'placement.question': 'Question {n} / {total}',
   'placement.complete': 'Complete',
   'placement.complete_title': 'Assessment Complete!',
@@ -662,6 +748,16 @@ const Map<String, String> _en = {
   'progress.learning': 'Learning',
   'progress.due_for_review': 'Due for Review',
   'progress.daily_activity': 'Last 7 Days',
+  'progress.error_types': 'Error types',
+  'progress.start_review': 'Start review',
+  'history.title': 'Chat history',
+  'history.delete_conversation': 'Delete conversation',
+  'history.delete_confirm': 'Delete this conversation?',
+  'history.deleted': 'Conversation deleted',
+  'history.delete_failed': 'Failed to delete: {error}',
+  'history.go_home': 'Go home',
+  'tutor.selected': '{name} selected',
+  'tutor.choose': 'Choose your tutor',
 };
 
 // ── Japanese ────────────────────────────────────────────────────────────────
@@ -714,9 +810,11 @@ const Map<String, String> _ja = {
   'onboarding.region_global': '— グローバル —',
   'onboarding.region_local': '— ローカル —',
   'onboarding.missing_llm_title': 'AI対話が必要です',
-  'onboarding.missing_llm_body': 'AI対話のAPIキーが未入力です。ないとAIチューターと会話できません。\n\n続けますか？後で設定で構成できます。',
+  'onboarding.missing_llm_body':
+      'AI対話のAPIキーが未入力です。ないとAIチューターと会話できません。\n\n続けますか？後で設定で構成できます。',
   'onboarding.missing_aux_title': '{missing}が未設定',
-  'onboarding.missing_aux_body': 'これらがないと音声入力とAI音声返信は動作しません。タイピングでの会話は可能です。\n\n続けて後で設定しますか？',
+  'onboarding.missing_aux_body':
+      'これらがないと音声入力とAI音声返信は動作しません。タイピングでの会話は可能です。\n\n続けて後で設定しますか？',
   'onboarding.go_back': '戻る',
   'onboarding.use_same_as_stt': 'STTと同じプロバイダーとキーを使う',
   'onboarding.copied_from_stt': 'STT設定からコピーしました',
@@ -764,7 +862,8 @@ const Map<String, String> _ja = {
   'chat.switch_to_voice': '音声入力に切り替え',
   'chat.suggestion_title': '文法の提案',
   'chat.session_summary_title': 'セッションサマリー',
-  'chat.session_summary_body': '{msgCount} メッセージ · {corrCount} 件の訂正 · {minutes} 分',
+  'chat.session_summary_body':
+      '{msgCount} メッセージ · {corrCount} 件の訂正 · {minutes} 分',
   'chat.session_summary_encourage': 'その調子！話すたびに上達します！',
   'chat.session_summary_empty': 'このセッションにはまだ内容がありません。少し話してからまた確認しましょう！',
   'settings.title': '設定',
@@ -945,9 +1044,11 @@ const Map<String, String> _ko = {
   'onboarding.region_global': '— 글로벌 —',
   'onboarding.region_local': '— 로컬 —',
   'onboarding.missing_llm_title': 'AI 대화가 필요합니다',
-  'onboarding.missing_llm_body': 'AI 대화 API 키가 입력되지 않았습니다. 없으면 AI 튜터와 대화할 수 없습니다.\n\n계속하시겠습니까? 나중에 설정에서 구성할 수 있습니다.',
+  'onboarding.missing_llm_body':
+      'AI 대화 API 키가 입력되지 않았습니다. 없으면 AI 튜터와 대화할 수 없습니다.\n\n계속하시겠습니까? 나중에 설정에서 구성할 수 있습니다.',
   'onboarding.missing_aux_title': '{missing}이(가) 구성되지 않음',
-  'onboarding.missing_aux_body': '이들이 없으면 음성 입력과 AI 음성 응답이 작동하지 않습니다. 타이핑으로 대화할 수 있습니다.\n\n계속하고 나중에 구성하시겠습니까?',
+  'onboarding.missing_aux_body':
+      '이들이 없으면 음성 입력과 AI 음성 응답이 작동하지 않습니다. 타이핑으로 대화할 수 있습니다.\n\n계속하고 나중에 구성하시겠습니까?',
   'onboarding.go_back': '돌아가기',
   'onboarding.use_same_as_stt': 'STT와 동일한 제공자 및 키 사용',
   'onboarding.copied_from_stt': 'STT 설정에서 복사됨',
@@ -987,7 +1088,8 @@ const Map<String, String> _ko = {
   'chat.config_needed_stt_body': '마이크 음성 입력을 사용하려면 STT 제공자를 추가하세요.',
   'chat.config_needed_tts_title': '음성 합성이 구성되지 않았습니다',
   'chat.config_needed_tts_body': 'AI 튜터의 음성을 듣려면 TTS 제공자를 추가하세요.',
-  'chat.offline_hint': '오프라인 상태입니다 — 음성 및 AI 응답을 사용할 수 없습니다. 기록과 복습은 여전히 작동합니다.',
+  'chat.offline_hint':
+      '오프라인 상태입니다 — 음성 및 AI 응답을 사용할 수 없습니다. 기록과 복습은 여전히 작동합니다.',
   'chat.pick_tutor': '튜터 선택',
   'chat.more_options': '더보기',
   'chat.back_home': '홈으로',
@@ -1162,9 +1264,11 @@ const Map<String, String> _es = {
   'onboarding.llm_title': 'Diálogo IA',
   'onboarding.llm_subtitle': 'Da vida a la conversación con tu tutor IA.',
   'onboarding.stt_title': 'Reconocimiento de voz',
-  'onboarding.stt_subtitle': 'Convierte tu voz en texto. Los servicios en la nube manejan acentos mucho mejor que las opciones locales.',
+  'onboarding.stt_subtitle':
+      'Convierte tu voz en texto. Los servicios en la nube manejan acentos mucho mejor que las opciones locales.',
   'onboarding.tts_title': 'Texto a voz',
-  'onboarding.tts_subtitle': 'Lee las respuestas del tutor IA con voces naturales.',
+  'onboarding.tts_subtitle':
+      'Lee las respuestas del tutor IA con voces naturales.',
   'onboarding.provider': 'Proveedor',
   'onboarding.api_key': 'API Key',
   'onboarding.api_key_optional': 'API Key (opcional)',
@@ -1176,9 +1280,11 @@ const Map<String, String> _es = {
   'onboarding.region_global': '— Global —',
   'onboarding.region_local': '— Local —',
   'onboarding.missing_llm_title': 'Se requiere Diálogo IA',
-  'onboarding.missing_llm_body': 'No has introducido una API key para el Diálogo IA. Sin ella no podrás chatear con el tutor IA.\n\n¿Continuar de todos modos? Puedes configurarlo más tarde en Ajustes.',
+  'onboarding.missing_llm_body':
+      'No has introducido una API key para el Diálogo IA. Sin ella no podrás chatear con el tutor IA.\n\n¿Continuar de todos modos? Puedes configurarlo más tarde en Ajustes.',
   'onboarding.missing_aux_title': '{missing} no configurado',
-  'onboarding.missing_aux_body': 'Sin esto, la entrada de voz y las respuestas habladas de la IA no funcionarán. Aún puedes chatear escribiendo.\n\n¿Continuar y configurar más tarde?',
+  'onboarding.missing_aux_body':
+      'Sin esto, la entrada de voz y las respuestas habladas de la IA no funcionarán. Aún puedes chatear escribiendo.\n\n¿Continuar y configurar más tarde?',
   'onboarding.go_back': 'Volver',
   'onboarding.use_same_as_stt': 'Usar mismo proveedor y key que STT',
   'onboarding.copied_from_stt': 'Copiado del perfil STT',
@@ -1199,7 +1305,8 @@ const Map<String, String> _es = {
   'chat.archive_session': 'Archivar conversación',
   'chat.delete_session': 'Eliminar conversación',
   'chat.delete_confirm_title': '¿Eliminar esta conversación?',
-  'chat.delete_confirm_body': 'Todos los mensajes y correcciones de esta sesión se eliminarán permanentemente.',
+  'chat.delete_confirm_body':
+      'Todos los mensajes y correcciones de esta sesión se eliminarán permanentemente.',
   'chat.deleted': 'Conversación eliminada',
   'chat.delete_failed': 'Error al eliminar: {error}',
   'chat.recording_error': 'Error de grabación: {error}',
@@ -1208,17 +1315,24 @@ const Map<String, String> _es = {
   'chat.transcribe_failed': 'No se pudo transcribir el audio',
   'chat.error': 'Error: {error}',
   'chat.tts_error': 'Error TTS: {error}',
-  'chat.err_auth': 'API Key no válida o permisos insuficientes — revisa tu Key y permisos en Configuración de servicios.',
-  'chat.err_rate_limit': 'Demasiadas solicitudes o saldo insuficiente — inténtalo más tarde o revisa tu cuota.',
-  'chat.err_server': 'Proveedor temporalmente no disponible (5xx) — inténtalo más tarde o cambia a otro Profile.',
-  'chat.err_network': 'Conexión de red fallida o tiempo de espera agotado — revisa tu red e inténtalo de nuevo.',
+  'chat.err_auth':
+      'API Key no válida o permisos insuficientes — revisa tu Key y permisos en Configuración de servicios.',
+  'chat.err_rate_limit':
+      'Demasiadas solicitudes o saldo insuficiente — inténtalo más tarde o revisa tu cuota.',
+  'chat.err_server':
+      'Proveedor temporalmente no disponible (5xx) — inténtalo más tarde o cambia a otro Profile.',
+  'chat.err_network':
+      'Conexión de red fallida o tiempo de espera agotado — revisa tu red e inténtalo de nuevo.',
   'chat.config_needed_llm_title': 'Diálogo IA no configurado',
-  'chat.config_needed_llm_body': 'Añade un proveedor LLM para empezar a chatear con tu tutor IA.',
+  'chat.config_needed_llm_body':
+      'Añade un proveedor LLM para empezar a chatear con tu tutor IA.',
   'chat.config_needed_stt_title': 'Reconocimiento de voz no configurado',
-  'chat.config_needed_stt_body': 'Añade un proveedor STT para usar el micrófono.',
+  'chat.config_needed_stt_body':
+      'Añade un proveedor STT para usar el micrófono.',
   'chat.config_needed_tts_title': 'Texto a voz no configurado',
   'chat.config_needed_tts_body': 'Añade un proveedor TTS para oír al tutor IA.',
-  'chat.offline_hint': 'Estás sin conexión — voz y respuestas IA no disponibles. Tu historial y repaso siguen funcionando.',
+  'chat.offline_hint':
+      'Estás sin conexión — voz y respuestas IA no disponibles. Tu historial y repaso siguen funcionando.',
   'chat.pick_tutor': 'Elegir tutor',
   'chat.more_options': 'Más opciones',
   'chat.back_home': 'Volver al inicio',
@@ -1226,13 +1340,17 @@ const Map<String, String> _es = {
   'chat.switch_to_voice': 'Cambiar a voz',
   'chat.suggestion_title': 'Sugerencias de gramática',
   'chat.session_summary_title': 'Resumen de sesión',
-  'chat.session_summary_body': '{msgCount} mensajes · {corrCount} correcciones · {minutes} min',
-  'chat.session_summary_encourage': '¡Sigue así — cada vez que hablas, mejoras!',
-  'chat.session_summary_empty': 'Esta sesión aún no tiene contenido. ¡Chatea un poco y vuelve para ver el resumen!',
+  'chat.session_summary_body':
+      '{msgCount} mensajes · {corrCount} correcciones · {minutes} min',
+  'chat.session_summary_encourage':
+      '¡Sigue así — cada vez que hablas, mejoras!',
+  'chat.session_summary_empty':
+      'Esta sesión aún no tiene contenido. ¡Chatea un poco y vuelve para ver el resumen!',
   'settings.title': 'Ajustes',
   'settings.services': 'Servicios',
   'settings.test_current_profile': 'Probar Profile actual',
-  'settings.test_current_profile_sub': 'Probar conexiones LLM, STT, TTS a la vez',
+  'settings.test_current_profile_sub':
+      'Probar conexiones LLM, STT, TTS a la vez',
   'settings.rerun_onboarding': 'Repetir onboarding',
   'settings.rerun_onboarding_sub': 'Reconfigurar proveedores y API keys',
   'settings.test_running': 'Probando conexión…',
@@ -1269,10 +1387,12 @@ const Map<String, String> _es = {
   'settings.tap_to_check': 'Toca para comprobar',
   'settings.show_install_again': 'Mostrar banner de instalación',
   'settings.show_install_again_sub': 'Volver a mostrar "Instalar SpeakFlow"',
-  'settings.install_will_show': 'El banner aparecerá pronto. Recarga la página si no aparece.',
+  'settings.install_will_show':
+      'El banner aparecerá pronto. Recarga la página si no aparece.',
   'settings.about': 'Acerca de',
   'settings.version': 'Versión {version}',
-  'settings.new_version_in_banner': 'Nueva versión {version} disponible — ver banner superior.',
+  'settings.new_version_in_banner':
+      'Nueva versión {version} disponible — ver banner superior.',
   'settings.latest_version': 'Estás en la última versión.',
   'profile.new_title': 'Nuevo {title}',
   'profile.edit_title': 'Editar {title}',
@@ -1297,7 +1417,8 @@ const Map<String, String> _es = {
   'profile.fill_api_key': 'Introduce la API key',
   'profile.fill_base_url_and_key': 'Introduce URL base y API key',
   'profile.no_models': 'No se devolvieron modelos.',
-  'profile.no_voices': 'No se devolvieron voces. Puedes introducir un ID manualmente.',
+  'profile.no_voices':
+      'No se devolvieron voces. Puedes introducir un ID manualmente.',
   'profile.fetch_models_failed': 'Error al obtener modelos: {error}',
   'profile.fetch_voices_failed': 'Error al obtener voces: {error}',
   'profile.connected': '✓ Conectado ({ms}ms{extra})',
@@ -1335,7 +1456,8 @@ const Map<String, String> _es = {
   'home.review': 'Repaso',
   'home.progress': 'Progreso',
   'placement.title': 'Examen de nivel',
-  'placement.subtitle': 'Responde unas preguntas para medir tu nivel de inglés.',
+  'placement.subtitle':
+      'Responde unas preguntas para medir tu nivel de inglés.',
   'placement.question': 'Pregunta {n} / {total}',
   'placement.complete': 'Completar',
   'scenarios.title': 'Escenarios',
@@ -1393,9 +1515,11 @@ const Map<String, String> _fr = {
   'onboarding.llm_title': 'Dialogue IA',
   'onboarding.llm_subtitle': 'Alimente la conversation avec votre tuteur IA.',
   'onboarding.stt_title': 'Reconnaissance vocale',
-  'onboarding.stt_subtitle': 'Convertit votre parole en texte. Les services cloud gèrent mieux les accents.',
+  'onboarding.stt_subtitle':
+      'Convertit votre parole en texte. Les services cloud gèrent mieux les accents.',
   'onboarding.tts_title': 'Synthèse vocale',
-  'onboarding.tts_subtitle': 'Lit les réponses du tuteur IA avec des voix naturelles.',
+  'onboarding.tts_subtitle':
+      'Lit les réponses du tuteur IA avec des voix naturelles.',
   'onboarding.provider': 'Fournisseur',
   'onboarding.api_key': 'Clé API',
   'onboarding.api_key_optional': 'Clé API (facultatif)',
@@ -1407,9 +1531,11 @@ const Map<String, String> _fr = {
   'onboarding.region_global': '— Global —',
   'onboarding.region_local': '— Local —',
   'onboarding.missing_llm_title': 'Dialogue IA requis',
-  'onboarding.missing_llm_body': 'Vous n\'avez pas saisi de clé API pour le Dialogue IA. Sans elle, vous ne pourrez pas discuter avec le tuteur IA.\n\nContinuer quand même ? Configurable plus tard dans Réglages.',
+  'onboarding.missing_llm_body':
+      'Vous n\'avez pas saisi de clé API pour le Dialogue IA. Sans elle, vous ne pourrez pas discuter avec le tuteur IA.\n\nContinuer quand même ? Configurable plus tard dans Réglages.',
   'onboarding.missing_aux_title': '{missing} non configuré',
-  'onboarding.missing_aux_body': 'Sans cela, la saisie vocale et les réponses parlées de l\'IA ne fonctionneront pas. Vous pouvez toujours discuter en tapant.\n\nContinuer et configurer plus tard ?',
+  'onboarding.missing_aux_body':
+      'Sans cela, la saisie vocale et les réponses parlées de l\'IA ne fonctionneront pas. Vous pouvez toujours discuter en tapant.\n\nContinuer et configurer plus tard ?',
   'onboarding.go_back': 'Retour',
   'onboarding.use_same_as_stt': 'Même fournisseur et clé que STT',
   'onboarding.copied_from_stt': 'Copié depuis le profil STT',
@@ -1430,7 +1556,8 @@ const Map<String, String> _fr = {
   'chat.archive_session': 'Archiver la conversation',
   'chat.delete_session': 'Supprimer la conversation',
   'chat.delete_confirm_title': 'Supprimer cette conversation ?',
-  'chat.delete_confirm_body': 'Tous les messages et corrections de cette session seront définitivement supprimés.',
+  'chat.delete_confirm_body':
+      'Tous les messages et corrections de cette session seront définitivement supprimés.',
   'chat.deleted': 'Conversation supprimée',
   'chat.delete_failed': 'Échec de la suppression : {error}',
   'chat.recording_error': 'Erreur d\'enregistrement : {error}',
@@ -1439,17 +1566,25 @@ const Map<String, String> _fr = {
   'chat.transcribe_failed': 'Impossible de transcrire l\'audio',
   'chat.error': 'Erreur : {error}',
   'chat.tts_error': 'Erreur TTS : {error}',
-  'chat.err_auth': 'Clé API invalide ou permissions insuffisantes — vérifiez votre clé dans Config des services.',
-  'chat.err_rate_limit': 'Requêtes trop fréquentes ou solde insuffisant — réessayez plus tard ou vérifiez votre quota.',
-  'chat.err_server': 'Fournisseur temporairement indisponible (5xx) — réessayez plus tard ou changez de Profile.',
-  'chat.err_network': 'Échec de connexion réseau ou délai dépassé — vérifiez votre réseau et réessayez.',
+  'chat.err_auth':
+      'Clé API invalide ou permissions insuffisantes — vérifiez votre clé dans Config des services.',
+  'chat.err_rate_limit':
+      'Requêtes trop fréquentes ou solde insuffisant — réessayez plus tard ou vérifiez votre quota.',
+  'chat.err_server':
+      'Fournisseur temporairement indisponible (5xx) — réessayez plus tard ou changez de Profile.',
+  'chat.err_network':
+      'Échec de connexion réseau ou délai dépassé — vérifiez votre réseau et réessayez.',
   'chat.config_needed_llm_title': 'Dialogue IA non configuré',
-  'chat.config_needed_llm_body': 'Ajoutez un fournisseur LLM pour discuter avec le tuteur IA.',
+  'chat.config_needed_llm_body':
+      'Ajoutez un fournisseur LLM pour discuter avec le tuteur IA.',
   'chat.config_needed_stt_title': 'Reconnaissance vocale non configurée',
-  'chat.config_needed_stt_body': 'Ajoutez un fournisseur STT pour utiliser le micro.',
+  'chat.config_needed_stt_body':
+      'Ajoutez un fournisseur STT pour utiliser le micro.',
   'chat.config_needed_tts_title': 'Synthèse vocale non configurée',
-  'chat.config_needed_tts_body': 'Ajoutez un fournisseur TTS pour entendre le tuteur IA.',
-  'chat.offline_hint': 'Hors ligne — voix et réponses IA indisponibles. Historique et révision restent disponibles.',
+  'chat.config_needed_tts_body':
+      'Ajoutez un fournisseur TTS pour entendre le tuteur IA.',
+  'chat.offline_hint':
+      'Hors ligne — voix et réponses IA indisponibles. Historique et révision restent disponibles.',
   'chat.pick_tutor': 'Choisir un tuteur',
   'chat.more_options': 'Plus d\'options',
   'chat.back_home': 'Retour à l\'accueil',
@@ -1457,9 +1592,12 @@ const Map<String, String> _fr = {
   'chat.switch_to_voice': 'Passer en mode vocal',
   'chat.suggestion_title': 'Suggestions de grammaire',
   'chat.session_summary_title': 'Résumé de la session',
-  'chat.session_summary_body': '{msgCount} messages · {corrCount} corrections · {minutes} min',
-  'chat.session_summary_encourage': 'Continuez — chaque fois que vous parlez, vous progressez !',
-  'chat.session_summary_empty': 'Pas encore de contenu dans cette session. Discutez un peu et revenez voir le résumé !',
+  'chat.session_summary_body':
+      '{msgCount} messages · {corrCount} corrections · {minutes} min',
+  'chat.session_summary_encourage':
+      'Continuez — chaque fois que vous parlez, vous progressez !',
+  'chat.session_summary_empty':
+      'Pas encore de contenu dans cette session. Discutez un peu et revenez voir le résumé !',
   'settings.title': 'Réglages',
   'settings.services': 'Services',
   'settings.test_current_profile': 'Tester le Profile actuel',
@@ -1500,10 +1638,12 @@ const Map<String, String> _fr = {
   'settings.tap_to_check': 'Toucher pour vérifier',
   'settings.show_install_again': 'Afficher à nouveau la bannière',
   'settings.show_install_again_sub': 'Réafficher « Installer SpeakFlow »',
-  'settings.install_will_show': 'La bannière réapparaîtra bientôt. Rechargez la page sinon.',
+  'settings.install_will_show':
+      'La bannière réapparaîtra bientôt. Rechargez la page sinon.',
   'settings.about': 'À propos',
   'settings.version': 'Version {version}',
-  'settings.new_version_in_banner': 'Nouvelle version {version} disponible — voir la bannière.',
+  'settings.new_version_in_banner':
+      'Nouvelle version {version} disponible — voir la bannière.',
   'settings.latest_version': 'Vous êtes sur la dernière version.',
   'profile.new_title': 'Nouveau {title}',
   'profile.edit_title': 'Modifier {title}',
@@ -1566,7 +1706,8 @@ const Map<String, String> _fr = {
   'home.review': 'Réviser',
   'home.progress': 'Progression',
   'placement.title': 'Test de niveau',
-  'placement.subtitle': 'Répondez à quelques questions pour évaluer votre niveau.',
+  'placement.subtitle':
+      'Répondez à quelques questions pour évaluer votre niveau.',
   'placement.question': 'Question {n} / {total}',
   'placement.complete': 'Terminer',
   'scenarios.title': 'Scénarios',
@@ -1624,7 +1765,8 @@ const Map<String, String> _pt = {
   'onboarding.llm_title': 'Diálogo IA',
   'onboarding.llm_subtitle': 'Alimenta a conversa com seu tutor IA.',
   'onboarding.stt_title': 'Reconhecimento de voz',
-  'onboarding.stt_subtitle': 'Converte sua fala em texto. Serviços em nuvem lidam melhor com sotaques.',
+  'onboarding.stt_subtitle':
+      'Converte sua fala em texto. Serviços em nuvem lidam melhor com sotaques.',
   'onboarding.tts_title': 'Síntese de voz',
   'onboarding.tts_subtitle': 'Lê as respostas do tutor IA com vozes naturais.',
   'onboarding.provider': 'Provedor',
@@ -1638,9 +1780,11 @@ const Map<String, String> _pt = {
   'onboarding.region_global': '— Global —',
   'onboarding.region_local': '— Local —',
   'onboarding.missing_llm_title': 'Diálogo IA é necessário',
-  'onboarding.missing_llm_body': 'Você não informou uma chave API para o Diálogo IA. Sem ela, não poderá conversar com o tutor IA.\n\nContinuar mesmo assim? Pode configurar depois em Configurações.',
+  'onboarding.missing_llm_body':
+      'Você não informou uma chave API para o Diálogo IA. Sem ela, não poderá conversar com o tutor IA.\n\nContinuar mesmo assim? Pode configurar depois em Configurações.',
   'onboarding.missing_aux_title': '{missing} não configurado',
-  'onboarding.missing_aux_body': 'Sem isso, entrada de voz e respostas faladas da IA não funcionarão. Você ainda pode digitar.\n\nContinuar e configurar depois?',
+  'onboarding.missing_aux_body':
+      'Sem isso, entrada de voz e respostas faladas da IA não funcionarão. Você ainda pode digitar.\n\nContinuar e configurar depois?',
   'onboarding.go_back': 'Voltar',
   'onboarding.use_same_as_stt': 'Usar mesmo provedor e chave do STT',
   'onboarding.copied_from_stt': 'Copiado do perfil STT',
@@ -1661,7 +1805,8 @@ const Map<String, String> _pt = {
   'chat.archive_session': 'Arquivar conversa',
   'chat.delete_session': 'Excluir conversa',
   'chat.delete_confirm_title': 'Excluir esta conversa?',
-  'chat.delete_confirm_body': 'Todas as mensagens e correções desta sessão serão excluídas permanentemente.',
+  'chat.delete_confirm_body':
+      'Todas as mensagens e correções desta sessão serão excluídas permanentemente.',
   'chat.deleted': 'Conversa excluída',
   'chat.delete_failed': 'Falha ao excluir: {error}',
   'chat.recording_error': 'Erro de gravação: {error}',
@@ -1670,17 +1815,25 @@ const Map<String, String> _pt = {
   'chat.transcribe_failed': 'Não foi possível transcrever o áudio',
   'chat.error': 'Erro: {error}',
   'chat.tts_error': 'Erro TTS: {error}',
-  'chat.err_auth': 'Chave de API inválida ou permissões insuficientes — verifique sua chave em Config de serviços.',
-  'chat.err_rate_limit': 'Muitas solicitações ou saldo insuficiente — tente novamente mais tarde ou verifique sua cota.',
-  'chat.err_server': 'Provedor temporariamente indisponível (5xx) — tente novamente mais tarde ou mude de Profile.',
-  'chat.err_network': 'Falha de conexão de rede ou tempo esgotado — verifique sua rede e tente novamente.',
+  'chat.err_auth':
+      'Chave de API inválida ou permissões insuficientes — verifique sua chave em Config de serviços.',
+  'chat.err_rate_limit':
+      'Muitas solicitações ou saldo insuficiente — tente novamente mais tarde ou verifique sua cota.',
+  'chat.err_server':
+      'Provedor temporariamente indisponível (5xx) — tente novamente mais tarde ou mude de Profile.',
+  'chat.err_network':
+      'Falha de conexão de rede ou tempo esgotado — verifique sua rede e tente novamente.',
   'chat.config_needed_llm_title': 'Diálogo IA não configurado',
-  'chat.config_needed_llm_body': 'Adicione um provedor LLM para conversar com o tutor IA.',
+  'chat.config_needed_llm_body':
+      'Adicione um provedor LLM para conversar com o tutor IA.',
   'chat.config_needed_stt_title': 'Reconhecimento de voz não configurado',
-  'chat.config_needed_stt_body': 'Adicione um provedor STT para usar o microfone.',
+  'chat.config_needed_stt_body':
+      'Adicione um provedor STT para usar o microfone.',
   'chat.config_needed_tts_title': 'Síntese de voz não configurada',
-  'chat.config_needed_tts_body': 'Adicione um provedor TTS para ouvir o tutor IA.',
-  'chat.offline_hint': 'Você está offline — voz e respostas IA indisponíveis. Histórico e revisão ainda funcionam.',
+  'chat.config_needed_tts_body':
+      'Adicione um provedor TTS para ouvir o tutor IA.',
+  'chat.offline_hint':
+      'Você está offline — voz e respostas IA indisponíveis. Histórico e revisão ainda funcionam.',
   'chat.pick_tutor': 'Escolher tutor',
   'chat.more_options': 'Mais opções',
   'chat.back_home': 'Voltar ao início',
@@ -1688,13 +1841,17 @@ const Map<String, String> _pt = {
   'chat.switch_to_voice': 'Mudar para voz',
   'chat.suggestion_title': 'Sugestões de gramática',
   'chat.session_summary_title': 'Resumo da sessão',
-  'chat.session_summary_body': '{msgCount} mensagens · {corrCount} correções · {minutes} min',
-  'chat.session_summary_encourage': 'Continue — cada vez que você fala, você melhora!',
-  'chat.session_summary_empty': 'Esta sessão ainda não tem conteúdo. Converse um pouco e volte para ver o resumo!',
+  'chat.session_summary_body':
+      '{msgCount} mensagens · {corrCount} correções · {minutes} min',
+  'chat.session_summary_encourage':
+      'Continue — cada vez que você fala, você melhora!',
+  'chat.session_summary_empty':
+      'Esta sessão ainda não tem conteúdo. Converse um pouco e volte para ver o resumo!',
   'settings.title': 'Configurações',
   'settings.services': 'Serviços',
   'settings.test_current_profile': 'Testar Profile atual',
-  'settings.test_current_profile_sub': 'Testar conexões LLM, STT, TTS de uma vez',
+  'settings.test_current_profile_sub':
+      'Testar conexões LLM, STT, TTS de uma vez',
   'settings.rerun_onboarding': 'Refazer onboarding',
   'settings.rerun_onboarding_sub': 'Reconfigurar provedores e chaves de API',
   'settings.test_running': 'Testando conexão…',
@@ -1731,10 +1888,12 @@ const Map<String, String> _pt = {
   'settings.tap_to_check': 'Toque para verificar',
   'settings.show_install_again': 'Mostrar banner de instalação',
   'settings.show_install_again_sub': 'Exibir novamente "Instalar SpeakFlow"',
-  'settings.install_will_show': 'O banner reaparecerá em breve. Recarregue a página se não aparecer.',
+  'settings.install_will_show':
+      'O banner reaparecerá em breve. Recarregue a página se não aparecer.',
   'settings.about': 'Sobre',
   'settings.version': 'Versão {version}',
-  'settings.new_version_in_banner': 'Nova versão {version} disponível — veja o banner no topo.',
+  'settings.new_version_in_banner':
+      'Nova versão {version} disponível — veja o banner no topo.',
   'settings.latest_version': 'Você está na versão mais recente.',
   'profile.new_title': 'Novo {title}',
   'profile.edit_title': 'Editar {title}',
@@ -1759,7 +1918,8 @@ const Map<String, String> _pt = {
   'profile.fill_api_key': 'Preencha a chave API',
   'profile.fill_base_url_and_key': 'Preencha URL base e chave API',
   'profile.no_models': 'Nenhum modelo retornado.',
-  'profile.no_voices': 'Nenhuma voz retornada. Você pode informar o ID manualmente.',
+  'profile.no_voices':
+      'Nenhuma voz retornada. Você pode informar o ID manualmente.',
   'profile.fetch_models_failed': 'Falha: {error}',
   'profile.fetch_voices_failed': 'Falha: {error}',
   'profile.connected': '✓ Conectado ({ms}ms{extra})',
@@ -1797,7 +1957,8 @@ const Map<String, String> _pt = {
   'home.review': 'Revisão',
   'home.progress': 'Progresso',
   'placement.title': 'Teste de nível',
-  'placement.subtitle': 'Responda algumas perguntas para avaliar seu nível de inglês.',
+  'placement.subtitle':
+      'Responda algumas perguntas para avaliar seu nível de inglês.',
   'placement.question': 'Pergunta {n} / {total}',
   'placement.complete': 'Concluir',
   'scenarios.title': 'Cenários',

@@ -9,9 +9,10 @@ import 'dart:convert';
 // Conditional import: web gets the real JS bridge, other platforms get
 // a stub. The chosen file exports the same `_VersionBridge` class.
 import 'version_bridge_stub.dart'
-    if (dart.library.js_interop) 'version_bridge_web.dart' as bridge;
+    if (dart.library.js_interop) 'version_bridge_web.dart'
+    as bridge;
 
-/// Bundled app version (from pubspec.yaml `version: 1.0.0+1`).
+/// Bundled app version (from pubspec.yaml `version: 1.0.1+2`).
 ///
 /// We expose it here as a constant rather than pulling in
 /// `package_info_plus` to keep the dependency surface small. The
@@ -20,7 +21,7 @@ import 'version_bridge_stub.dart'
 /// the client + server always agree).
 const String kAppVersion = String.fromEnvironment(
   'APP_VERSION',
-  defaultValue: '1.0.0+1',
+  defaultValue: '1.0.1+2',
 );
 
 /// State exposed by [VersionService].
@@ -173,13 +174,15 @@ class VersionService extends StateNotifier<VersionState> {
       final serverVersion = data['version'] as String? ?? '';
       final buildTimeStr = data['buildTime'] as String?;
       final commit = data['commit'] as String?;
-      final buildTime =
-          buildTimeStr != null ? DateTime.tryParse(buildTimeStr) : null;
+      final buildTime = buildTimeStr != null
+          ? DateTime.tryParse(buildTimeStr)
+          : null;
 
       // Don't re-show the banner for a version the user already dismissed.
       final prefs = await SharedPreferences.getInstance();
       final dismissed = prefs.getString(_prefLastDismissed);
-      final isNew = serverVersion.isNotEmpty &&
+      final isNew =
+          serverVersion.isNotEmpty &&
           compareVersions(serverVersion, kAppVersion) > 0 &&
           dismissed != serverVersion;
 
@@ -227,8 +230,10 @@ class VersionService extends StateNotifier<VersionState> {
       if (!completer.isCompleted) completer.complete();
     });
     bridge.VersionBridge.triggerSwUpdate();
-    await completer.future.timeout(const Duration(seconds: 8),
-        onTimeout: () {});
+    await completer.future.timeout(
+      const Duration(seconds: 8),
+      onTimeout: () {},
+    );
     if (_disposed) return;
     bridge.VersionBridge.forceReload();
   }
@@ -287,8 +292,8 @@ class VersionService extends StateNotifier<VersionState> {
 /// and screen pushes/pops.
 final versionServiceProvider =
     StateNotifierProvider<VersionService, VersionState>((ref) {
-  return VersionService();
-});
+      return VersionService();
+    });
 
 /// Convenience: true when *any* update signal is firing (server-version OR
 /// waiting SW) AND the user hasn't dismissed the SW signal this session.

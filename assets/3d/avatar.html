@@ -26,7 +26,11 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 // Override via ?avatar=<url> from the Dart side (per-tutor URL).
 const p = new URLSearchParams(location.search);
 const AVATAR_URL = p.get('avatar') ||
-  'https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb?morphTargets=ARKit,Oculus+Visemes&textureAtlas=1024';
+  // Keep the facial blendshapes needed for lip-sync, while halving geometry
+  // and texture pressure for phone-class GPUs. We deliberately do not request
+  // Draco here: the bundled loader has no Draco decoder and compatibility is
+  // more valuable than a slightly smaller first download.
+  'https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb?lod=1&textureAtlas=512&textureSizeLimit=512&textureFormat=webp&morphTargets=ARKit,Oculus+Visemes';
 const statusEl = document.getElementById('s');
 
 // ── Renderer / scene / camera ───────────────────────────────────────────

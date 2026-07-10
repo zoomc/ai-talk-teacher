@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:html' as html;
-import 'dart:js_util' as js_util;
 import 'dart:ui_web' show platformViewRegistry;
 
 import 'package:flutter/material.dart';
@@ -55,7 +54,10 @@ class AvatarHost {
     final cw = _iframe?.contentWindow;
     if (cw == null) return;
     try {
-      js_util.callMethod(cw as Object, 'eval', [expr]);
+      // dart:js_util is no longer available in current Flutter web builds.
+      // The iframe is same-origin, so its JS window can safely evaluate the
+      // bridge call through the browser's native eval method.
+      (cw as dynamic).eval(expr);
     } catch (_) {
       // Iframe not ready yet, or a rare cross-origin hiccup — ignore. The
       // next state change retries, and the painter fallback covers total
@@ -63,23 +65,27 @@ class AvatarHost {
     }
   }
 
-  void setState(String stateName) =>
-      _eval('window.speakflowAvatar&&window.speakflowAvatar.setState(${jsonEncode(stateName)})');
-  void setViseme(String visemeName) =>
-      _eval('window.speakflowAvatar&&window.speakflowAvatar.setViseme(${jsonEncode(visemeName)})');
-  void setGesture(String gestureName) =>
-      _eval('window.speakflowAvatar&&window.speakflowAvatar.setGesture(${jsonEncode(gestureName)})');
-  void setAudioLevel(double level) =>
-      _eval('window.speakflowAvatar&&window.speakflowAvatar.setAudioLevel($level)');
+  void setState(String stateName) => _eval(
+    'window.speakflowAvatar&&window.speakflowAvatar.setState(${jsonEncode(stateName)})',
+  );
+  void setViseme(String visemeName) => _eval(
+    'window.speakflowAvatar&&window.speakflowAvatar.setViseme(${jsonEncode(visemeName)})',
+  );
+  void setGesture(String gestureName) => _eval(
+    'window.speakflowAvatar&&window.speakflowAvatar.setGesture(${jsonEncode(gestureName)})',
+  );
+  void setAudioLevel(double level) => _eval(
+    'window.speakflowAvatar&&window.speakflowAvatar.setAudioLevel($level)',
+  );
 
   Future<bool> isReady() async {
     if (_disposed) return false;
     final cw = _iframe?.contentWindow;
     if (cw == null) return false;
     try {
-      final bridge = js_util.getProperty(cw as Object, 'speakflowAvatar');
+      final bridge = (cw as dynamic).speakflowAvatar;
       if (bridge == null) return false;
-      final r = js_util.callMethod(bridge, 'isReady', []);
+      final r = (bridge as dynamic).isReady();
       return r == true;
     } catch (_) {
       return false;

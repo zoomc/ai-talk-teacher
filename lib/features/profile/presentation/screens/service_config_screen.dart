@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../domain/profile_models.dart';
@@ -52,15 +53,15 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      backgroundColor:
-          isLight ? AppColors.lightBgPrimary : AppColors.bgPrimary,
+      backgroundColor: isLight ? AppColors.lightBgPrimary : AppColors.bgPrimary,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Service Configuration'),
+        title: Text(l.t('service.title')),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -81,94 +82,94 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                         _buildSectionHeader(
                           context,
                           '🧠',
-                          'AI Dialogue',
-                          'Chat completion model',
+                          l.t('service.llm_section'),
+                          l.t('service.llm_section_subtitle'),
                         ),
-                      const SizedBox(height: AppSpacing.sm),
-                      ..._llmProfiles.map(
-                        (p) => _buildProfileCard(
-                          context,
-                          type: 'llm',
-                          id: p.id,
-                          name: p.name,
-                          subtitle: '${p.model} • ${p.baseUrl}',
-                          isActive: p.isActive,
-                          onTap: () => _activateProfile('llm', p.id),
-                        ),
-                      ),
-                      _buildAddButton(context, 'llm'),
-
-                      const SizedBox(height: AppSpacing.xl),
-                      _buildSectionHeader(
-                        context,
-                        '🎤',
-                        'Speech Recognition (STT)',
-                        'Convert speech to text',
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      ..._sttProfiles.map(
-                        (p) => _buildProfileCard(
-                          context,
-                          type: 'stt',
-                          id: p.id,
-                          name: p.name,
-                          subtitle: p.providerDisplayName,
-                          isActive: p.isActive,
-                          onTap: () => _activateProfile('stt', p.id),
-                        ),
-                      ),
-                      _buildAddButton(context, 'stt'),
-
-                      const SizedBox(height: AppSpacing.xl),
-                      _buildSectionHeader(
-                        context,
-                        '🔊',
-                        'Text-to-Speech (TTS)',
-                        'Convert text to speech',
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      ..._ttsProfiles.map(
-                        (p) => _buildProfileCard(
-                          context,
-                          type: 'tts',
-                          id: p.id,
-                          name: p.name,
-                          subtitle:
-                              '${p.providerDisplayName}${p.voiceName != null ? ' • ${p.voiceName}' : ''}',
-                          isActive: p.isActive,
-                          onTap: () => _activateProfile('tts', p.id),
-                        ),
-                      ),
-                      _buildAddButton(context, 'tts'),
-
-                      const SizedBox(height: AppSpacing.xl),
-                      // Import/Export buttons
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _importProfiles,
-                              icon: const Icon(Icons.download),
-                              label: const Text('Import All'),
-                            ),
+                        const SizedBox(height: AppSpacing.sm),
+                        ..._llmProfiles.map(
+                          (p) => _buildProfileCard(
+                            context,
+                            type: 'llm',
+                            id: p.id,
+                            name: p.name,
+                            subtitle: '${p.model} • ${p.baseUrl}',
+                            isActive: p.isActive,
+                            onTap: () => _activateProfile('llm', p.id),
                           ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _exportProfiles,
-                              icon: const Icon(Icons.upload),
-                              label: const Text('Export All'),
-                            ),
+                        ),
+                        _buildAddButton(context, 'llm'),
+
+                        const SizedBox(height: AppSpacing.xl),
+                        _buildSectionHeader(
+                          context,
+                          '🎤',
+                          l.t('service.stt_section'),
+                          l.t('service.stt_section_subtitle'),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        ..._sttProfiles.map(
+                          (p) => _buildProfileCard(
+                            context,
+                            type: 'stt',
+                            id: p.id,
+                            name: p.name,
+                            subtitle: p.providerDisplayName,
+                            isActive: p.isActive,
+                            onTap: () => _activateProfile('stt', p.id),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xxl),
-                    ],
+                        ),
+                        _buildAddButton(context, 'stt'),
+
+                        const SizedBox(height: AppSpacing.xl),
+                        _buildSectionHeader(
+                          context,
+                          '🔊',
+                          l.t('service.tts_section'),
+                          l.t('service.tts_section_subtitle'),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        ..._ttsProfiles.map(
+                          (p) => _buildProfileCard(
+                            context,
+                            type: 'tts',
+                            id: p.id,
+                            name: p.name,
+                            subtitle:
+                                '${p.providerDisplayName}${p.voiceName != null ? ' • ${p.voiceName}' : ''}',
+                            isActive: p.isActive,
+                            onTap: () => _activateProfile('tts', p.id),
+                          ),
+                        ),
+                        _buildAddButton(context, 'tts'),
+
+                        const SizedBox(height: AppSpacing.xl),
+                        // Import/Export buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _importProfiles,
+                                icon: const Icon(Icons.download),
+                                label: Text(l.t('service.import_all')),
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _exportProfiles,
+                                icon: const Icon(Icons.upload),
+                                label: Text(l.t('service.export_all')),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.xxl),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
     );
   }
 
@@ -367,7 +368,10 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                           color: AppColors.error,
                         ),
                         SizedBox(width: AppSpacing.sm),
-                        Text('Delete', style: TextStyle(color: AppColors.error)),
+                        Text(
+                          'Delete',
+                          style: TextStyle(color: AppColors.error),
+                        ),
                       ],
                     ),
                   ),
@@ -428,10 +432,9 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
         await showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            backgroundColor:
-                Theme.of(context).brightness == Brightness.light
-                    ? AppColors.lightBgTertiary
-                    : AppColors.bgTertiary,
+            backgroundColor: Theme.of(context).brightness == Brightness.light
+                ? AppColors.lightBgTertiary
+                : AppColors.bgTertiary,
             title: const Text('Export Complete'),
             content: Text('Profiles exported to:\n${file.path}'),
             actions: [
@@ -457,10 +460,9 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor:
-            Theme.of(context).brightness == Brightness.light
-                ? AppColors.lightBgTertiary
-                : AppColors.bgTertiary,
+        backgroundColor: Theme.of(context).brightness == Brightness.light
+            ? AppColors.lightBgTertiary
+            : AppColors.bgTertiary,
         title: const Text('Import Profiles'),
         content: SizedBox(
           width: double.maxFinite,

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Practice-flow polish + cross-platform 3D compatibility — 2026-07-11
+
+- Put voice transcripts and the resulting improvement suggestions in the same
+  learner message bubble, rather than attaching corrections to the AI reply.
+- Added an iOS 26 liquid-glass conversation HUD with live tutor status and
+  voice-flow visibility.
+- Localized the core service configuration headers and actions.
+- Updated the mobile WebView integration to the current `webview_flutter`
+  navigation API and removed the obsolete web `dart:js_util` dependency.
+- Optimized the default Ready Player Me request for phone-class GPUs while
+  preserving ARKit/Oculus visemes.
+
 ### 3D virtual tutor + light/glass consistency + onboarding flow + voice chat flow
 
 Conducted a comprehensive pass addressing 5 user requirements: (1) unify all

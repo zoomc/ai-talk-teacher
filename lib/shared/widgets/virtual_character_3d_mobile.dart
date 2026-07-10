@@ -28,8 +28,12 @@ class AvatarHost {
     final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
-      ..setOnPageFinished((_) => _pageLoaded = true)
-      ..setOnWebResourceError((_) => onError?.call())
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) => _pageLoaded = true,
+          onWebResourceError: (_) => onError?.call(),
+        ),
+      )
       ..loadFlutterAsset(src);
     _controller = controller;
   }
@@ -46,14 +50,18 @@ class AvatarHost {
     }
   }
 
-  void setState(String stateName) =>
-      _run('window.speakflowAvatar&&window.speakflowAvatar.setState(${_js(stateName)})');
-  void setViseme(String visemeName) =>
-      _run('window.speakflowAvatar&&window.speakflowAvatar.setViseme(${_js(visemeName)})');
-  void setGesture(String gestureName) =>
-      _run('window.speakflowAvatar&&window.speakflowAvatar.setGesture(${_js(gestureName)})');
-  void setAudioLevel(double level) =>
-      _run('window.speakflowAvatar&&window.speakflowAvatar.setAudioLevel($level)');
+  void setState(String stateName) => _run(
+    'window.speakflowAvatar&&window.speakflowAvatar.setState(${_js(stateName)})',
+  );
+  void setViseme(String visemeName) => _run(
+    'window.speakflowAvatar&&window.speakflowAvatar.setViseme(${_js(visemeName)})',
+  );
+  void setGesture(String gestureName) => _run(
+    'window.speakflowAvatar&&window.speakflowAvatar.setGesture(${_js(gestureName)})',
+  );
+  void setAudioLevel(double level) => _run(
+    'window.speakflowAvatar&&window.speakflowAvatar.setAudioLevel($level)',
+  );
 
   Future<bool> isReady() async {
     if (_disposed || !_pageLoaded) return false;
