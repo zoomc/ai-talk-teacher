@@ -48,3 +48,16 @@ query；构建后将 `build/web/flutter_bootstrap.js` 的 `mainJsPath` 改为
 `main.dart.js?v=<release>`；然后确认公网带 query 的 `main.dart.js` 内容包含本次
 发布特征，并等待 5 分钟后用手机视口复测。入口资源保留 `no-cache`，其余大资源
 可长缓存。
+
+### 标准发布命令（必须使用）
+
+不要手工 rsync 或只刷新网页。每次发布严格执行：
+
+1. `./scripts/bump_web_release.sh 1.2.3+4`：统一所有版本标记和入口 query。
+2. 更新 `CHANGELOG.md`，提交并合并到 `main`。
+3. `./scripts/deploy_web.sh`：脚本会跑全量测试、构建、推送、原子发布、校验
+   线上入口链和 main bundle SHA-256，并等待 5 分钟后复查 `version.json`。
+
+脚本一旦发现版本标记不一致、CDN 返回的主 bundle 与本地构建 hash 不同、或入口
+资源不是 no-cache，会直接失败；不可跳过失败项。可用环境变量覆盖部署主机、目录、
+公共 URL 与等待时长，仅供测试环境使用。

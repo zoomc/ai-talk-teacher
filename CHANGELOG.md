@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   caches cannot serve an older app after deployment.
 - Versioned the bootstrap and Dart main-bundle URLs per release so an already
   cached stable filename cannot mask a newer deployment.
+- Added reproducible `bump_web_release.sh` and `deploy_web.sh` scripts which
+  guard all version markers, atomically deploy, prove public bundle hashes,
+  and wait for edge propagation before a release is declared successful.
 
 ### Chat-first tutor redesign — 2026-07-11
 
