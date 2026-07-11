@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Chat-first tutor redesign — 2026-07-11
+
+- Replaced the low-fidelity mobile avatar fallback with a dedicated,
+  high-fidelity tutor illustration and subtle breathing movement.
+- Restored chat as the dominant phone surface by reducing the hero height and
+  removing the duplicate practice-status card.
+- Changed voice input to press-and-hold: press to record, release to stop and
+  transcribe, with clear hold/release copy.
+
 ### Practice-flow polish + cross-platform 3D compatibility — 2026-07-11
 
 - Put voice transcripts and the resulting improvement suggestions in the same

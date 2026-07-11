@@ -348,19 +348,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
           ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.sm,
-            AppSpacing.md,
-            AppSpacing.xs,
-          ),
-          child: _PracticeContextCard(
-            state: _characterState,
-            voiceReady: _voiceConfigured,
-            continuousMode: _continuousMode,
-          ),
-        ),
         // Chat messages area — constrained on wide screens for readability.
         Expanded(
           child: Center(
@@ -1738,8 +1725,19 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar>
               message: isRecording
                   ? l.t('chat.stop_recording')
                   : l.t('chat.tap_to_record'),
-              child: GestureDetector(
-                onTap: isLoading ? null : widget.onRecordToggle,
+              child: Listener(
+                // WeChat-style voice interaction: recording only exists
+                // while the finger is held down; releasing immediately
+                // stops capture and begins transcription.
+                onPointerDown: isLoading || isRecording
+                    ? null
+                    : (_) => widget.onRecordToggle(),
+                onPointerUp: isLoading || !isRecording
+                    ? null
+                    : (_) => widget.onRecordToggle(),
+                onPointerCancel: isLoading || !isRecording
+                    ? null
+                    : (_) => widget.onRecordToggle(),
                 child: AnimatedBuilder(
                   animation: _pulseScale,
                   builder: (context, _) {
@@ -1780,7 +1778,7 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar>
                             Text(
                               isRecording
                                   ? l.t('chat.stop_recording')
-                                  : l.t('chat.tap_to_record'),
+                                  : l.t('chat.hold_to_talk'),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 17,
@@ -1800,7 +1798,7 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar>
           Text(
             isRecording
                 ? l.t('chat.stop_recording')
-                : l.t('chat.tap_to_record'),
+                : l.t('chat.release_to_send'),
             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
         ],
@@ -2237,43 +2235,22 @@ class _CharacterPanel extends StatelessWidget {
     );
 
     if (compact) {
-      // Mobile is an immersive tutor stage: the portrait owns the top of the
-      // screen, while chat naturally starts beneath it like the reference UI.
+      // Keep the tutor as a calm visual header, never a low-quality fallback
+      // that steals space from the actual conversation.
       return Container(
         height: panelHeight,
         margin: const EdgeInsets.fromLTRB(
           AppSpacing.sm,
           AppSpacing.xs,
           AppSpacing.sm,
-          0,
+          AppSpacing.xs,
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(AppRadius.xl),
           child: Stack(
             fit: StackFit.expand,
             children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [const Color(0xFFEAFBFF), AppColors.lightBgPrimary],
-                  ),
-                ),
-              ),
-              Positioned(
-                top: -90,
-                left: -70,
-                child: Container(
-                  width: 260,
-                  height: 260,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0x3322D3EE),
-                  ),
-                ),
-              ),
-              Center(child: labelled),
+              const _TutorHeroPortrait(),
               Positioned(
                 top: AppSpacing.md,
                 right: AppSpacing.sm,
@@ -2285,14 +2262,6 @@ class _CharacterPanel extends StatelessWidget {
                     SizedBox(height: AppSpacing.xs),
                     _StageIcon(icon: Icons.keyboard_arrow_up_rounded),
                   ],
-                ),
-              ),
-              Positioned(
-                left: AppSpacing.md,
-                bottom: AppSpacing.sm,
-                child: StatusPill(
-                  text: _stateLabel(context, state),
-                  color: AppColors.accentSecondary,
                 ),
               ),
             ],
@@ -2328,6 +2297,45 @@ class _StageIcon extends StatelessWidget {
     ),
     child: Icon(icon, size: 20, color: AppColors.lightTextPrimary),
   );
+}
+
+/// High-fidelity tutor artwork used while the production Live2D model is
+/// prepared. The slow vertical movement gives the header a subtle breathing
+/// quality without pretending that a flat fallback is a 3D model.
+class _TutorHeroPortrait extends StatefulWidget {
+  const _TutorHeroPortrait();
+  @override
+  State<_TutorHeroPortrait> createState() => _TutorHeroPortraitState();
+}
+
+class _TutorHeroPortraitState extends State<_TutorHeroPortrait>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 4200),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      child: Image.asset(
+        'assets/images/tutor-hero-v1.png',
+        fit: BoxFit.cover,
+        alignment: const Alignment(0, -0.22),
+      ),
+      builder: (_, child) => Transform.translate(
+        offset: Offset(0, -3 + _controller.value * 6),
+        child: child,
+      ),
+    );
+  }
 }
 
 /// A tiny status indicator shown in the AppBar when the character panel

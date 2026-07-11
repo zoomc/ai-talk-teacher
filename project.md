@@ -22,6 +22,10 @@ SpeakFlow 是一个 Flutter 多端 AI 英语口语练习应用，支持 Web、iO
 降低渲染频率。后续如需要用户自定义角色，可接 Ready Player Me Avatar Creator，
 持久化其 GLB URL。
 
+目前手机端优先展示高保真教师原画，并以轻微浮动作为稳定的过渡动效；生产级
+Live2D 需要定稿原画的分层 PSD 和 Cubism 绑定产物（`.moc3` / motions）。
+Live2D 方案可继续沿用现有 TTS 振幅流驱动口型。
+
 ## 发布（阿里云）
 
 - 线上地址：`https://zoomlab.top/talk/`

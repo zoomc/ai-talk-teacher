@@ -183,9 +183,9 @@ class Responsive {
     // Phone practice is a character-led stage, not a small utility strip.
     switch (breakpointOf(context)) {
       case Breakpoint.compact:
-        return 230;
+        return 132;
       case Breakpoint.medium:
-        return 270;
+        return 160;
       case Breakpoint.expanded:
         return 168;
     }
@@ -205,9 +205,9 @@ class Responsive {
     if (shouldUseSideBySide(context)) return double.infinity;
     switch (breakpointOf(context)) {
       case Breakpoint.compact:
-        return 292;
+        return 184;
       case Breakpoint.medium:
-        return 340;
+        return 208;
       case Breakpoint.expanded:
         return double.infinity;
     }
