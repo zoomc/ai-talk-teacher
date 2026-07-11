@@ -257,9 +257,14 @@ class Responsive {
     return 0.66;
   }
 
-  /// Whether the bottom navigation bar should be shown (phone only).
-  /// Tablets/desktops use the navigation rail.
+  /// Whether the bottom navigation bar should be shown.
+  ///
+  /// Phone portrait must be determined from its *usable width*, not its long
+  /// edge: a 390×844 iPhone has a long edge above 768 but is still a phone.
+  /// The old form-factor-only condition incorrectly rendered a desktop rail
+  /// and crushed the actual content into a narrow column.
   static bool useBottomNav(BuildContext context) =>
+      MediaQuery.sizeOf(context).width < 600 ||
       formFactorOf(context) == FormFactor.phone;
 
   /// Whether to render the side navigation rail.

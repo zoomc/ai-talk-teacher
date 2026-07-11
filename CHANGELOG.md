@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phone navigation regression — 2026-07-11
+
+- Fixed 390px phone viewports being incorrectly classified as tablets solely
+  because their portrait height exceeds 768px; phone now always uses the
+  bottom navigation and preserves the usable content width.
+
 ### Reliable web updates — 2026-07-11
 
 - Fixed the PWA update action to unregister stale service workers and clear

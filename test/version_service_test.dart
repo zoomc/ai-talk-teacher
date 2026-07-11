@@ -110,7 +110,7 @@ void main() {
     test('matches expected default format', () {
       // Default comes from String.fromEnvironment; without --dart-define
       // we get the defaultValue '1.0.3+4'.
-      expect(kAppVersion, '1.0.3+4');
+      expect(kAppVersion, '1.0.4+5');
     });
   });
 }

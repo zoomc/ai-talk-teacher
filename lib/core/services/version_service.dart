@@ -12,7 +12,7 @@ import 'version_bridge_stub.dart'
     if (dart.library.js_interop) 'version_bridge_web.dart'
     as bridge;
 
-/// Bundled app version (from pubspec.yaml `version: 1.0.3+4`).
+/// Bundled app version (from pubspec.yaml `version: 1.0.4+5`).
 ///
 /// We expose it here as a constant rather than pulling in
 /// `package_info_plus` to keep the dependency surface small. The
@@ -21,7 +21,7 @@ import 'version_bridge_stub.dart'
 /// the client + server always agree).
 const String kAppVersion = String.fromEnvironment(
   'APP_VERSION',
-  defaultValue: '1.0.3+4',
+  defaultValue: '1.0.4+5',
 );
 
 /// State exposed by [VersionService].
