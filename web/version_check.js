@@ -101,25 +101,26 @@
       if (waitingSW) {
         try { waitingSW.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
       }
-      // Hard reload after a short tick so the message has time to land.
-      setTimeout(function () {
-        // Cache-bust via a query param the first time; on the reloaded
-        // page the param will already be present, so we strip it (via
-        // history.replaceState) and then reload without the deprecated
-        // `forceReload` argument (which modern browsers ignore anyway).
-        if (location.search.indexOf('sf_refresh=') === -1) {
-          var sep = location.search.length === 0 ? '?' : '&';
-          var newSearch = location.search + sep + 'sf_refresh=' + Date.now();
-          location.search = newSearch;
-        } else {
-          // Already cache-busted once — clean the URL and reload plainly.
-          try {
-            var clean = location.pathname + location.hash;
-            history.replaceState(null, '', clean);
-          } catch (e) { /* ignore */ }
-          location.reload();
-        }
-      }, 250);
+      // Updating must be deterministic. Older Flutter service workers can
+      // retain a stable-named main.dart.js even when a server-version check
+      // says a newer release exists. Remove every controlling SW and its
+      // Cache Storage before navigating to a one-off cache-busted URL.
+      var clear = [];
+      if ('serviceWorker' in navigator) {
+        clear.push(navigator.serviceWorker.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (reg) { return reg.unregister(); }));
+        }).catch(function () {}));
+      }
+      if ('caches' in global) {
+        clear.push(caches.keys().then(function (keys) {
+          return Promise.all(keys.map(function (key) { return caches.delete(key); }));
+        }).catch(function () {}));
+      }
+      Promise.all(clear).then(function () {
+        var sep = location.search.length === 0 ? '?' : '&';
+        location.replace(location.pathname + location.search + sep +
+          'sf_refresh=' + Date.now() + location.hash);
+      });
     },
     triggerSwUpdate: function () {
       if (!('serviceWorker' in navigator)) return;

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Reliable web updates — 2026-07-11
+
+- Fixed the PWA update action to unregister stale service workers and clear
+  Cache Storage before navigating to a cache-busted release URL.
+- Configured no-cache server headers for Flutter entry resources (`index.html`,
+  bootstrap, worker, version manifest, and stable-named main bundle) so CDN
+  caches cannot serve an older app after deployment.
+
 ### Chat-first tutor redesign — 2026-07-11
 
 - Replaced the low-fidelity mobile avatar fallback with a dedicated,

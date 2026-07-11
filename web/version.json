@@ -1,6 +1,6 @@
 {
-  "version": "1.0.2+3",
+  "version": "1.0.3+4",
   "buildTime": "2026-07-11T00:00:00Z",
   "commit": "pending",
-  "notes": "Calmer high-fidelity tutor portrait, chat-first mobile layout, and press-and-hold voice recording."
+  "notes": "Reliable one-tap update: clears stale service workers and cached app shells before reloading."
 }
