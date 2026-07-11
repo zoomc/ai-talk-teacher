@@ -39,3 +39,12 @@ Live2D 方案可继续沿用现有 TTS 振幅流驱动口型。
 
 部署不需要重启 nginx，因为仅更新静态资源。发布前必须更新 `web/version.json`，
 否则已打开的 PWA 无法可靠显示更新提示。
+
+### 必经发布校验
+
+Flutter Web 的 `main.dart.js` 文件名稳定，Cloudflare 可能已缓存旧文件。因此每次
+发布必须：更新 `pubspec.yaml`、`web/version.json` 和 `web/index.html` 中的 release
+query；构建后将 `build/web/flutter_bootstrap.js` 的 `mainJsPath` 改为
+`main.dart.js?v=<release>`；然后确认公网带 query 的 `main.dart.js` 内容包含本次
+发布特征，并等待 5 分钟后用手机视口复测。入口资源保留 `no-cache`，其余大资源
+可长缓存。

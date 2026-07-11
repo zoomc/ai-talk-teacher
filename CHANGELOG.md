@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Configured no-cache server headers for Flutter entry resources (`index.html`,
   bootstrap, worker, version manifest, and stable-named main bundle) so CDN
   caches cannot serve an older app after deployment.
+- Versioned the bootstrap and Dart main-bundle URLs per release so an already
+  cached stable filename cannot mask a newer deployment.
 
 ### Chat-first tutor redesign — 2026-07-11
 
