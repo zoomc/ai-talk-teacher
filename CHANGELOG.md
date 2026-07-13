@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Unified 2D tutor stage and responsive voice polish — 2026-07-13
+
+- Unified desktop and phone chat around the same high-fidelity 2D tutor
+  artwork, removing the inconsistent desktop 3D/WebView avatar.
+- Added text-viseme-driven mouth movement while TTS is playing, plus a clear
+  live tutor state indicator; automatic AI-reply playback remains enabled.
+- Fixed phone quick actions to use viewport width rather than the device long
+  edge, restoring a readable single-column card layout on 390px-class phones.
+- Localized the phone bottom-navigation labels and all quick-action titles and
+  descriptions.
+- Hardened press-and-hold recording so a quick finger release during mic
+  start-up reliably stops and transcribes instead of leaving recording active.
+
 ### Phone navigation regression — 2026-07-11
 
 - Fixed 390px phone viewports being incorrectly classified as tablets solely

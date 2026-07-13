@@ -12,7 +12,6 @@ import '../../../../core/services/connectivity_check.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/widgets/virtual_character.dart';
-import '../../../../shared/widgets/virtual_character_3d.dart';
 import '../../../../shared/providers.dart';
 import '../../data/llm_service.dart';
 import '../../data/stt_service.dart';
@@ -269,7 +268,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       tutorName: _tutorName,
                       tutorAvatar: _tutorAvatar,
                       speakingText: _speakingText,
-                      audioLevelStream: _ttsPlaybackService.amplitudeStream,
                       panelWidth: Responsive.sidePanelWidth(context),
                     ),
                     const VerticalDivider(
@@ -289,7 +287,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       tutorName: _tutorName,
                       tutorAvatar: _tutorAvatar,
                       speakingText: _speakingText,
-                      audioLevelStream: _ttsPlaybackService.amplitudeStream,
                       panelHeight: Responsive.characterPanelHeight(context),
                       compact: true,
                     ),
@@ -1570,7 +1567,7 @@ class _ChatInputBar extends ConsumerStatefulWidget {
   final bool isLoading;
   final bool continuousMode;
   final VoidCallback onSend;
-  final VoidCallback onRecordToggle;
+  final Future<void> Function() onRecordToggle;
   final ValueChanged<bool> onToggleContinuous;
 
   const _ChatInputBar({
@@ -1591,6 +1588,7 @@ class _ChatInputBar extends ConsumerStatefulWidget {
 class _ChatInputBarState extends ConsumerState<_ChatInputBar>
     with SingleTickerProviderStateMixin {
   _InputMode _inputMode = _InputMode.voice;
+  bool _voicePointerDown = false;
 
   // Scale pulse for the big voice-mode mic button while recording.
   late final AnimationController _pulseController;
@@ -1702,10 +1700,9 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar>
     );
   }
 
-  /// Voice-default mode: one large centered mic button. Tapping starts
-  /// recording; tapping again stops → STT → transcript is filled into the
-  /// (hidden) controller and auto-sent via [_handleRecordToggle] →
-  /// [_handleSend]. The button turns red and pulses while recording.
+  /// Voice-default mode: hold to record and release to transcribe. Keeping a
+  /// local pointer flag closes the async race where a quick release used to
+  /// arrive before the parent rebuilt with `isRecording == true`.
   Widget _buildVoiceInput(AppLocalizations l) {
     final isRecording = widget.isRecording;
     final isLoading = widget.isLoading;
@@ -1726,18 +1723,30 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar>
                   ? l.t('chat.stop_recording')
                   : l.t('chat.tap_to_record'),
               child: Listener(
-                // WeChat-style voice interaction: recording only exists
-                // while the finger is held down; releasing immediately
-                // stops capture and begins transcription.
                 onPointerDown: isLoading || isRecording
                     ? null
-                    : (_) => widget.onRecordToggle(),
-                onPointerUp: isLoading || !isRecording
+                    : (_) async {
+                        _voicePointerDown = true;
+                        await widget.onRecordToggle();
+                        // The user may have released during microphone
+                        // permission/start-up. Stop immediately once capture
+                        // actually starts, rather than leaving a hot mic.
+                        if (!_voicePointerDown && mounted) {
+                          await widget.onRecordToggle();
+                        }
+                      },
+                onPointerUp: isLoading
                     ? null
-                    : (_) => widget.onRecordToggle(),
-                onPointerCancel: isLoading || !isRecording
+                    : (_) async {
+                        _voicePointerDown = false;
+                        if (widget.isRecording) await widget.onRecordToggle();
+                      },
+                onPointerCancel: isLoading
                     ? null
-                    : (_) => widget.onRecordToggle(),
+                    : (_) async {
+                        _voicePointerDown = false;
+                        if (widget.isRecording) await widget.onRecordToggle();
+                      },
                 child: AnimatedBuilder(
                   animation: _pulseScale,
                   builder: (context, _) {
@@ -1834,7 +1843,7 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar>
                 : l.t('chat.tap_to_record'),
             child: _RecordButton(
               isRecording: isRecording,
-              onTap: isLoading ? null : widget.onRecordToggle,
+              onTap: isLoading ? null : () => widget.onRecordToggle(),
             ),
           ),
         ),
@@ -2171,10 +2180,6 @@ class _CharacterPanel extends StatelessWidget {
   /// VirtualCharacter for lip-sync. Null when not speaking.
   final String? speakingText;
 
-  /// TTS amplitude stream forwarded to the 3D avatar for audio-driven
-  /// lip-sync (blended onto jawOpen on top of the text viseme).
-  final Stream<double>? audioLevelStream;
-
   /// Wide-layout only: forces a fixed column width.
   final double? panelWidth;
 
@@ -2189,7 +2194,6 @@ class _CharacterPanel extends StatelessWidget {
     required this.tutorName,
     required this.tutorAvatar,
     this.speakingText,
-    this.audioLevelStream,
     this.panelWidth,
     this.panelHeight,
     this.compact = false,
@@ -2214,16 +2218,10 @@ class _CharacterPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = Responsive.characterSize(context) * (compact ? 0.8 : 1.0);
-
-    final child = VirtualCharacter3D(
+    final child = _TutorLive2DPortrait(
       tutorName: tutorName,
-      tutorAvatar: tutorAvatar,
       state: state,
-      size: size,
-      showLabel: !compact,
       speakingText: speakingText,
-      audioLevelStream: audioLevelStream,
     );
 
     // Live region: screen readers announce state changes (e.g. "Thinking",
@@ -2250,7 +2248,7 @@ class _CharacterPanel extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              const _TutorHeroPortrait(),
+              Positioned.fill(child: labelled),
               Positioned(
                 top: AppSpacing.md,
                 right: AppSpacing.sm,
@@ -2277,7 +2275,10 @@ class _CharacterPanel extends StatelessWidget {
       child: GlassCard(
         glowColor: AppColors.accentPrimary,
         padding: EdgeInsets.zero,
-        child: Center(child: labelled),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          child: labelled,
+        ),
       ),
     );
   }
@@ -2299,40 +2300,199 @@ class _StageIcon extends StatelessWidget {
   );
 }
 
-/// High-fidelity tutor artwork used while the production Live2D model is
-/// prepared. The slow vertical movement gives the header a subtle breathing
-/// quality without pretending that a flat fallback is a 3D model.
-class _TutorHeroPortrait extends StatefulWidget {
-  const _TutorHeroPortrait();
+/// Shared 2D tutor stage for phone and desktop.
+///
+/// The artwork stays visually identical across form factors. While TTS is
+/// playing, an animated mouth layer follows the reply's text visemes; this is
+/// deliberately driven by the same `speakingText` that triggers audio, so the
+/// tutor never appears to talk when no voice is playing.
+class _TutorLive2DPortrait extends StatefulWidget {
+  final String tutorName;
+  final CharacterState state;
+  final String? speakingText;
+
+  const _TutorLive2DPortrait({
+    required this.tutorName,
+    required this.state,
+    this.speakingText,
+  });
+
   @override
-  State<_TutorHeroPortrait> createState() => _TutorHeroPortraitState();
+  State<_TutorLive2DPortrait> createState() => _TutorLive2DPortraitState();
 }
 
-class _TutorHeroPortraitState extends State<_TutorHeroPortrait>
+class _TutorLive2DPortraitState extends State<_TutorLive2DPortrait>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 4200),
   )..repeat(reverse: true);
+  Timer? _visemeTimer;
+  int _visemeIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncLipAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TutorLive2DPortrait oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state != widget.state ||
+        oldWidget.speakingText != widget.speakingText) {
+      _syncLipAnimation();
+    }
+  }
+
+  void _syncLipAnimation() {
+    _visemeTimer?.cancel();
+    _visemeIndex = 0;
+    final text = widget.speakingText;
+    if (widget.state != CharacterState.speaking ||
+        text == null ||
+        text.isEmpty) {
+      if (mounted) setState(() {});
+      return;
+    }
+    _visemeTimer = Timer.periodic(const Duration(milliseconds: 92), (_) {
+      if (!mounted) return;
+      setState(() => _visemeIndex = (_visemeIndex + 1) % text.length);
+    });
+  }
 
   @override
   void dispose() {
     _controller.dispose();
+    _visemeTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final text = widget.speakingText ?? '';
+    final isSpeaking =
+        widget.state == CharacterState.speaking && text.isNotEmpty;
+    final viseme = isSpeaking
+        ? VirtualCharacter.visemeForChar(text, _visemeIndex)
+        : Viseme.closed;
     return AnimatedBuilder(
       animation: _controller,
-      child: Image.asset(
-        'assets/images/tutor-hero-v1.png',
-        fit: BoxFit.cover,
-        alignment: const Alignment(0, -0.22),
+      builder: (_, _) => Stack(
+        fit: StackFit.expand,
+        children: [
+          Transform.translate(
+            offset: Offset(0, -3 + _controller.value * 6),
+            child: Transform.scale(
+              scale: isSpeaking ? 1.012 : 1,
+              child: Image.asset(
+                'assets/images/tutor-hero-v1.png',
+                fit: BoxFit.cover,
+                alignment: const Alignment(0, -0.22),
+              ),
+            ),
+          ),
+          if (isSpeaking)
+            Align(
+              alignment: const Alignment(0.10, 0.10),
+              child: _TutorMouthOverlay(viseme: viseme),
+            ),
+          Positioned(
+            left: AppSpacing.md,
+            bottom: AppSpacing.md,
+            child: _TutorStageStatus(
+              name: widget.tutorName,
+              state: widget.state,
+            ),
+          ),
+        ],
       ),
-      builder: (_, child) => Transform.translate(
-        offset: Offset(0, -3 + _controller.value * 6),
-        child: child,
+    );
+  }
+}
+
+class _TutorStageStatus extends StatelessWidget {
+  final String name;
+  final CharacterState state;
+  const _TutorStageStatus({required this.name, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final (label, color) = switch (state) {
+      CharacterState.idle => (l.t('chat.ready'), AppColors.accentPrimary),
+      CharacterState.listening => (
+        l.t('chat.listening'),
+        AppColors.accentSecondary,
+      ),
+      CharacterState.thinking => (l.t('chat.thinking'), AppColors.warning),
+      CharacterState.speaking => (l.t('chat.speaking'), AppColors.success),
+    };
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(AppRadius.full),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              '$name · $label',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TutorMouthOverlay extends StatelessWidget {
+  final Viseme viseme;
+  const _TutorMouthOverlay({required this.viseme});
+
+  @override
+  Widget build(BuildContext context) {
+    final rounded = {
+      Viseme.roundedSmall,
+      Viseme.roundedLarge,
+      Viseme.pucker,
+    }.contains(viseme);
+    final wide = {
+      Viseme.wideOpen,
+      Viseme.wide,
+      Viseme.wideFlat,
+      Viseme.smileOpen,
+    }.contains(viseme);
+    final open = {
+      Viseme.mediumOpen,
+      Viseme.wideOpen,
+      Viseme.roundedLarge,
+      Viseme.oval,
+      Viseme.openTeeth,
+    }.contains(viseme);
+    final width = rounded ? 18.0 : (wide ? 36.0 : 28.0);
+    final height = open ? 12.0 : 6.0;
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color(0xFF9B3F58).withValues(alpha: open ? 0.75 : 0.5),
+        borderRadius: BorderRadius.circular(AppRadius.full),
+        border: Border.all(
+          color: const Color(0xFFE997AD).withValues(alpha: 0.45),
+        ),
       ),
     );
   }

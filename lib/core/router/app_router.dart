@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/i18n/app_localizations.dart';
 import '../../core/util/responsive.dart';
 import '../../features/chat/presentation/screens/home_screen.dart';
 import '../../features/chat/presentation/screens/chat_screen.dart';
@@ -171,26 +172,26 @@ class MainShell extends StatelessWidget {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _calculateSelectedIndex(context),
         onDestinationSelected: (index) => _onItemTapped(index, context),
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: 'Practice',
+            icon: const Icon(Icons.chat_bubble_outline),
+            selectedIcon: const Icon(Icons.chat_bubble),
+            label: AppLocalizations.of(context).t('nav.practice'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.grid_view_outlined),
-            selectedIcon: Icon(Icons.grid_view),
-            label: 'Scenarios',
+            icon: const Icon(Icons.grid_view_outlined),
+            selectedIcon: const Icon(Icons.grid_view),
+            label: AppLocalizations.of(context).t('nav.scenarios'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.refresh_outlined),
-            selectedIcon: Icon(Icons.refresh),
-            label: 'Review',
+            icon: const Icon(Icons.refresh_outlined),
+            selectedIcon: const Icon(Icons.refresh),
+            label: AppLocalizations.of(context).t('nav.review'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings),
+            label: AppLocalizations.of(context).t('nav.settings'),
           ),
         ],
       ),

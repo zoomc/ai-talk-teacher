@@ -229,10 +229,11 @@ class Responsive {
   /// Adds an expanded-tablet tier so iPads in landscape get 3 columns
   /// and iPad Pro / desktop gets 4.
   static int gridColumnCount(BuildContext context) {
-    final ff = formFactorOf(context);
     final w = MediaQuery.sizeOf(context).width;
-    if (ff == FormFactor.desktop || w >= 1400) return 4;
-    if (ff == FormFactor.tablet || w >= 900) return 3;
+    // Grid density is determined by usable *width*. A 390×844 phone has a
+    // tablet-sized long edge, but still only has room for one readable card.
+    if (w >= 1400) return 4;
+    if (w >= 900) return 3;
     if (w >= 600) return 2;
     return 1;
   }

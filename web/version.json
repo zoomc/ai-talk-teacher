@@ -1,5 +1,5 @@
 {
-  "version": "1.0.4+5",
+  "version": "1.0.5+6",
   "buildTime": "2026-07-11T00:00:00Z",
   "commit": "pending",
   "notes": "Reliable one-tap update: clears stale service workers and cached app shells before reloading."

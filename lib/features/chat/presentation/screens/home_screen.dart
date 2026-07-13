@@ -54,10 +54,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-            gradient:
-                Theme.of(context).brightness == Brightness.light
-                    ? AppColors.lightGradientBg
-                    : AppColors.gradientBg),
+          gradient: Theme.of(context).brightness == Brightness.light
+              ? AppColors.lightGradientBg
+              : AppColors.gradientBg,
+        ),
         child: SafeArea(
           child: Center(
             // Constrain content on wide screens so cards / text stay
@@ -301,7 +301,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     add(
       icon: Icons.chat_bubble_outline,
       title: l.t('home.free_talk'),
-      subtitle: 'Start a conversation about anything',
+      subtitle: l.t('home.free_talk_subtitle'),
       color: AppColors.accentPrimary,
       onTap: () => _startNewSession(context),
       delayMs: 300,
@@ -309,7 +309,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     add(
       icon: Icons.grid_view,
       title: l.t('home.scenarios'),
-      subtitle: 'Practice real-life situations',
+      subtitle: l.t('home.scenarios_subtitle'),
       color: AppColors.accentSecondary,
       onTap: () => context.go('/scenarios'),
       delayMs: 450,
@@ -317,7 +317,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     add(
       icon: Icons.refresh,
       title: l.t('home.review'),
-      subtitle: 'Practice your weak points',
+      subtitle: l.t('home.review_subtitle'),
       color: AppColors.success,
       onTap: () => context.go('/review'),
       delayMs: 600,
@@ -325,15 +325,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     add(
       icon: Icons.bar_chart,
       title: l.t('home.progress'),
-      subtitle: 'View your statistics and achievements',
+      subtitle: l.t('home.progress_subtitle'),
       color: AppColors.warning,
       onTap: () => context.push('/progress'),
       delayMs: 750,
     );
     add(
       icon: Icons.history,
-      title: 'Chat History',
-      subtitle: 'Browse past conversations',
+      title: l.t('home.history'),
+      subtitle: l.t('home.history_subtitle'),
       color: AppColors.info,
       onTap: () => context.push('/history'),
       delayMs: 900,
@@ -371,8 +371,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           spacing: AppSpacing.md,
           runSpacing: AppSpacing.md,
           children: [
-            for (final a in actions)
-              SizedBox(width: cellWidth, child: a),
+            for (final a in actions) SizedBox(width: cellWidth, child: a),
           ],
         );
       },
@@ -391,10 +390,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor:
-            Theme.of(context).brightness == Brightness.light
-                ? AppColors.lightBgSecondary
-                : AppColors.bgTertiary,
+        backgroundColor: Theme.of(context).brightness == Brightness.light
+            ? AppColors.lightBgSecondary
+            : AppColors.bgTertiary,
         title: const Text('Welcome back!'),
         content: Text(
           'Continue your conversation about "${session.topic ?? 'Free Talk'}" or start a new topic?',
@@ -476,6 +474,7 @@ class _QuickActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GlassCard(
       onTap: onTap,
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Row(
         children: [
           Container(
