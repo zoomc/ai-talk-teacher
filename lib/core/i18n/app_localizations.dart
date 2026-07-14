@@ -479,6 +479,7 @@ const Map<String, String> _zh = {
   'health.all_passed': '一切就绪，可以开始对话了！',
   'health.some_failed': '部分检查未通过，语音对话可能受影响。',
   'health.recheck': '重新检查',
+  'health.check_failed': '检查失败，请稍后重试。',
 
   // ── Phase-1 P0 #3: sentence-by-sentence practice ──────────────────
   'practice.title': '逐句练习',
@@ -493,6 +494,7 @@ const Map<String, String> _zh = {
   'practice.done': '完成练习',
   'practice.empty': '暂无可练习的句子，先去对话中积累纠错吧。',
   'practice.tap_demo': '点击播放 AI 示范朗读',
+  'practice.error': '练习出错，请稍后重试。',
 
   // ── Phase-1 P0 #5: post-class summary ─────────────────────────────
   'summary.title': '课后小结',
@@ -907,6 +909,7 @@ const Map<String, String> _en = {
   'health.all_passed': 'All good — ready to talk!',
   'health.some_failed': 'Some checks failed. Voice chat may be affected.',
   'health.recheck': 'Re-check',
+  'health.check_failed': 'Check failed. Please retry.',
 
   // Phase-1 P0 #3: sentence practice
   'practice.title': 'Sentence Practice',
@@ -921,6 +924,7 @@ const Map<String, String> _en = {
   'practice.done': 'Done',
   'practice.empty': 'No sentences to practice yet — collect corrections in a chat first.',
   'practice.tap_demo': 'Tap to play the AI demo',
+  'practice.error': 'Practice error. Please retry.',
 
   // Phase-1 P0 #5: summary
   'summary.title': 'Session Summary',

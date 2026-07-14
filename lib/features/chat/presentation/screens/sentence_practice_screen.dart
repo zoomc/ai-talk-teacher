@@ -121,7 +121,8 @@ class _SentencePracticeScreenState
         () => tts.synthesize(_current!.corrected),
       );
     } catch (e) {
-      _snack(_safeError(e));
+      debugPrint('practice playDemo failed: $e');
+      _snack(_l.t('practice.error'));
     } finally {
       _setPhase(VoicePhase.idle);
       if (mounted) setState(() => _busy = false);
@@ -160,7 +161,8 @@ class _SentencePracticeScreenState
       final transcript = await stt.transcribe(bytes);
       if (mounted) setState(() => _userSaid = transcript.trim());
     } catch (e) {
-      _snack(_safeError(e));
+      debugPrint('practice readAlong failed: $e');
+      _snack(_l.t('practice.error'));
     } finally {
       _setPhase(VoicePhase.idle);
       if (mounted) setState(() => _busy = false);
@@ -191,10 +193,17 @@ class _SentencePracticeScreenState
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
+    final lowBandwidth = ref.watch(lowBandwidthProvider);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          gradient: isLight ? AppColors.lightGradientBg : AppColors.gradientBg,
+          // P0 #8 — flat color in low-bandwidth mode.
+          color: lowBandwidth
+              ? (isLight ? AppColors.lightFlatBg : AppColors.darkFlatBg)
+              : null,
+          gradient: lowBandwidth
+              ? null
+              : (isLight ? AppColors.lightGradientBg : AppColors.gradientBg),
         ),
         child: SafeArea(
           child: Center(
@@ -443,10 +452,5 @@ class _SentencePracticeScreenState
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(msg)));
-  }
-
-  String _safeError(Object e) {
-    final s = e.toString();
-    return s.length > 160 ? '${s.substring(0, 160)}…' : s;
   }
 }

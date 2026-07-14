@@ -45,13 +45,20 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final lowBandwidth = ref.watch(lowBandwidthProvider);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-            gradient:
-                Theme.of(context).brightness == Brightness.light
+            // P0 #8 — flat color in low-bandwidth mode.
+            color: lowBandwidth
+                ? (isLight ? AppColors.lightFlatBg : AppColors.darkFlatBg)
+                : null,
+            gradient: lowBandwidth
+                ? null
+                : (isLight
                     ? AppColors.lightGradientBg
-                    : AppColors.gradientBg),
+                    : AppColors.gradientBg)),
         child: SafeArea(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())

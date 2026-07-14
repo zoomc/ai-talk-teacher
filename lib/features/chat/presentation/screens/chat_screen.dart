@@ -279,6 +279,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     //   - stacked (default): phone portrait → character panel above chat.
     final sideBySide = Responsive.shouldUseSideBySide(context);
     final hidePanel = Responsive.shouldHideStackedCharacterPanel(context);
+    // Phase-1 P0 #8 — in low-bandwidth mode the 3D/Live2D avatar panel is
+    // dropped entirely (it's the heaviest GPU consumer). The AppBar status
+    // dot still surfaces listening/thinking/speaking so the user gets
+    // feedback without the avatar.
+    final lowBandwidth = ref.watch(lowBandwidthProvider);
+    final dropPanel = hidePanel || lowBandwidth;
 
     // Wrap the Scaffold in a Focus node so hardware-key events (Esc to
     // cancel recording) are caught at the screen level even when the text
@@ -312,7 +318,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             // tutor's listening/thinking/speaking state can surface — show
             // a small status dot so the user still gets feedback when the
             // character panel is hidden.
-            if (hidePanel)
+            if (dropPanel)
               Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.sm),
                 child: _AppBarStatusDot(state: _characterState),
@@ -342,7 +348,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         resizeToAvoidBottomInset: true,
         body: SafeArea(
           top: false,
-          child: sideBySide
+          child: sideBySide && !lowBandwidth
               ? Row(
                   children: [
                     _CharacterPanel(
@@ -359,8 +365,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Expanded(child: _chatColumn(context)),
                   ],
                 )
-              : hidePanel
-              // Short landscape phone: chat fills the whole body.
+              : dropPanel
+              // Short landscape phone OR low-bandwidth mode: chat fills the
+              // whole body, no avatar panel.
               ? _chatColumn(context)
               : Column(
                   children: [

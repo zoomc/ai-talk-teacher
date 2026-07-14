@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:record/record.dart';
@@ -52,12 +53,17 @@ class _VoiceHealthScreenState extends ConsumerState<VoiceHealthScreen> {
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
+    final lowBandwidth = ref.watch(lowBandwidthProvider);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          gradient: isLight
-              ? AppColors.lightGradientBg
-              : AppColors.gradientBg,
+          // P0 #8 — flat color in low-bandwidth mode.
+          color: lowBandwidth
+              ? (isLight ? AppColors.lightFlatBg : AppColors.darkFlatBg)
+              : null,
+          gradient: lowBandwidth
+              ? null
+              : (isLight ? AppColors.lightGradientBg : AppColors.gradientBg),
         ),
         child: SafeArea(
           child: Center(
@@ -250,8 +256,9 @@ class _VoiceHealthScreenState extends ConsumerState<VoiceHealthScreen> {
           granted ? _l.t('health.mic_granted') : _l.t('health.mic_denied'),
         ));
       } catch (e) {
+        debugPrint('voice_health mic check failed: $e');
         setState(() => _mic =
-            _CheckResult(_CheckStatus.fail, _safeError(e)));
+            _CheckResult(_CheckStatus.fail, _l.t('health.check_failed')));
       }
 
       // 2. Network.
@@ -267,8 +274,9 @@ class _VoiceHealthScreenState extends ConsumerState<VoiceHealthScreen> {
           online ? _l.t('health.ok') : _l.t('health.fail'),
         ));
       } catch (e) {
+        debugPrint('voice_health network check failed: $e');
         setState(() => _network =
-            _CheckResult(_CheckStatus.fail, _safeError(e)));
+            _CheckResult(_CheckStatus.fail, _l.t('health.check_failed')));
       }
 
       // 3. STT.
@@ -290,8 +298,9 @@ class _VoiceHealthScreenState extends ConsumerState<VoiceHealthScreen> {
           ));
         }
       } catch (e) {
+        debugPrint('voice_health stt check failed: $e');
         setState(() => _stt =
-            _CheckResult(_CheckStatus.fail, _safeError(e)));
+            _CheckResult(_CheckStatus.fail, _l.t('health.check_failed')));
       }
 
       // 4. TTS.
@@ -313,17 +322,13 @@ class _VoiceHealthScreenState extends ConsumerState<VoiceHealthScreen> {
           ));
         }
       } catch (e) {
+        debugPrint('voice_health tts check failed: $e');
         setState(() => _tts =
-            _CheckResult(_CheckStatus.fail, _safeError(e)));
+            _CheckResult(_CheckStatus.fail, _l.t('health.check_failed')));
       }
     } finally {
       if (mounted) setState(() => _isRunning = false);
     }
-  }
-
-  String _safeError(Object e) {
-    final s = e.toString();
-    return s.length > 160 ? '${s.substring(0, 160)}…' : s;
   }
 }
 

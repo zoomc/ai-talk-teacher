@@ -113,7 +113,8 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
         () => tts.synthesize(sentence),
       );
     } catch (e) {
-      _snack(_safeError(e));
+      debugPrint('summary playNextSentence failed: $e');
+      _snack(_l.t('summary.error'));
     } finally {
       if (mounted) setState(() => _isPlayingSentence = false);
     }
@@ -122,10 +123,17 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
+    final lowBandwidth = ref.watch(lowBandwidthProvider);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          gradient: isLight ? AppColors.lightGradientBg : AppColors.gradientBg,
+          // P0 #8 — flat color in low-bandwidth mode.
+          color: lowBandwidth
+              ? (isLight ? AppColors.lightFlatBg : AppColors.darkFlatBg)
+              : null,
+          gradient: lowBandwidth
+              ? null
+              : (isLight ? AppColors.lightGradientBg : AppColors.gradientBg),
         ),
         child: SafeArea(
           child: Center(
@@ -341,11 +349,6 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
   void _snack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-
-  String _safeError(Object e) {
-    final s = e.toString();
-    return s.length > 160 ? '${s.substring(0, 160)}…' : s;
   }
 }
 

@@ -75,24 +75,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final lowBandwidth = ref.watch(lowBandwidthProvider);
     if (_isLoading) {
       return Scaffold(
         body: Container(
           decoration: BoxDecoration(
-              gradient: Theme.of(context).brightness == Brightness.light
-                  ? AppColors.lightGradientBg
-                  : AppColors.gradientBg),
+              color: lowBandwidth
+                  ? (isLight ? AppColors.lightFlatBg : AppColors.darkFlatBg)
+                  : null,
+              gradient: lowBandwidth
+                  ? null
+                  : (isLight
+                      ? AppColors.lightGradientBg
+                      : AppColors.gradientBg)),
           child: const Center(child: CircularProgressIndicator()),
         ),
       );
     }
 
-    final isLight = Theme.of(context).brightness == Brightness.light;
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          gradient:
-              isLight ? AppColors.lightGradientBg : AppColors.gradientBg,
+          // P0 #8 — flat color in low-bandwidth mode.
+          color: lowBandwidth
+              ? (isLight ? AppColors.lightFlatBg : AppColors.darkFlatBg)
+              : null,
+          gradient: lowBandwidth
+              ? null
+              : (isLight ? AppColors.lightGradientBg : AppColors.gradientBg),
         ),
         child: SafeArea(
           child: SingleChildScrollView(

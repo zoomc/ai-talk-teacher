@@ -53,6 +53,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final activeSession = ref.watch(activeSessionProvider);
     final dueCount = ref.watch(dueCorrectionCountProvider);
     final totalCount = ref.watch(totalCorrectionCountProvider);
+    final lowBandwidth = ref.watch(lowBandwidthProvider);
 
     activeSession.whenData((session) {
       if (session != null && !_promptedForActiveSession && mounted) {
@@ -66,9 +67,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          gradient: Theme.of(context).brightness == Brightness.light
-              ? AppColors.lightGradientBg
-              : AppColors.gradientBg,
+          // Phase-1 P0 #8 — flat color in low-bandwidth mode.
+          color: lowBandwidth
+              ? (Theme.of(context).brightness == Brightness.light
+                  ? AppColors.lightFlatBg
+                  : AppColors.darkFlatBg)
+              : null,
+          gradient: lowBandwidth
+              ? null
+              : (Theme.of(context).brightness == Brightness.light
+                  ? AppColors.lightGradientBg
+                  : AppColors.gradientBg),
         ),
         child: SafeArea(
           child: Center(
@@ -86,24 +95,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       padding: const EdgeInsets.all(AppSpacing.lg),
                       child: Row(
                         children: [
-                          Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  gradient: AppColors.gradientPrimary,
-                                  borderRadius: BorderRadius.circular(
-                                    AppRadius.lg,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.mic,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              )
-                              .animate()
-                              .fadeIn(duration: 600.ms)
-                              .scale(begin: const Offset(0.8, 0.8)),
+                          // P0 #8: skip the entrance animation in
+                          // low-bandwidth mode to save GPU work.
+                          _micLogo(lowBandwidth),
                           const SizedBox(width: AppSpacing.md),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,6 +285,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  /// Phase-1 P0 #8 — the header mic logo. In low-bandwidth mode the
+  /// entrance animation is skipped to save GPU work.
+  Widget _micLogo(bool lowBandwidth) {
+    final logo = Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        gradient: AppColors.gradientPrimary,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      child: const Icon(Icons.mic, color: Colors.white, size: 24),
+    );
+    return lowBandwidth
+        ? logo
+        : logo.animate().fadeIn(duration: 600.ms).scale(
+              begin: const Offset(0.8, 0.8),
+            );
+  }
+
   Widget _quickActionItem({
     required IconData icon,
     required String title,
@@ -299,13 +312,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required VoidCallback onTap,
     required int delayMs,
   }) {
-    return _QuickActionCard(
+    final lowBandwidth = ref.read(lowBandwidthProvider);
+    final card = _QuickActionCard(
       icon: icon,
       title: title,
       subtitle: subtitle,
       color: color,
       onTap: onTap,
-    ).animate().fadeIn(delay: delayMs.ms).slideX(begin: -0.1);
+    );
+    // Phase-1 P0 #8 — skip the entrance animation in low-bandwidth mode.
+    return lowBandwidth
+        ? card
+        : card.animate().fadeIn(delay: delayMs.ms).slideX(begin: -0.1);
   }
 
   Widget _QuickActionGrid() {

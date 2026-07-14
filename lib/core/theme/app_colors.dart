@@ -53,6 +53,11 @@ class AppColors {
     colors: [bgPrimary, bgSecondary],
   );
 
+  // Phase-1 P0 #8 — flat fallbacks used in low-bandwidth mode instead of
+  // gradients, so the GPU never has to interpolate a fill each frame.
+  static const Color darkFlatBg = bgPrimary;
+  static const Color lightFlatBg = lightBgPrimary;
+
   static const LinearGradient gradientPrimary = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
