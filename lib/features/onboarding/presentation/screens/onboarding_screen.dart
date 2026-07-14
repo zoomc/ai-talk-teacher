@@ -190,9 +190,69 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             onPressed: _isSaving ? null : _skipAll,
             child: Text(_l.t('common.skip_for_now')),
           ),
+          // Phase-1 P0 #1 — one-tap guest trial. Skips configuration entirely
+          // and drops the user into a 3-minute conversation backed by the
+          // built-in restricted guest profiles. Onboarding is NOT marked
+          // complete, so after the trial the user lands back here to set up
+          // their own keys.
+          const SizedBox(height: AppSpacing.sm),
+          OutlinedButton.icon(
+            onPressed: _isSaving ? null : _startGuestTrial,
+            icon: _isGuestStarting
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.play_arrow_rounded, size: 20),
+            label: Text(_l.t('guest.try_as_guest')),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48),
+              side: BorderSide(
+                color: AppColors.accentSecondary.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  bool _isGuestStarting = false;
+
+  /// Start a one-tap guest trial: activate the built-in restricted guest
+  /// profiles, create a guest-flagged session, and jump straight into chat.
+  /// The chat screen enforces the 3-minute time box via [ChatSession.isGuest].
+  Future<void> _startGuestTrial() async {
+    final profileRepo = ref.read(profileRepoProvider);
+    final chatRepo = ref.read(chatRepoProvider);
+    setState(() {
+      _isGuestStarting = true;
+      _isSaving = true;
+    });
+    try {
+      await profileRepo.ensureGuestProfiles();
+      await profileRepo.activateGuestProfiles();
+      final session = await chatRepo.createSession(
+        topic: _l.t('guest.trial_topic'),
+        isGuest: true,
+      );
+      if (!mounted) return;
+      context.go('/chat/${session.id}');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_l.tArg('guest.start_failed', {'error': e.toString()}))),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGuestStarting = false;
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   Widget _buildLlmPage() {

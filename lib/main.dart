@@ -31,6 +31,11 @@ void main() async {
   final themeStr = await profileRepo.getSetting('theme');
   final initialThemeMode = _parseThemeMode(themeStr);
   final initialLocale = await _resolveInitialLocale(profileRepo);
+  // Phase-1 P0 #8 — seed low-bandwidth from the persisted setting so the
+  // very first chat panel render already drops the 3D avatar when the
+  // user opted in. Defaults to false (full effects) for new installs.
+  final lowBandwidthStr = await profileRepo.getSetting('low_bandwidth');
+  final initialLowBandwidth = lowBandwidthStr == 'true';
 
   runApp(
     ProviderScope(
@@ -42,6 +47,8 @@ void main() async {
         // otherwise the browser language (auto-detected on web) is used,
         // otherwise zh (the project default per spec).
         localeProvider.overrideWith((ref) => initialLocale),
+        // Seed the low-bandwidth flag from the persisted setting.
+        lowBandwidthProvider.overrideWith((ref) => initialLowBandwidth),
       ],
       child: SpeakFlowApp(hasCompletedOnboarding: hasCompletedOnboarding),
     ),

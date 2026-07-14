@@ -45,6 +45,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  /// Phase-1 P0 #8 — toggle low-bandwidth mode. Updates the global
+  /// provider (immediate rebuild of the chat panel) and persists the
+  /// choice so the next app launch respects it.
+  Future<void> _toggleLowBandwidth(bool value) async {
+    ref.read(lowBandwidthProvider.notifier).state = value;
+    await ref.read(profileRepoProvider).setSetting(
+          'low_bandwidth',
+          value ? 'true' : 'false',
+        );
+  }
+
   String _capitalize(String s) =>
       s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 
@@ -105,6 +116,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onTap: () => context.push('/service-config'),
                     ),
                     _SettingsTile(
+                      icon: Icons.surround_sound_outlined,
+                      title: _l.t('settings.voice_health'),
+                      subtitle: _l.t('settings.voice_health_desc'),
+                      onTap: () => context.push('/voice-health'),
+                    ),
+                    _SettingsTile(
                       icon: Icons.wifi_tethering,
                       title: _l.t('settings.test_current_profile'),
                       subtitle: _l.t('settings.test_current_profile_sub'),
@@ -161,6 +178,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: _l.t('settings.language'),
                       subtitle: _localeDisplayName(ref.watch(localeProvider)),
                       onTap: _showLanguageDialog,
+                    ),
+                    // Phase-1 P0 #8 — low-bandwidth toggle. A switch tile
+                    // instead of a chevron tile because the value flips in
+                    // place; tapping the row OR the switch toggles it.
+                    _SettingsToggleTile(
+                      icon: Icons.data_saver_off,
+                      title: _l.t('settings.low_bandwidth'),
+                      subtitle: _l.t('settings.low_bandwidth_desc'),
+                      value: ref.watch(lowBandwidthProvider),
+                      onChanged: _toggleLowBandwidth,
                     ),
                   ],
                 ),
@@ -760,6 +787,51 @@ class _SettingsTile extends StatelessWidget {
         Icons.chevron_right,
         color: chevronColor,
         size: 20,
+      ),
+    );
+  }
+}
+
+/// Phase-1 P0 #8 — settings tile with a trailing Switch instead of a
+/// chevron. Tapping the row OR the switch toggles the value, mirroring
+/// the standard Material SwitchListTile affordance but styled to match
+/// the existing _SettingsTile look (icon + title + subtitle).
+class _SettingsToggleTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _SettingsToggleTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final titleColor =
+        isLight ? AppColors.lightTextPrimary : AppColors.textPrimary;
+    final subtitleColor = isLight
+        ? AppColors.lightTextSecondary
+        : AppColors.textSecondary;
+    return ListTile(
+      onTap: () => onChanged(!value),
+      leading: Icon(icon, color: AppColors.accentSecondary),
+      title: Text(title, style: TextStyle(color: titleColor)),
+      subtitle: Text(
+        subtitle,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: subtitleColor,
+            ),
+      ),
+      trailing: Switch(
+        value: value,
+        onChanged: onChanged,
       ),
     );
   }

@@ -20,3 +20,11 @@ final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);
 /// 中文"). The settings screen updates this provider when the user picks
 /// a language — MaterialApp rebuilds immediately with the new locale.
 final localeProvider = StateProvider<AppLocale>((ref) => AppLocale.zh);
+
+/// Phase-1 P0 #8 — global low-bandwidth mode. When true, heavy visual
+/// effects (3D Live2D avatar, ambient ripples, etc.) are suppressed to
+/// save data + battery on metered / slow connections. Initialized in
+/// main() from the persisted `low_bandwidth` setting so the first frame
+/// already respects the user's choice; the settings screen flips this
+/// and the chat panel rebuilds to drop the avatar.
+final lowBandwidthProvider = StateProvider<bool>((ref) => false);

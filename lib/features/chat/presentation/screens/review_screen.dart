@@ -7,6 +7,8 @@ import '../../../../core/util/responsive.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
+import '../../data/tts_playback_service.dart';
+import '../../data/tts_service.dart';
 import '../../domain/chat_models.dart';
 import '../../../review/data/sm2_service.dart';
 
@@ -274,7 +276,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   }
 }
 
-class _CorrectionCard extends StatelessWidget {
+class _CorrectionCard extends ConsumerStatefulWidget {
   final Correction correction;
   final VoidCallback onTap;
   /// Called with the SM-2 quality (1 / 3 / 4 / 5) when a rating button is tapped.
@@ -287,6 +289,24 @@ class _CorrectionCard extends StatelessWidget {
     required this.onRate,
     this.isSubmitting = false,
   });
+
+  @override
+  ConsumerState<_CorrectionCard> createState() => _CorrectionCardState();
+}
+
+class _CorrectionCardState extends ConsumerState<_CorrectionCard> {
+  final TtsPlaybackService _ttsPlayback = TtsPlaybackService();
+  late bool _isFavorite = widget.correction.isFavorite;
+  bool _isTogglingFav = false;
+  bool _isPlayingDemo = false;
+
+  Correction get _correction => widget.correction;
+
+  @override
+  void dispose() {
+    _ttsPlayback.dispose();
+    super.dispose();
+  }
 
   Color _typeColor(CorrectionType type) {
     switch (type) {
@@ -310,12 +330,74 @@ class _CorrectionCard extends StatelessWidget {
     }
   }
 
+  /// Phase-1 P0 #4 — importance → display color. Mirrors the chat-screen
+  /// _CorrectionInline scheme so the user sees the same severity cue in
+  /// both surfaces.
+  Color _importanceColor(int importance) {
+    if (importance >= 80) return AppColors.error;
+    if (importance >= 50) return AppColors.warning;
+    return AppColors.textMuted;
+  }
+
+  Future<void> _playDemo() async {
+    if (_isPlayingDemo) return;
+    setState(() => _isPlayingDemo = true);
+    try {
+      final profileRepo = ref.read(profileRepoProvider);
+      final ttsProfile = await profileRepo.getActiveTtsProfile();
+      if (ttsProfile == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text(AppLocalizations.of(context).t('guest.unavailable')),
+            ),
+          );
+        }
+        return;
+      }
+      final tts = TtsService(ttsProfile);
+      await _ttsPlayback.playCached(
+        _correction.corrected,
+        () => tts.synthesize(_correction.corrected),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('TTS: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPlayingDemo = false);
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    if (_isTogglingFav) return;
+    final previous = _isFavorite;
+    setState(() {
+      _isFavorite = !previous;
+      _isTogglingFav = true;
+    });
+    try {
+      final repo = ref.read(chatRepoProvider);
+      final persisted = await repo.toggleFavorite(_correction.id);
+      if (mounted) setState(() => _isFavorite = persisted);
+    } catch (_) {
+      if (mounted) setState(() => _isFavorite = previous);
+    } finally {
+      if (mounted) setState(() => _isTogglingFav = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final typeColor = _typeColor(correction.type);
+    final l = AppLocalizations.of(context);
+    final typeColor = _typeColor(_correction.type);
+    final impColor = _importanceColor(_correction.importance);
 
     return GlassCard(
-      onTap: isSubmitting ? null : onTap,
+      onTap: widget.isSubmitting ? null : widget.onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -337,7 +419,7 @@ class _CorrectionCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
                 child: Text(
-                  _typeLabel(context, correction.type),
+                  _typeLabel(context, _correction.type),
                   style: TextStyle(
                     color: typeColor,
                     fontSize: 11,
@@ -352,20 +434,43 @@ class _CorrectionCard extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: Color(
-                    Sm2Service.getMasteryColor(correction),
+                    Sm2Service.getMasteryColor(_correction),
                   ).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
                 child: Text(
-                  Sm2Service.getMasteryLevel(correction),
+                  Sm2Service.getMasteryLevel(_correction),
                   style: TextStyle(
-                    color: Color(Sm2Service.getMasteryColor(correction)),
+                    color: Color(Sm2Service.getMasteryColor(_correction)),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              if (correction.occurrenceCount > 1)
+              // Phase-1 P0 #4 — importance pill, hidden when the LLM
+              // didn't bother to score (default 50). Mirrors the
+              // chat-screen card so the user sees the same cue in both
+              // surfaces.
+              if (_correction.importance != 50)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xs,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: impColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Text(
+                    '${_correction.importance}',
+                    style: TextStyle(
+                      color: impColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              if (_correction.occurrenceCount > 1)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.xs,
@@ -376,7 +481,7 @@ class _CorrectionCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
                   child: Text(
-                    '×${correction.occurrenceCount}',
+                    '×${_correction.occurrenceCount}',
                     style: const TextStyle(
                       color: AppColors.accentPrimary,
                       fontSize: 11,
@@ -385,7 +490,7 @@ class _CorrectionCard extends StatelessWidget {
                   ),
                 ),
               Text(
-                Sm2Service.getNextReviewText(correction),
+                Sm2Service.getNextReviewText(_correction),
                 style: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
@@ -393,19 +498,48 @@ class _CorrectionCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          // Original
+          // Original + demo + favorite actions row.
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(Icons.close, color: AppColors.error, size: 16),
               const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Text(
-                  correction.original,
+                  _correction.original,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: AppColors.error,
                     decoration: TextDecoration.lineThrough,
                   ),
                 ),
+              ),
+              // Demo + favorite actions on the original row's trailing
+              // edge so they don't push the corrected sentence down.
+              _CardIconAction(
+                icon: _isPlayingDemo
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.volume_up_rounded,
+                        size: 18, color: AppColors.accentPrimary),
+                tooltip: l.t('correction.play_demo'),
+                onPressed: _isPlayingDemo ? null : _playDemo,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              _CardIconAction(
+                icon: Icon(
+                  _isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
+                  size: 18,
+                  color: _isFavorite
+                      ? AppColors.warning
+                      : AppColors.textSecondary,
+                ),
+                tooltip: _isFavorite
+                    ? l.t('correction.unmark_favorite')
+                    : l.t('correction.mark_favorite'),
+                onPressed: _isTogglingFav ? null : _toggleFavorite,
               ),
             ],
           ),
@@ -417,7 +551,7 @@ class _CorrectionCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Text(
-                  correction.corrected,
+                  _correction.corrected,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: AppColors.success,
                     fontWeight: FontWeight.w500,
@@ -426,18 +560,46 @@ class _CorrectionCard extends StatelessWidget {
               ),
             ],
           ),
-          if (correction.explanation != null) ...[
+          if (_correction.explanation != null) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
-              correction.explanation!,
+              _correction.explanation!,
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
           ],
           const SizedBox(height: AppSpacing.sm),
-          _RatingBar(onRate: onRate, disabled: isSubmitting),
+          _RatingBar(onRate: widget.onRate, disabled: widget.isSubmitting),
         ],
+      ),
+    );
+  }
+}
+
+/// Phase-1 P0 #4 — small icon action used inside the review card.
+class _CardIconAction extends StatelessWidget {
+  final Widget icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  const _CardIconAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkResponse(
+        onTap: onPressed,
+        radius: 20,
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: icon,
+        ),
       ),
     );
   }

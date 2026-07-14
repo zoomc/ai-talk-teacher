@@ -22,6 +22,7 @@ import '../../domain/app_error.dart';
 import '../../domain/chat_models.dart';
 import '../../domain/tutor.dart';
 import '../../domain/tutor_prompts.dart';
+import '../../../profile/domain/guest_profiles.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String sessionId;
@@ -66,6 +67,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // (E1). Also enables barge-in so tapping mic during TTS stops playback.
   bool _continuousMode = false;
 
+  // Phase-1 P0 #1 — guest trial time-box. When the loaded session is a guest
+  // session, a countdown enforces the [GuestProfileConfig.guestTrialMinutes]
+  // limit. The remaining-seconds feed the guest banner; expiry ends the
+  // trial and routes the user to onboarding to set up their own keys.
+  Timer? _guestTimer;
+  bool _isGuestSession = false;
+  int _guestSecondsLeft = 0;
+  bool _guestTrialEnded = false;
+
   @override
   void initState() {
     super.initState();
@@ -77,6 +87,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _loadTutorIdentity();
     _loadTtsSpeed();
     _checkVoiceConfigured();
+    _setupGuestTrialIfNeeded();
     // Auto-focus the input on wide (desktop/web) layouts where there's no
     // risk of popping the soft keyboard unexpectedly. On mobile we leave
     // focus alone so the user controls when the keyboard appears.
@@ -142,6 +153,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
+    _guestTimer?.cancel();
     _playerStateSub?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
@@ -149,6 +161,76 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _recordingService.dispose();
     _ttsPlaybackService.dispose();
     super.dispose();
+  }
+
+  /// Phase-1 P0 #1 — if this session is a guest trial, start the countdown
+  /// that ends the trial after [GuestProfileConfig.guestTrialMinutes].
+  /// Reads the session once on screen entry; safe to call for non-guest
+  /// sessions (it just no-ops).
+  Future<void> _setupGuestTrialIfNeeded() async {
+    try {
+      final repo = ref.read(chatRepoProvider);
+      final session = await repo.getSession(widget.sessionId);
+      if (session == null || !session.isGuest) return;
+      final totalSeconds = GuestProfileConfig.guestTrialMinutes * 60;
+      if (!mounted) return;
+      setState(() {
+        _isGuestSession = true;
+        _guestSecondsLeft = totalSeconds;
+      });
+      _guestTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (!mounted) {
+          t.cancel();
+          return;
+        }
+        setState(() => _guestSecondsLeft -= 1);
+        if (_guestSecondsLeft <= 0) {
+          t.cancel();
+          _endGuestTrial();
+        }
+      });
+    } catch (_) {
+      // Best-effort — if we can't read the session, just let the chat run
+      // without a time box. The relay still rate-limits the guest key.
+    }
+  }
+
+  /// The guest trial is over — stop any in-flight voice work, archive the
+  /// session, restore the user's (likely empty) pre-guest profiles, and
+  /// route them to onboarding so they can configure their own keys.
+  Future<void> _endGuestTrial() async {
+    if (_guestTrialEnded) return;
+    _guestTrialEnded = true;
+    try {
+      _guestTimer?.cancel();
+      _ttsPlaybackService.stop();
+      if (_isRecording) {
+        await _recordingService.stop();
+        _isRecording = false;
+      }
+      final repo = ref.read(chatRepoProvider);
+      await repo.archiveSession(widget.sessionId);
+    } catch (_) {
+      // Best-effort cleanup.
+    }
+    if (!mounted) return;
+    final l = AppLocalizations.of(context);
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('guest.trial_ended_title')),
+        content: Text(l.t('guest.trial_ended_body')),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l.t('guest.set_up_keys')),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    context.go('/onboarding');
   }
 
   /// Screen-level key handler. Esc cancels an in-progress recording so the
@@ -345,6 +427,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
           ),
+        // Phase-1 P0 #1 — guest trial countdown banner. Shown only while a
+        // guest session is active. Turns red in the final 30 seconds so the
+        // user has a clear "wrap up" cue before the trial ends.
+        if (_isGuestSession && !_guestTrialEnded)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.xs,
+            ),
+            color: _guestSecondsLeft <= 30
+                ? AppColors.error.withValues(alpha: 0.18)
+                : AppColors.accentSecondary.withValues(alpha: 0.14),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.timer_outlined,
+                  size: 16,
+                  color: _guestSecondsLeft <= 30
+                      ? AppColors.error
+                      : AppColors.accentSecondary,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: Text(
+                    l.tArg('guest.minutes_left', {
+                      'min': (_guestSecondsLeft ~/ 60).toString(),
+                      'sec': (_guestSecondsLeft % 60).toString().padLeft(2, '0'),
+                    }),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: _guestSecondsLeft <= 30
+                              ? AppColors.error
+                              : AppColors.accentSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         // Chat messages area — constrained on wide screens for readability.
         Expanded(
           child: Center(
@@ -358,6 +480,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 isAiThinking: _isLoading,
                 playingMessageId: _playingMessageId,
                 onPlayTts: _playTts,
+                ttsPlaybackService: _ttsPlaybackService,
               ),
             ),
           ),
@@ -920,53 +1043,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  /// Exit the chat screen, showing a session summary SnackBar when the
-  /// user had a meaningful conversation (≥2 messages). Falls back to a
-  /// plain navigation if anything goes wrong — never block the exit.
+  /// Phase-1 P0 #5 — exit the chat screen and route to the post-class
+  /// summary page when the user had a meaningful conversation (≥2
+  /// messages). Sessions with fewer than 2 messages (an accidental tap,
+  /// a mic-permission denial, etc.) just go home — there's nothing to
+  /// summarise. Guest trial sessions skip the summary because the guest
+  /// has no real provider config and should be funnelled back to
+  /// onboarding instead.
   Future<void> _exitWithSummary() async {
     try {
+      if (_isGuestSession) {
+        // Guest end-of-trial already navigates to /onboarding; just go home.
+        if (mounted) context.go('/');
+        return;
+      }
       final repo = ref.read(chatRepoProvider);
       final messages = await repo.getMessages(widget.sessionId);
       if (messages.length < 2) {
         if (mounted) context.go('/');
         return;
       }
-      final corrections = await repo.getCorrectionsForSession(widget.sessionId);
-      final session = await repo.getSession(widget.sessionId);
-      final start = session?.createdAt ?? messages.first.createdAt;
-      final end = DateTime.now();
-      final minutes = end.difference(start).inMinutes.clamp(0, 999);
-      final l = AppLocalizations.of(context);
-      final msgCount = messages.length.toString();
-      final corrCount = corrections.length.toString();
-      final minutesStr = minutes.toString();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l.t('chat.session_summary_title'),
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                l.tArg('chat.session_summary_body', {
-                  'msgCount': msgCount,
-                  'corrCount': corrCount,
-                  'minutes': minutesStr,
-                }),
-              ),
-              const SizedBox(height: 4),
-              Text(l.t('chat.session_summary_encourage')),
-            ],
-          ),
-          duration: const Duration(seconds: 4),
-        ),
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 250));
-      if (mounted) context.go('/');
+      if (mounted) context.go('/summary/${widget.sessionId}');
     } catch (_) {
       if (mounted) context.go('/');
     }
@@ -1071,11 +1168,13 @@ class _ChatMessageList extends ConsumerWidget {
   final bool isAiThinking;
   final String? playingMessageId;
   final Future<void> Function(String messageId, String text) onPlayTts;
+  final TtsPlaybackService ttsPlaybackService;
 
   const _ChatMessageList({
     required this.sessionId,
     required this.scrollController,
     required this.onPlayTts,
+    required this.ttsPlaybackService,
     this.isAiThinking = false,
     this.playingMessageId,
   });
@@ -1148,6 +1247,7 @@ class _ChatMessageList extends ConsumerWidget {
               isPlaying: playingMessageId == msg.id,
               corrections: correctionsByMsg[msg.id] ?? const [],
               onPlayTts: isUser ? null : () => onPlayTts(msg.id, msg.content),
+              ttsPlaybackService: ttsPlaybackService,
             );
           },
         );
@@ -1285,11 +1385,13 @@ class _ChatBubble extends StatelessWidget {
   final bool isPlaying;
   final List<Correction> corrections;
   final VoidCallback? onPlayTts;
+  final TtsPlaybackService ttsPlaybackService;
 
   const _ChatBubble({
     super.key,
     required this.message,
     required this.isUser,
+    required this.ttsPlaybackService,
     this.isVoiceTranscript = false,
     this.isPlaying = false,
     this.corrections = const [],
@@ -1373,12 +1475,18 @@ class _ChatBubble extends StatelessWidget {
                       ),
                     ),
                   ),
-                  ...corrections.map((c) => _CorrectionInline(correction: c)),
+                  ...corrections.map((c) => _CorrectionInline(
+                    correction: c,
+                    ttsPlaybackService: ttsPlaybackService,
+                  )),
                 ],
                 // Inline corrections for AI messages.
                 if (!isUser && corrections.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.sm),
-                  ...corrections.map((c) => _CorrectionInline(correction: c)),
+                  ...corrections.map((c) => _CorrectionInline(
+                    correction: c,
+                    ttsPlaybackService: ttsPlaybackService,
+                  )),
                 ],
                 if (!isUser && onPlayTts != null) ...[
                   const SizedBox(height: AppSpacing.xs),
@@ -1437,9 +1545,34 @@ class _ChatBubble extends StatelessWidget {
 }
 
 /// Inline correction card rendered inside an AI chat bubble.
-class _CorrectionInline extends StatelessWidget {
+///
+/// Phase-1 P0 #4 — upgraded with three affordances:
+///   • Importance badge (0–100) — color-coded so the user sees severity at
+///     a glance: red ≥80 (blocking), amber 50–79 (worth fixing), muted
+///     <50 (nitpick).
+///   • Demo-reading button (volume_up) — plays the corrected sentence via
+///     the shared TtsPlaybackService so the user hears model pronunciation.
+///   • Favorite toggle (star) — marks the correction for the dedicated
+///     "favorites" review queue; persists via ChatRepository.toggleFavorite
+///     with an optimistic local flip so the icon responds instantly.
+class _CorrectionInline extends ConsumerStatefulWidget {
   final Correction correction;
-  const _CorrectionInline({required this.correction});
+  final TtsPlaybackService ttsPlaybackService;
+  const _CorrectionInline({
+    required this.correction,
+    required this.ttsPlaybackService,
+  });
+
+  @override
+  ConsumerState<_CorrectionInline> createState() => _CorrectionInlineState();
+}
+
+class _CorrectionInlineState extends ConsumerState<_CorrectionInline> {
+  late bool _isFavorite = widget.correction.isFavorite;
+  bool _isTogglingFav = false;
+  bool _isPlayingDemo = false;
+
+  Correction get _correction => widget.correction;
 
   Color _typeColor(CorrectionType type) {
     switch (type) {
@@ -1463,9 +1596,78 @@ class _CorrectionInline extends StatelessWidget {
     }
   }
 
+  /// Importance → display color. 80+ = blocking, 50–79 = worth fixing,
+  /// <50 = nitpick. Matches the LLM prompt's scoring guidance.
+  Color _importanceColor(int importance) {
+    if (importance >= 80) return AppColors.error;
+    if (importance >= 50) return AppColors.warning;
+    return AppColors.textMuted;
+  }
+
+  /// Phase-1 P0 #4 — play the corrected sentence aloud via TTS. Uses the
+  /// chat screen's shared TtsPlaybackService so the demo audio and the
+  /// AI-reply audio never play simultaneously (the service's underlying
+  /// just_audio player can only hold one source at a time — calling play
+  /// replaces whatever was playing).
+  Future<void> _playDemo() async {
+    if (_isPlayingDemo) return;
+    setState(() => _isPlayingDemo = true);
+    try {
+      final profileRepo = ref.read(profileRepoProvider);
+      final ttsProfile = await profileRepo.getActiveTtsProfile();
+      if (ttsProfile == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context).t('guest.unavailable'),
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      final tts = TtsService(ttsProfile);
+      await widget.ttsPlaybackService.playCached(
+        _correction.corrected,
+        () => tts.synthesize(_correction.corrected),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('TTS: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPlayingDemo = false);
+    }
+  }
+
+  /// Phase-1 P0 #4 — toggle the favorite flag. Optimistic UI: flip the
+  /// star immediately, persist in the background, revert on failure.
+  Future<void> _toggleFavorite() async {
+    if (_isTogglingFav) return;
+    final previous = _isFavorite;
+    setState(() {
+      _isFavorite = !previous;
+      _isTogglingFav = true;
+    });
+    try {
+      final repo = ref.read(chatRepoProvider);
+      final persisted = await repo.toggleFavorite(_correction.id);
+      if (mounted) setState(() => _isFavorite = persisted);
+    } catch (_) {
+      if (mounted) setState(() => _isFavorite = previous);
+    } finally {
+      if (mounted) setState(() => _isTogglingFav = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final typeColor = _typeColor(correction.type);
+    final l = AppLocalizations.of(context);
+    final typeColor = _typeColor(_correction.type);
+    final impColor = _importanceColor(_correction.importance);
     return Container(
       margin: const EdgeInsets.only(top: AppSpacing.xs),
       padding: const EdgeInsets.symmetric(
@@ -1485,6 +1687,7 @@ class _CorrectionInline extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header row: type badge + importance + action buttons.
           Row(
             children: [
               Container(
@@ -1497,13 +1700,64 @@ class _CorrectionInline extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),
                 child: Text(
-                  _typeLabel(context, correction.type),
+                  _typeLabel(context, _correction.type),
                   style: TextStyle(
                     color: typeColor,
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              // Importance pill — only shown when the LLM assigned a
+              // non-default score so noise doesn't drown out signal.
+              if (_correction.importance != 50)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xs,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: impColor.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(AppRadius.xs),
+                  ),
+                  child: Text(
+                    '${_correction.importance}',
+                    style: TextStyle(
+                      color: impColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              const Spacer(),
+              // Demo reading (TTS) — plays the corrected sentence aloud.
+              _IconAction(
+                icon: _isPlayingDemo
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.volume_up_rounded,
+                        size: 16, color: AppColors.accentPrimary),
+                tooltip: l.t('correction.play_demo'),
+                onPressed: _isPlayingDemo ? null : _playDemo,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              // Favorite toggle (star).
+              _IconAction(
+                icon: Icon(
+                  _isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
+                  size: 16,
+                  color: _isFavorite
+                      ? AppColors.warning
+                      : AppColors.textSecondary,
+                ),
+                tooltip: _isFavorite
+                    ? l.t('correction.unmark_favorite')
+                    : l.t('correction.mark_favorite'),
+                onPressed: _isTogglingFav ? null : _toggleFavorite,
               ),
             ],
           ),
@@ -1514,7 +1768,7 @@ class _CorrectionInline extends StatelessWidget {
               const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Text(
-                  correction.original,
+                  _correction.original,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.error,
                     decoration: TextDecoration.lineThrough,
@@ -1529,7 +1783,7 @@ class _CorrectionInline extends StatelessWidget {
               const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Text(
-                  correction.corrected,
+                  _correction.corrected,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.success,
                     fontWeight: FontWeight.w500,
@@ -1538,17 +1792,46 @@ class _CorrectionInline extends StatelessWidget {
               ),
             ],
           ),
-          if (correction.explanation != null &&
-              correction.explanation!.isNotEmpty) ...[
+          if (_correction.explanation != null &&
+              _correction.explanation!.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xxs),
             Text(
-              correction.explanation!,
+              _correction.explanation!,
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Tiny 36×36 hit-box wrapper used by the correction card's icon buttons.
+/// Keeps the visual small while still being tappable.
+class _IconAction extends StatelessWidget {
+  final Widget icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  const _IconAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkResponse(
+        onTap: onPressed,
+        radius: 18,
+        child: Padding(
+          padding: const EdgeInsets.all(2),
+          child: icon,
+        ),
       ),
     );
   }
