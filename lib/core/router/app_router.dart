@@ -12,8 +12,11 @@ import '../../features/chat/presentation/screens/review_screen.dart';
 import '../../features/chat/presentation/screens/progress_screen.dart';
 import '../../features/chat/presentation/screens/history_screen.dart';
 import '../../features/chat/presentation/screens/tutor_selection_screen.dart';
+import '../../features/chat/presentation/screens/sentence_practice_screen.dart';
+import '../../features/chat/presentation/screens/session_summary_screen.dart';
 import '../../features/profile/presentation/screens/service_config_screen.dart';
 import '../../features/profile/presentation/screens/profile_form_screen.dart';
+import '../../features/profile/presentation/screens/voice_health_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/onboarding/presentation/screens/placement_screen.dart';
@@ -30,6 +33,11 @@ class AppRouter {
     redirect: (context, state) async {
       final isOnboarding = state.matchedLocation == '/onboarding';
       final isPlacement = state.matchedLocation == '/placement';
+      // Phase-1 P0 #1 — the guest trial launches straight into /chat/:id
+      // before onboarding is complete, so the chat path must bypass the
+      // onboarding/placement gates. The chat screen itself enforces the
+      // 3-minute time box for guest sessions.
+      final isGuestChat = state.matchedLocation.startsWith('/chat/');
 
       // PWA manifest shortcuts deep-link here with `?action=...` (see
       // web/manifest.json). Map the action to the real route so the
@@ -49,7 +57,7 @@ class AppRouter {
       final hasCompletedOnboarding = await _profileRepo
           .hasCompletedOnboarding();
 
-      if (!hasCompletedOnboarding && !isOnboarding) {
+      if (!hasCompletedOnboarding && !isOnboarding && !isGuestChat) {
         return '/onboarding';
       }
 
@@ -107,6 +115,20 @@ class AppRouter {
       GoRoute(
         path: '/service-config',
         builder: (context, state) => const ServiceConfigScreen(),
+      ),
+      GoRoute(
+        path: '/voice-health',
+        builder: (context, state) => const VoiceHealthScreen(),
+      ),
+      GoRoute(
+        path: '/practice',
+        builder: (context, state) => const SentencePracticeScreen(),
+      ),
+      GoRoute(
+        path: '/summary/:sessionId',
+        builder: (context, state) => SessionSummaryScreen(
+          sessionId: state.pathParameters['sessionId']!,
+        ),
       ),
       GoRoute(
         path: '/progress',

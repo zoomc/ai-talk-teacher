@@ -8,7 +8,9 @@ import '../../../../core/util/responsive.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
+import '../../data/daily_plan_service.dart';
 import '../../domain/chat_models.dart';
+import '../../domain/daily_plan.dart';
 
 final activeSessionProvider = FutureProvider<ChatSession?>((ref) async {
   final repo = ref.watch(chatRepoProvider);
@@ -23,6 +25,16 @@ final dueCorrectionCountProvider = FutureProvider<int>((ref) async {
 final totalCorrectionCountProvider = FutureProvider<int>((ref) async {
   final repo = ref.watch(chatRepoProvider);
   return repo.getCorrectionCount();
+});
+
+/// Phase-1 P0 #6 — Today's Plan provider. Built fresh on every home-screen
+/// load from live repository state (due corrections, active session,
+/// scenario count). Re-fetches when the chat repo's data changes (e.g.
+/// after the user finishes a session and the active session is archived).
+final dailyPlanProvider =
+    FutureProvider<DailyPlan>((ref) async {
+  final repo = ref.watch(chatRepoProvider);
+  return DailyPlanService().buildFromRepository(repo);
 });
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -225,6 +237,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
 
+                  // ── Phase-1 P0 #6: Today's Plan ──────────────────────────
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                      ),
+                      child: Text(
+                        l.t('plan.title'),
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: _DailyPlanSection(
+                        plan: ref.watch(dailyPlanProvider),
+                        onTap: (action) => _handlePlanAction(context, action),
+                      ),
+                    ),
+                  ),
+
                   // Quick actions
                   SliverToBoxAdapter(
                     child: Padding(
@@ -386,6 +420,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  /// Phase-1 P0 #6 — dispatch a daily-plan task tap to its destination.
+  /// `startFreeTalk` is special-cased because it creates a new session
+  /// rather than navigating to an existing route.
+  void _handlePlanAction(BuildContext context, DailyPlanAction action) {
+    switch (action) {
+      case DailyPlanAction.startFreeTalk:
+        _startNewSession(context);
+        break;
+      case DailyPlanAction.openReview:
+        context.push('/review');
+        break;
+      case DailyPlanAction.openPractice:
+        context.push('/practice');
+        break;
+      case DailyPlanAction.openScenarios:
+        context.push('/scenarios');
+        break;
+      case DailyPlanAction.openVoiceHealth:
+        context.push('/voice-health');
+        break;
+    }
+  }
+
   void _showContinueDialog(ChatSession session) {
     showDialog(
       context: context,
@@ -503,6 +560,183 @@ class _QuickActionCard extends StatelessWidget {
             ),
           ),
           Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.textMuted),
+        ],
+      ),
+    );
+  }
+}
+
+/// Phase-1 P0 #6 — Today's Plan section.
+///
+/// Renders a vertical list of micro-tasks with a header showing the total
+/// estimated minutes. Each task is a tappable GlassCard; tapping dispatches
+/// the action back to the home screen (which owns navigation + session
+/// creation). Loading / error / empty states are handled inline so a
+/// transient repo failure never breaks the home screen.
+class _DailyPlanSection extends StatelessWidget {
+  final AsyncValue<DailyPlan> plan;
+  final ValueChanged<DailyPlanAction> onTap;
+
+  const _DailyPlanSection({required this.plan, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return plan.when(
+      data: (p) {
+        if (p.isEmpty) {
+          return GlassCard(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Text(
+                l.t('plan.empty'),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: Row(
+                children: [
+                  const Icon(Icons.timer_outlined,
+                      size: 18, color: AppColors.textSecondary),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    l.tArg('plan.total_minutes', {'n': '${p.totalMinutes}'}),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (int i = 0; i < p.tasks.length; i++) ...[
+              _DailyPlanTaskCard(
+                task: p.tasks[i],
+                index: i + 1,
+                onTap: () => onTap(p.tasks[i].action),
+              ),
+              if (i < p.tasks.length - 1)
+                const SizedBox(height: AppSpacing.sm),
+            ],
+          ],
+        );
+      },
+      loading: () => const ShimmerBox(width: double.infinity, height: 180),
+      error: (_, _) => GlassCard(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Text(
+            l.t('plan.empty'),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DailyPlanTaskCard extends StatelessWidget {
+  final DailyPlanTask task;
+  final int index;
+  final VoidCallback onTap;
+
+  const _DailyPlanTaskCard({
+    required this.task,
+    required this.index,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return GlassCard(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.md,
+      ),
+      child: Row(
+        children: [
+          // Step number badge — gives the sequence a clear visual order.
+          Container(
+            width: 28,
+            height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.accentPrimary.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '$index',
+              style: const TextStyle(
+                color: AppColors.accentPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Icon(task.icon, color: AppColors.accentPrimary, size: 22),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.t(task.titleKey),
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l.t(task.subtitleKey),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Trailing: duration + optional due-count badge.
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (task.badge != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Text(
+                    task.badge!,
+                    style: const TextStyle(
+                      color: AppColors.warning,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              Text(
+                l.tArg('plan.minutes', {'n': '${task.durationMinutes}'}),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
