@@ -245,6 +245,8 @@ const Map<String, String> _zh = {
   'chat.auto_listening': '正在听…',
   'chat.live_transcript': '语音已转写',
   'chat.feedback_ready': '即时改进建议',
+  'chat.you_label': '你',
+  'chat.ai_label': 'AI 助教',
   'chat.practice_live': '沉浸式口语练习',
   'chat.practice_subtitle': '开口说，AI 会即时听、改、回应',
   'chat.voice_flow_on': '语音对话已开启',
@@ -426,6 +428,7 @@ const Map<String, String> _zh = {
   'review.title': '复习',
   'review.due_now': '待复习',
   'review.nothing_due': '没有需要复习的内容',
+  'review.starred_only': '仅看收藏',
   'review.rate_again': '不会',
   'review.rate_hard': '困难',
   'review.rate_good': '良好',
@@ -544,6 +547,56 @@ const Map<String, String> _zh = {
   'common.try_again': '重试',
   'common.loading': '加载中…',
   'common.empty': '暂无内容',
+
+  // ── P1 task 3: retry UI ───────────────────────────────────────────
+  'retry.progress': '重试中… ({attempt}/{max})',
+  'retry.exhausted_title': '请求失败',
+  'retry.exhausted_body': '已重试 {max} 次仍失败：{reason}',
+  'retry.manual': '手动重试',
+
+  // ── P1 task 4: phoneme-level pronunciation scoring ────────────────
+  'phoneme.detail_title': '音素评分',
+  'phoneme.ab_demo': 'A/B 回听',
+  'phoneme.word_score': '单词得分',
+  'phoneme.position': '位置 {n}',
+  'phoneme.feedback': '反馈',
+  'phoneme.band_good': '优秀',
+  'phoneme.band_fair': '一般',
+  'phoneme.band_poor': '需加强',
+  'phoneme.no_scores': '暂无音素评分',
+
+  // ── P1 task 5: emotion labels (a11y / state pill) ─────────────────
+  'emotion.neutral': '平静',
+  'emotion.happy': '开心',
+  'emotion.thinking': '思考',
+  'emotion.encouraging': '鼓励',
+  'emotion.confused': '疑惑',
+  'emotion.focused': '专注',
+
+  // ── P1 task 6: placement AI evaluation ────────────────────────────
+  'placement.ai_title': 'AI 口语定级',
+  'placement.ai_subtitle': '与 AI 进行 5 轮对话，自动评估你的英语水平。',
+  'placement.turn': '第 {n} / {total} 轮',
+  'placement.thinking': 'AI 正在思考…',
+  'placement.listening': '请回答…',
+  'placement.scoring': '正在评分…',
+  'placement.score_vocab': '词汇',
+  'placement.score_fluency': '流利度',
+  'placement.score_grammar': '语法',
+  'placement.score_pronunciation': '发音',
+  'placement.score_confidence': '自信度',
+  'placement.radar_title': '五维评分',
+  'placement.path_title': '个性化 4 周学习路径',
+  'placement.week': '第 {n} 周',
+  'placement.path_generated': '已根据你的水平生成 4 周学习路径。',
+  'placement.skip_to_chat': '稍后再说，去对话',
+  'placement.error_no_llm': '需要先配置 LLM 才能进行 AI 定级。',
+  'placement.error_failed': '定级失败，请稍后重试。',
+  'placement.tap_to_speak': '点击开始录音',
+  'placement.tap_to_send': '发送',
+
+  // ── P1 task 8 (E-series): shared extras ───────────────────────────
+  'chat.thinking_filler': '让我想想…',
 };
 
 // ── English ─────────────────────────────────────────────────────────────────
@@ -673,6 +726,8 @@ const Map<String, String> _en = {
   'chat.auto_listening': 'Listening…',
   'chat.live_transcript': 'Voice transcript',
   'chat.feedback_ready': 'Instant improvement',
+  'chat.you_label': 'You',
+  'chat.ai_label': 'AI tutor',
   'chat.practice_live': 'Immersive speaking practice',
   'chat.practice_subtitle':
       'Speak naturally — AI listens, improves, and responds.',
@@ -857,6 +912,7 @@ const Map<String, String> _en = {
   'review.title': 'Review',
   'review.due_now': 'Due now',
   'review.nothing_due': 'Nothing due for review',
+  'review.starred_only': 'Starred only',
   'review.rate_again': 'Again',
   'review.rate_hard': 'Hard',
   'review.rate_good': 'Good',
@@ -972,6 +1028,56 @@ const Map<String, String> _en = {
   'common.try_again': 'Retry',
   'common.loading': 'Loading…',
   'common.empty': 'Nothing here yet',
+
+  // P1 task 3: retry UI
+  'retry.progress': 'Retrying… ({attempt}/{max})',
+  'retry.exhausted_title': 'Request failed',
+  'retry.exhausted_body': 'Failed after {max} retries: {reason}',
+  'retry.manual': 'Retry manually',
+
+  // P1 task 4: phoneme scoring
+  'phoneme.detail_title': 'Phoneme scores',
+  'phoneme.ab_demo': 'A/B replay',
+  'phoneme.word_score': 'Word score',
+  'phoneme.position': 'Position {n}',
+  'phoneme.feedback': 'Feedback',
+  'phoneme.band_good': 'Good',
+  'phoneme.band_fair': 'Fair',
+  'phoneme.band_poor': 'Needs work',
+  'phoneme.no_scores': 'No phoneme scores yet',
+
+  // P1 task 5: emotion labels
+  'emotion.neutral': 'Neutral',
+  'emotion.happy': 'Happy',
+  'emotion.thinking': 'Thinking',
+  'emotion.encouraging': 'Encouraging',
+  'emotion.confused': 'Confused',
+  'emotion.focused': 'Focused',
+
+  // P1 task 6: placement AI
+  'placement.ai_title': 'AI Placement Test',
+  'placement.ai_subtitle': 'Have a 5-turn chat with the AI to assess your English.',
+  'placement.turn': 'Turn {n} / {total}',
+  'placement.thinking': 'AI is thinking…',
+  'placement.listening': 'Your turn…',
+  'placement.scoring': 'Scoring…',
+  'placement.score_vocab': 'Vocabulary',
+  'placement.score_fluency': 'Fluency',
+  'placement.score_grammar': 'Grammar',
+  'placement.score_pronunciation': 'Pronunciation',
+  'placement.score_confidence': 'Confidence',
+  'placement.radar_title': 'Five-dim scores',
+  'placement.path_title': 'Personalised 4-week plan',
+  'placement.week': 'Week {n}',
+  'placement.path_generated': 'A 4-week plan was generated for your level.',
+  'placement.skip_to_chat': 'Chat later',
+  'placement.error_no_llm': 'Configure an LLM profile first to run AI placement.',
+  'placement.error_failed': 'Placement failed, please retry later.',
+  'placement.tap_to_speak': 'Tap to record',
+  'placement.tap_to_send': 'Send',
+
+  // E-series extras
+  'chat.thinking_filler': "Let me think…",
 };
 
 // ── Japanese ────────────────────────────────────────────────────────────────

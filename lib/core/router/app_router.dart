@@ -88,69 +88,127 @@ class AppRouter {
           GoRoute(
             path: '/',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: HomeScreen()),
+                _fadeTransitionPage(context, const HomeScreen()),
           ),
           GoRoute(
             path: '/scenarios',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: ScenariosScreen()),
+                _fadeTransitionPage(context, const ScenariosScreen()),
           ),
           GoRoute(
             path: '/review',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: ReviewScreen()),
+                _fadeTransitionPage(context, const ReviewScreen()),
           ),
           GoRoute(
             path: '/settings',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: SettingsScreen()),
+                _fadeTransitionPage(context, const SettingsScreen()),
           ),
         ],
       ),
       GoRoute(
         path: '/chat/:sessionId',
-        builder: (context, state) =>
-            ChatScreen(sessionId: state.pathParameters['sessionId']!),
+        pageBuilder: (context, state) => _slideTransitionPage(
+          context,
+          ChatScreen(sessionId: state.pathParameters['sessionId']!),
+        ),
       ),
       GoRoute(
         path: '/service-config',
-        builder: (context, state) => const ServiceConfigScreen(),
+        pageBuilder: (context, state) =>
+            _slideTransitionPage(context, const ServiceConfigScreen()),
       ),
       GoRoute(
         path: '/voice-health',
-        builder: (context, state) => const VoiceHealthScreen(),
+        pageBuilder: (context, state) =>
+            _slideTransitionPage(context, const VoiceHealthScreen()),
       ),
       GoRoute(
         path: '/practice',
-        builder: (context, state) => const SentencePracticeScreen(),
+        pageBuilder: (context, state) =>
+            _slideTransitionPage(context, const SentencePracticeScreen()),
       ),
       GoRoute(
         path: '/summary/:sessionId',
-        builder: (context, state) => SessionSummaryScreen(
-          sessionId: state.pathParameters['sessionId']!,
+        pageBuilder: (context, state) => _slideTransitionPage(
+          context,
+          SessionSummaryScreen(
+            sessionId: state.pathParameters['sessionId']!,
+          ),
         ),
       ),
       GoRoute(
         path: '/progress',
-        builder: (context, state) => const ProgressScreen(),
+        pageBuilder: (context, state) =>
+            _slideTransitionPage(context, const ProgressScreen()),
       ),
       GoRoute(
         path: '/history',
-        builder: (context, state) => const HistoryScreen(),
+        pageBuilder: (context, state) =>
+            _slideTransitionPage(context, const HistoryScreen()),
       ),
       GoRoute(
         path: '/tutor-selection',
-        builder: (context, state) => const TutorSelectionScreen(),
+        pageBuilder: (context, state) =>
+            _slideTransitionPage(context, const TutorSelectionScreen()),
       ),
       GoRoute(
         path: '/profile-form/:type',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final type = state.pathParameters['type']!;
           final profileId = state.uri.queryParameters['id'];
-          return ProfileFormScreen(type: type, profileId: profileId);
+          return _slideTransitionPage(
+            context,
+            ProfileFormScreen(type: type, profileId: profileId),
+          );
         },
       ),
     ],
+  );
+}
+
+/// P1 task 7 — page transition helper. When the user has enabled the
+/// platform's "reduce motion" / accessible navigation setting we fall back
+/// to a no-transition page (instant swap) per Flutter a11y guidance; the
+/// ShellRoute bottom-nav destinations use a gentle fade so the tab content
+/// doesn't feel like it "pops", while detail screens slide in from the
+/// right (iOS-style push).
+Page<T> _fadeTransitionPage<T>(BuildContext context, Widget child) {
+  if (MediaQuery.of(context).accessibleNavigation) {
+    return NoTransitionPage<T>(child: child);
+  }
+  return CustomTransitionPage<T>(
+    child: child,
+    transitionDuration: const Duration(milliseconds: 220),
+    reverseTransitionDuration: const Duration(milliseconds: 180),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: child,
+      );
+    },
+  );
+}
+
+Page<T> _slideTransitionPage<T>(BuildContext context, Widget child) {
+  if (MediaQuery.of(context).accessibleNavigation) {
+    return NoTransitionPage<T>(child: child);
+  }
+  return CustomTransitionPage<T>(
+    child: child,
+    transitionDuration: const Duration(milliseconds: 260),
+    reverseTransitionDuration: const Duration(milliseconds: 200),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(parent: animation, curve: Curves.easeOut);
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).animate(curved),
+        child: FadeTransition(opacity: curved, child: child),
+      );
+    },
   );
 }
 

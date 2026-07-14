@@ -1,5 +1,6 @@
 import '../../../core/database/database_helper.dart';
 import '../domain/chat_models.dart';
+import '../domain/phoneme_score.dart';
 
 class ChatRepository {
   // ========== Sessions ==========
@@ -77,10 +78,26 @@ class ChatRepository {
   /// SQLite FK enforcement is off by default in sqflite, so we delete the
   /// child rows explicitly in a transaction. Corrections tied to this session
   /// are removed too — they're meaningless once the conversation that produced
-  /// them is gone.
+  /// them is gone. P1 task 4 phoneme-score rows are also cleaned up so they
+  /// don't orphan against deleted messages/corrections.
   Future<void> deleteSession(String id) async {
     final db = await DatabaseHelper.database;
     await db.transaction((txn) async {
+      // P1 task 4 — delete phoneme score rows whose set belongs to a message
+      // in this session, then the sets themselves. Done before chat_messages
+      // so the subquery still resolves.
+      await txn.delete(
+        'phoneme_scores',
+        where: 'set_id IN (SELECT id FROM phoneme_score_sets WHERE '
+            'message_id IN (SELECT id FROM chat_messages WHERE session_id = ?))',
+        whereArgs: [id],
+      );
+      await txn.delete(
+        'phoneme_score_sets',
+        where: 'message_id IN '
+            '(SELECT id FROM chat_messages WHERE session_id = ?)',
+        whereArgs: [id],
+      );
       // Delete corrections whose session_id matches, or whose message_id
       // belongs to a message in this session.
       await txn.delete(
@@ -353,5 +370,60 @@ class ChatRepository {
     );
     if (maps.isEmpty) return null;
     return Scenario.fromMap(maps.first);
+  }
+
+  // ========== Phoneme Scores (P1 task 4) ==========
+
+  /// Persist a [PhonemeScoreSet] and all its child [PhonemeScore] rows in
+  /// a single transaction so the set is never stored without its scores.
+  Future<void> savePhonemeScores(PhonemeScoreSet set) async {
+    final db = await DatabaseHelper.database;
+    await db.transaction((txn) async {
+      await txn.insert('phoneme_score_sets', {
+        'id': set.id,
+        'message_id': set.messageId,
+        'correction_id': set.correctionId,
+        'session_id': set.sessionId,
+        'overall_score': set.overallScore,
+        'created_at': set.createdAt.toIso8601String(),
+      });
+      for (final s in set.scores) {
+        await txn.insert('phoneme_scores', {
+          'id': s.id,
+          'set_id': set.id,
+          'phoneme': s.phoneme,
+          'word': s.word,
+          'score': s.score,
+          'position': s.position,
+          'feedback': s.feedback,
+          'audio_path': s.audioPath,
+        });
+      }
+    });
+  }
+
+  /// Load the phoneme score set for a given message, or null if none was
+  /// saved. Child scores are ordered by position so word-highlighting in
+  /// the chat bubble maps cleanly left-to-right.
+  Future<PhonemeScoreSet?> getPhonemeScoresForMessage(String messageId) async {
+    final db = await DatabaseHelper.database;
+    final setMaps = await db.query(
+      'phoneme_score_sets',
+      where: 'message_id = ?',
+      whereArgs: [messageId],
+      limit: 1,
+    );
+    if (setMaps.isEmpty) return null;
+    final setMap = setMaps.first;
+    final scoreMaps = await db.query(
+      'phoneme_scores',
+      where: 'set_id = ?',
+      whereArgs: [setMap['id']],
+      orderBy: 'position ASC',
+    );
+    return PhonemeScoreSet.fromMap(
+      setMap,
+      scores: scoreMaps.map((m) => PhonemeScore.fromMap(m)).toList(),
+    );
   }
 }

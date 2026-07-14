@@ -22,6 +22,9 @@ class ReviewScreen extends ConsumerStatefulWidget {
 class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   List<Correction> _corrections = [];
   bool _isLoading = true;
+  // E19 — when true the list shows only the user's starred corrections
+  // (across all sessions), surfaced via [ChatRepository.getFavoriteCorrections].
+  bool _showStarredOnly = false;
   // Tracks which correction ids are currently being submitted to prevent
   // double-taps on the rating buttons while the SM-2 update is in flight.
   final Set<String> _ratingInFlight = {};
@@ -34,13 +37,23 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
   Future<void> _loadCorrections() async {
     final repo = ref.read(chatRepoProvider);
-    final corrections = await repo.getDueCorrections(limit: 50);
+    final corrections = _showStarredOnly
+        ? await repo.getFavoriteCorrections(limit: 100)
+        : await repo.getDueCorrections(limit: 50);
     if (mounted) {
       setState(() {
         _corrections = corrections;
         _isLoading = false;
       });
     }
+  }
+
+  void _toggleStarredFilter() {
+    setState(() {
+      _showStarredOnly = !_showStarredOnly;
+      _isLoading = true;
+    });
+    _loadCorrections();
   }
 
   @override
@@ -166,6 +179,23 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                // E19 — starred filter: link favorites to review.
+                Semantics(
+                  toggled: _showStarredOnly,
+                  child: FilterChip(
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.star_rounded, size: 16),
+                        const SizedBox(width: 4),
+                        Text(l.t('review.starred_only')),
+                      ],
+                    ),
+                    selected: _showStarredOnly,
+                    onSelected: (_) => _toggleStarredFilter(),
+                  ),
                 ),
               ],
             ),

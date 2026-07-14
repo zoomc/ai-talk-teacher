@@ -11,7 +11,7 @@ import 'database_init_stub.dart'
 class DatabaseHelper {
   static Database? _database;
   static const String _dbName = 'speakflow.db';
-  static const int _dbVersion = 4;
+  static const int _dbVersion = 5;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -161,6 +161,38 @@ class DatabaseHelper {
       CREATE TABLE user_settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
+      )
+    ''');
+
+    // P1 task 4 — phoneme-level pronunciation scoring.
+    // A `phoneme_score_set` groups all phoneme scores for a single AI
+    // message (or a single user utterance). It links to the correction
+    // row so the review screen can surface pronunciation drills.
+    await db.execute('''
+      CREATE TABLE phoneme_score_sets (
+        id TEXT PRIMARY KEY,
+        message_id TEXT,
+        correction_id TEXT,
+        session_id TEXT,
+        overall_score REAL NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (message_id) REFERENCES chat_messages(id),
+        FOREIGN KEY (correction_id) REFERENCES corrections(id),
+        FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE phoneme_scores (
+        id TEXT PRIMARY KEY,
+        set_id TEXT NOT NULL,
+        phoneme TEXT NOT NULL,
+        word TEXT NOT NULL DEFAULT '',
+        score REAL NOT NULL DEFAULT 0,
+        position INTEGER NOT NULL DEFAULT 0,
+        feedback TEXT,
+        audio_path TEXT,
+        FOREIGN KEY (set_id) REFERENCES phoneme_score_sets(id)
       )
     ''');
 
@@ -415,6 +447,37 @@ class DatabaseHelper {
         'ALTER TABLE chat_sessions ADD COLUMN is_guest INTEGER NOT NULL DEFAULT 0',
       );
       await batch.commit();
+    }
+
+    if (oldVersion < 5) {
+      // v5 adds phoneme-level pronunciation scoring tables (P1 task 4).
+      // These are new tables with no data to back-fill.
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS phoneme_score_sets (
+          id TEXT PRIMARY KEY,
+          message_id TEXT,
+          correction_id TEXT,
+          session_id TEXT,
+          overall_score REAL NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (message_id) REFERENCES chat_messages(id),
+          FOREIGN KEY (correction_id) REFERENCES corrections(id),
+          FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS phoneme_scores (
+          id TEXT PRIMARY KEY,
+          set_id TEXT NOT NULL,
+          phoneme TEXT NOT NULL,
+          word TEXT NOT NULL DEFAULT '',
+          score REAL NOT NULL DEFAULT 0,
+          position INTEGER NOT NULL DEFAULT 0,
+          feedback TEXT,
+          audio_path TEXT,
+          FOREIGN KEY (set_id) REFERENCES phoneme_score_sets(id)
+        )
+      ''');
     }
   }
 

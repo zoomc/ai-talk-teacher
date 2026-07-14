@@ -324,6 +324,20 @@ class ProfileRepository {
     await setSetting('user_level', level);
   }
 
+  // ========== Learning Path (P1 task 6) ==========
+
+  /// Persist the LLM-generated 4-week learning path as a JSON string in
+  /// `user_settings.learning_path`. Stored (not SQLite-row'd) because it's a
+  /// single document the home / plan screens read on launch — no need for
+  /// per-week relational modelling yet.
+  Future<void> setLearningPath(String jsonStr) async {
+    await setSetting('learning_path', jsonStr);
+  }
+
+  Future<String?> getLearningPath() async {
+    return getSetting('learning_path');
+  }
+
   // ========== Import / Export ==========
 
   Future<String> exportAllProfilesJson() async {

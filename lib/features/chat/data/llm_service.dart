@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -5,6 +6,7 @@ import '../../../core/util/openai_endpoint.dart';
 import '../../profile/domain/profile_models.dart';
 import '../domain/chat_models.dart';
 import '../domain/session_summary.dart';
+import 'llm_streaming.dart';
 
 class LlmService {
   final LlmProfile profile;
@@ -70,6 +72,75 @@ class LlmService {
             )
           : null,
     );
+  }
+
+  /// P1 task 1 — Stream a chat completion via Server-Sent Events.
+  ///
+  /// Issues the same `chat/completions` POST as [sendMessage] but with
+  /// `stream: true` and returns a typed [Stream<StreamChunk>] so the UI can
+  /// render AI replies progressively (lower first-token latency). The
+  /// trailing ```corrections``` JSON block, if any, is delivered on the
+  /// closing chunk via [StreamChunk.correctionsJson] so the caller can
+  /// persist corrections without re-parsing the full reply.
+  ///
+  /// On a non-2xx response the stream emits a single [LlmException] error
+  /// and completes — matching the throw-semantics of [sendMessage] so the
+  /// retry wrapper (task 3) treats both paths identically.
+  Stream<StreamChunk> streamMessage({
+    required List<ChatMessage> history,
+    required String systemPrompt,
+    String? userMessage,
+  }) async* {
+    final messages = _buildMessages(history, systemPrompt, userMessage);
+    final request = http.Request(
+      'POST',
+      Uri.parse(openAiEndpoint(profile.baseUrl, 'chat/completions')),
+    )
+      ..headers['Content-Type'] = 'application/json'
+      ..headers['Authorization'] = 'Bearer ${profile.apiKey}'
+      ..headers['Accept'] = 'text/event-stream'
+      ..body = jsonEncode({
+        'model': profile.model,
+        'messages': messages,
+        'temperature': 0.7,
+        'max_tokens': 400,
+        'stream': true,
+        // Ask OpenAI-compatible providers to include the usage blob on the
+        // terminating chunk. Providers that don't understand the field
+        // ignore it; those that do let us surface token accounting for free.
+        'stream_options': {'include_usage': true},
+      });
+
+    final http.Client client;
+    final http.StreamedResponse response;
+    try {
+      client = http.Client();
+      response = await client
+          .send(request)
+          .timeout(const Duration(seconds: 30));
+    } catch (e) {
+      // Network/timeout/lookup failure — surface as LlmException so the
+      // retry wrapper (which inspects the error type) treats streaming and
+      // non-streaming paths identically.
+      throw LlmException('Stream request failed: $e');
+    }
+
+    if (response.statusCode != 200) {
+      final body = await response.stream
+          .bytesToString()
+          .timeout(const Duration(seconds: 5))
+          .catchError((_) => '');
+      client.close();
+      throw LlmException(
+        'API error: ${response.statusCode} - $body',
+      );
+    }
+
+    try {
+      yield* streamChatCompletion(response.stream);
+    } finally {
+      client.close();
+    }
   }
 
   /// Build messages array for the API call.
