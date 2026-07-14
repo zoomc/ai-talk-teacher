@@ -26,6 +26,17 @@ class Correction {
   // Last time this mistake was flagged. Drives "recently seen" sort and lets
   // the user see recurring errors vs one-offs.
   final DateTime lastSeenAt;
+  // Phase-1 P0 #4: importance score (0–100) the LLM assigns to each flagged
+  // error so the review list can be sorted by "what matters most" rather than
+  // by insertion order. Higher = more important to fix soon. Defaults to 50
+  // when the LLM omits the field (older sessions / graceful degradation).
+  final int importance;
+  // Phase-1 P0 #4: user-starred corrections. Starred items always surface at
+  // the top of the review list and never fall out of the active rotation.
+  final bool isFavorite;
+  // When [isFavorite] was last toggled on. Null when not starred. Used to
+  // keep starred ordering stable (newest star first).
+  final DateTime? favoriteAt;
 
   Correction({
     String? id,
@@ -42,6 +53,9 @@ class Correction {
     DateTime? createdAt,
     this.occurrenceCount = 1,
     DateTime? lastSeenAt,
+    this.importance = 50,
+    this.isFavorite = false,
+    this.favoriteAt,
   }) : id = id ?? _uuid.v4(),
        createdAt = createdAt ?? DateTime.now(),
        lastSeenAt = lastSeenAt ?? createdAt ?? DateTime.now();
@@ -60,6 +74,10 @@ class Correction {
     bool clearNextReviewAt = false,
     int? occurrenceCount,
     DateTime? lastSeenAt,
+    int? importance,
+    bool? isFavorite,
+    DateTime? favoriteAt,
+    bool clearFavoriteAt = false,
   }) {
     return Correction(
       id: id,
@@ -78,6 +96,9 @@ class Correction {
       createdAt: createdAt,
       occurrenceCount: occurrenceCount ?? this.occurrenceCount,
       lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+      importance: importance ?? this.importance,
+      isFavorite: isFavorite ?? this.isFavorite,
+      favoriteAt: clearFavoriteAt ? null : (favoriteAt ?? this.favoriteAt),
     );
   }
 
@@ -97,6 +118,9 @@ class Correction {
       'created_at': createdAt.toIso8601String(),
       'occurrence_count': occurrenceCount,
       'last_seen_at': lastSeenAt.toIso8601String(),
+      'importance': importance,
+      'is_favorite': isFavorite ? 1 : 0,
+      'favorite_at': favoriteAt?.toIso8601String(),
     };
   }
 
@@ -121,6 +145,12 @@ class Correction {
       lastSeenAt: map['last_seen_at'] != null
           ? DateTime.parse(map['last_seen_at'] as String)
           : DateTime.parse(map['created_at'] as String),
+      // v4 migration back-fills these (default importance 50, not starred).
+      importance: (map['importance'] as int?) ?? 50,
+      isFavorite: ((map['is_favorite'] as int?) ?? 0) == 1,
+      favoriteAt: map['favorite_at'] != null
+          ? DateTime.parse(map['favorite_at'] as String)
+          : null,
     );
   }
 }
@@ -178,6 +208,11 @@ class ChatSession {
   final String? levelTag;
   final DateTime createdAt;
   final DateTime updatedAt;
+  // Phase-1 P0 #1: marks a guest-trial session. Guest sessions are
+  // time-boxed (3 minutes) and use built-in restricted provider profiles
+  // so a brand-new user can try the app before configuring their own keys.
+  // Stored as an integer (0/1) in SQLite — see v4 migration.
+  final bool isGuest;
 
   ChatSession({
     String? id,
@@ -187,6 +222,7 @@ class ChatSession {
     this.levelTag,
     DateTime? createdAt,
     DateTime? updatedAt,
+    this.isGuest = false,
   }) : id = id ?? _uuid.v4(),
        createdAt = createdAt ?? DateTime.now(),
        updatedAt = updatedAt ?? DateTime.now();
@@ -196,6 +232,7 @@ class ChatSession {
     String? scenarioId,
     SessionStatus? status,
     String? levelTag,
+    bool? isGuest,
   }) {
     return ChatSession(
       id: id,
@@ -204,7 +241,7 @@ class ChatSession {
       status: status ?? this.status,
       levelTag: levelTag ?? this.levelTag,
       createdAt: createdAt,
-      updatedAt: DateTime.now(),
+      isGuest: isGuest ?? this.isGuest,
     );
   }
 
@@ -217,6 +254,7 @@ class ChatSession {
       'level_tag': levelTag,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'is_guest': isGuest ? 1 : 0,
     };
   }
 
@@ -229,6 +267,9 @@ class ChatSession {
       levelTag: map['level_tag'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
+      // v4 back-fill: pre-existing rows predate the guest column; treat as
+      // a normal (non-guest) session.
+      isGuest: ((map['is_guest'] as int?) ?? 0) == 1,
     );
   }
 }

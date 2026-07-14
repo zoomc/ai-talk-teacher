@@ -11,7 +11,7 @@ import 'database_init_stub.dart'
 class DatabaseHelper {
   static Database? _database;
   static const String _dbName = 'speakflow.db';
-  static const int _dbVersion = 3;
+  static const int _dbVersion = 4;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -100,7 +100,8 @@ class DatabaseHelper {
         status TEXT NOT NULL DEFAULT 'active',
         level_tag TEXT,
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        is_guest INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -134,6 +135,9 @@ class DatabaseHelper {
         created_at TEXT NOT NULL,
         occurrence_count INTEGER NOT NULL DEFAULT 1,
         last_seen_at TEXT NOT NULL,
+        importance INTEGER NOT NULL DEFAULT 50,
+        is_favorite INTEGER NOT NULL DEFAULT 0,
+        favorite_at TEXT,
         FOREIGN KEY (message_id) REFERENCES chat_messages(id),
         FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
       )
@@ -387,6 +391,30 @@ class DatabaseHelper {
       await db.execute(
         "UPDATE corrections SET last_seen_at = created_at WHERE last_seen_at IS NULL",
       );
+    }
+
+    if (oldVersion < 4) {
+      // v4 adds Phase-1 P0 columns:
+      //   corrections.importance / is_favorite / favorite_at — power the
+      //     enhanced correction cards (sort by importance, user-starred).
+      //   chat_sessions.is_guest — marks a guest-trial session so the
+      //     chat screen can enforce the 3-minute time box and the home
+      //     screen can offer a one-tap "try without configuring" entry.
+      //
+      // All columns ship with safe defaults so pre-existing rows continue
+      // to work without a back-fill pass.
+      final batch = db.batch();
+      batch.execute(
+        'ALTER TABLE corrections ADD COLUMN importance INTEGER NOT NULL DEFAULT 50',
+      );
+      batch.execute(
+        'ALTER TABLE corrections ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0',
+      );
+      batch.execute('ALTER TABLE corrections ADD COLUMN favorite_at TEXT');
+      batch.execute(
+        'ALTER TABLE chat_sessions ADD COLUMN is_guest INTEGER NOT NULL DEFAULT 0',
+      );
+      await batch.commit();
     }
   }
 

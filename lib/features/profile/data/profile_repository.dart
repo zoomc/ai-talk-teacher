@@ -4,8 +4,80 @@ import '../../../core/database/database_helper.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../domain/profile_models.dart';
 import '../domain/provider_catalog.dart';
+import '../domain/guest_profiles.dart';
 
 class ProfileRepository {
+  // ========== Guest trial profiles (Phase-1 P0 #1) ==========
+
+  /// Ensure the built-in guest LLM / STT / TTS profiles exist in the DB.
+  ///
+  /// Guest profiles use stable, reserved ids ([GuestProfileConfig]) so this
+  /// is an upsert — calling it on every guest-trial entry is cheap and
+  /// idempotent. The guest key is stored in secure storage the same way as a
+  /// user key so the service layer needs no special-casing.
+  Future<void> ensureGuestProfiles() async {
+    await saveLlmProfile(GuestProfileConfig.llm);
+    await saveSttProfile(GuestProfileConfig.stt);
+    await saveTtsProfile(GuestProfileConfig.tts);
+  }
+
+  /// Activate the guest triplet (LLM + STT + TTS) and deactivate the user's
+  /// own active profiles. The caller is responsible for restoring the
+  /// previously-active profiles after the guest trial ends — see
+  /// [restoreNonGuestProfiles].
+  Future<void> activateGuestProfiles() async {
+    await ensureGuestProfiles();
+    await setActiveLlmProfile(GuestProfileConfig.llmProfileId);
+    await setActiveSttProfile(GuestProfileConfig.sttProfileId);
+    await setActiveTtsProfile(GuestProfileConfig.ttsProfileId);
+  }
+
+  /// Returns the list of non-guest active profile ids (LLM/STT/TTS) so they
+  /// can be restored after a guest trial. Empty if the user had none.
+  Future<({String? llmId, String? sttId, String? ttsId})>
+      captureActiveNonGuestProfiles() async {
+    final llm = await getActiveLlmProfile();
+    final stt = await getActiveSttProfile();
+    final tts = await getActiveTtsProfile();
+    return (
+      llmId: (llm != null && !GuestProfileConfig.isGuestLlmId(llm.id))
+          ? llm.id
+          : null,
+      sttId: (stt != null && !GuestProfileConfig.isGuestSttId(stt.id))
+          ? stt.id
+          : null,
+      ttsId: (tts != null && !GuestProfileConfig.isGuestTtsId(tts.id))
+          ? tts.id
+          : null,
+    );
+  }
+
+  /// Re-activate the user's previously-active profiles after a guest trial.
+  /// Safe to call even when the user had no active profile before — in that
+  /// case the guest profiles stay active and the user is nudged to configure
+  /// their own keys via onboarding.
+  Future<void> restoreNonGuestProfiles({
+    String? llmId,
+    String? sttId,
+    String? ttsId,
+  }) async {
+    if (llmId != null) {
+      await setActiveLlmProfile(llmId);
+    }
+    if (sttId != null) {
+      await setActiveSttProfile(sttId);
+    }
+    if (ttsId != null) {
+      await setActiveTtsProfile(ttsId);
+    }
+  }
+
+  /// True if the currently-active LLM profile is the guest profile.
+  Future<bool> isGuestModeActive() async {
+    final llm = await getActiveLlmProfile();
+    return llm != null && GuestProfileConfig.isGuestLlmId(llm.id);
+  }
+
   // ========== LLM Profiles ==========
 
   Future<List<LlmProfile>> getAllLlmProfiles() async {

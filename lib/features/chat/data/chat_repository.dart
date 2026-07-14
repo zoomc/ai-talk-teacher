@@ -39,11 +39,13 @@ class ChatRepository {
     String? topic,
     String? scenarioId,
     String? levelTag,
+    bool isGuest = false,
   }) async {
     final session = ChatSession(
       topic: topic,
       scenarioId: scenarioId,
       levelTag: levelTag,
+      isGuest: isGuest,
     );
     final db = await DatabaseHelper.database;
     await db.insert('chat_sessions', session.toMap());
@@ -154,11 +156,58 @@ class ChatRepository {
   Future<List<Correction>> getDueCorrections({int limit = 20}) async {
     final db = await DatabaseHelper.database;
     final now = DateTime.now().toIso8601String();
+    // Phase-1 P0 #4: order by importance so the most impactful mistakes surface
+    // first, with starred items taking priority. review_count ASC keeps
+    // never-practiced items ahead of recently-reviewed ones within the same
+    // importance tier. created_at ASC is the stable tiebreaker.
     final maps = await db.query(
       'corrections',
       where: 'next_review_at IS NULL OR next_review_at <= ?',
       whereArgs: [now],
-      orderBy: 'review_count ASC, created_at ASC',
+      orderBy:
+          'is_favorite DESC, importance DESC, review_count ASC, created_at ASC',
+      limit: limit,
+    );
+    return maps.map((m) => Correction.fromMap(m)).toList();
+  }
+
+  /// Toggle the user's "starred" flag on a correction. Starred corrections
+  /// always surface at the top of the review list (see [getDueCorrections]
+  /// ordering) and never fall out of the active rotation. Returns the new
+  /// state so the caller can update its UI without re-querying.
+  Future<bool> toggleFavorite(String correctionId) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'corrections',
+      where: 'id = ?',
+      whereArgs: [correctionId],
+      limit: 1,
+    );
+    if (maps.isEmpty) return false;
+    final current = Correction.fromMap(maps.first);
+    final nowFavorite = !current.isFavorite;
+    await db.update(
+      'corrections',
+      {
+        'is_favorite': nowFavorite ? 1 : 0,
+        'favorite_at': nowFavorite ? DateTime.now().toIso8601String() : null,
+      },
+      where: 'id = ?',
+      whereArgs: [correctionId],
+    );
+    return nowFavorite;
+  }
+
+  /// Starred corrections across all sessions — used by the review screen's
+  /// "Starred" filter and the daily-plan generator to prioritise what the
+  /// user explicitly wants to revisit.
+  Future<List<Correction>> getFavoriteCorrections({int limit = 50}) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'corrections',
+      where: 'is_favorite = 1',
+      whereArgs: [],
+      orderBy: 'favorite_at DESC, importance DESC',
       limit: limit,
     );
     return maps.map((m) => Correction.fromMap(m)).toList();
@@ -225,6 +274,13 @@ class ChatRepository {
       // recent occurrence.
       messageId: correction.messageId ?? existing.messageId,
       sessionId: correction.sessionId ?? existing.sessionId,
+      // Phase-1 P0 #4: take the higher importance so a mistake the LLM keeps
+      // flagging as critical never gets demoted by a single lax rating.
+      // Also keep the persisted favourite flag — dedup must never silently
+      // un-star a correction the user explicitly saved.
+      importance: correction.importance > existing.importance
+          ? correction.importance
+          : existing.importance,
     );
     await updateCorrection(updated);
     return updated;
