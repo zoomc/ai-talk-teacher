@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### P1 — learning system + pronunciation training + reliability + E-series — 2026-07-14
+
+#### Learning system
+- Rewrote placement from a static 4-question self-assessment quiz into a
+  5-turn AI conversation that streams each reply, then emits a strict-JSON
+  verdict inside a ```placement``` fence scoring vocabulary / fluency /
+  grammar / pronunciation / confidence (0–100) plus a level and a
+  personalised 4-week learning path. The verdict is rendered as a radar
+  chart (CustomPainter) with a per-dimension score table and a week-by-week
+  path card list; results persist via `setUserLevel` + `setLearningPath` +
+  `setPlacementCompleted`. The original quiz survives as a fallback when no
+  LLM profile is configured, and skipping placement now defaults the level
+  to `beginner` so downstream screens still get a usable level.
+
+#### Pronunciation training
+- Added `PhonemeScore` / `PhonemeScoreSet` / `PhonemeScoreBand` models and a
+  v5 SQLite schema (`phoneme_score_sets` + `phoneme_scores`) linked to the
+  originating message + correction. A `PhonemeScorer` derives synthetic
+  phoneme scores from pronunciation corrections so the full UX pipeline is
+  functional end-to-end (real STT confidence can replace it later without
+  touching the model or persistence). `ChatBubble` colour-tags words by
+  score band; tapping a word opens a detail overlay with per-phoneme scores
+  and A/B replay (user vs AI audio). `deleteSession` now cleans up phoneme
+  rows so they don't orphan against deleted messages.
+
+#### Reliability
+- Added `withRetry<T>()` generic with exponential backoff (1/2/4/8/16s × 5)
+  wrapping STT / TTS / LLM calls; auth and mic-permission errors are
+  non-retryable, everything else (rate-limit / server / network / timeout)
+  retries. The UI surfaces "重试中…" progress, and on exhaustion shows the
+  failure reason plus a manual-retry affordance. Fixed a retry bug where
+  accumulated stream text was not reset between attempts, which could
+  produce garbled/duplicated AI replies.
+- LLM Provider now supports SSE streaming (`StreamChunk` +
+  `streamChatCompletion`) with progressive `ChatBubble` rendering and
+  early-TTS start after the first sentence. `cleanStreamedReply` strips both
+  ```corrections``` and ```placement``` fences so fenced JSON never leaks
+  into the chat bubble.
+
+#### Tutor expression
+- Added `TutorEmotion` enum + `EmotionMapping` with a configurable default
+  mapping table. Tutor expression is driven both by TTS amplitude
+  (synthesised 50ms tick stream) and by keyword matching against the AI
+  reply text; amplitude only overrides `neutral` so keyword-driven emotions
+  win when they conflict.
+
+#### E-series
+- E7: a 3s thinking-filler timer cycles English filler phrases
+  ("Hmm…", "Let me think…", "Well…") through `playCached` while the tutor
+  is in the thinking state, then stops on any other state.
+- E9 / E10: recording start sets the tutor to `encouraging` +
+  `listening` for a backchannel nod during user speech.
+- E14: TTS failures are tracked per message id; the chat list shows an
+  inline retry affordance that clears the failure and replays TTS.
+- E18–E23: `getDueCorrections` now sorts by favourite + importance +
+  least-reviewed + recency so high-priority errors surface first; the
+  review screen gained a starred-only `FilterChip` (E19) that links
+  favourites to review via `getFavoriteCorrections`; SM-2 scheduling and
+  the settings-backed `learning_path` / `placement_completed` flags keep
+  correction continuity across sessions.
+
+#### Accessibility + transitions
+- Added a `FocusTrap` widget (FocusScope + Tab/Shift-Tab key handling) used
+  by modal sheets, and `Semantics` labels on chat bubbles, the input-bar
+  mode switch, and the continuous-mode toggle. Page transitions switched
+  from `NoTransitionPage` to `CustomTransitionPage` (220ms fade for shell
+  destinations, 260ms slide+fade for detail screens), both falling back to
+  `NoTransitionPage` when `MediaQuery.accessibleNavigation` is on.
+
+#### chat_screen split
+- Split the ~1900-line `chat_screen.dart` into `ChatScreen` (container),
+  `ChatInputBar` (input + recording + send), `ChatBubble` (bubble +
+  corrections + phoneme detail), `ChatHeader` (status + back), and
+  `ChatMessageList`, all under `lib/widgets/chat/`.
+
 ### Unified 2D tutor stage and responsive voice polish — 2026-07-13
 
 - Unified desktop and phone chat around the same high-fidelity 2D tutor

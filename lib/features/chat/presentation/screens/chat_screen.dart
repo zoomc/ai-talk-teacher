@@ -22,6 +22,7 @@ import '../../data/recording_service.dart';
 import '../../data/tts_playback_service.dart';
 import '../../domain/app_error.dart';
 import '../../domain/chat_models.dart';
+import '../../domain/phoneme_score.dart';
 import '../../domain/tutor.dart';
 import '../../domain/tutor_prompts.dart';
 import '../../domain/tutor_emotion.dart';
