@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:speakflow/features/chat/data/chat_repository.dart';
 import 'package:speakflow/features/chat/domain/chat_models.dart';
 import 'package:speakflow/features/home/data/skill_mastery_service.dart';
 

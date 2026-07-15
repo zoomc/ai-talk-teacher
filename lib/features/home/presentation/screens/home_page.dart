@@ -1352,7 +1352,7 @@ class _SetGoalDialogState extends ConsumerState<_SetGoalDialog> {
             controller: _targetController,
             decoration: InputDecoration(
               labelText: l.t('goal.set_goal'),
-              hintText: 'e.g. Software engineer interview',
+              hintText: l.t('goal.target_hint'),
               border: const OutlineInputBorder(),
               isDense: true,
             ),
@@ -1391,6 +1391,9 @@ class _SetGoalDialogState extends ConsumerState<_SetGoalDialog> {
     } catch (_) {
       if (mounted) {
         setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).t('goal.save_failed'))),
+        );
       }
     }
   }
