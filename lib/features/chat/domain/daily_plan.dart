@@ -32,6 +32,11 @@ class DailyPlanTask {
   /// Optional badge text shown on the trailing side, e.g. "5 due".
   final String? badge;
 
+  /// S5/S6 — priority 1 (highest) to 5 (lowest). Drives sort order and the
+  /// priority pill colour on the dashboard's "今日任务" card. Lower number =
+  /// more urgent (e.g. due corrections rank above a free-talk warm-up).
+  final int priority;
+
   const DailyPlanTask({
     required this.id,
     required this.titleKey,
@@ -40,6 +45,7 @@ class DailyPlanTask {
     required this.durationMinutes,
     required this.action,
     this.badge,
+    this.priority = 3,
   });
 }
 

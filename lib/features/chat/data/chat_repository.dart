@@ -1,6 +1,7 @@
 import '../../../core/database/database_helper.dart';
 import '../domain/chat_models.dart';
 import '../domain/phoneme_score.dart';
+import '../../home/domain/home_models.dart';
 
 class ChatRepository {
   // ========== Sessions ==========
@@ -105,6 +106,12 @@ class ChatRepository {
         where: 'session_id = ? OR message_id IN '
             '(SELECT id FROM chat_messages WHERE session_id = ?)',
         whereArgs: [id, id],
+      );
+      // S5/S6 — clean up review_queue slots for the corrections we just
+      // deleted so the dashboard doesn't reference missing corrections.
+      await txn.delete(
+        'review_queue',
+        where: 'correction_id NOT IN (SELECT id FROM corrections)',
       );
       await txn.delete(
         'chat_messages',
@@ -233,6 +240,14 @@ class ChatRepository {
   Future<void> saveCorrection(Correction correction) async {
     final db = await DatabaseHelper.database;
     await db.insert('corrections', correction.toMap());
+    // S5/S6 — seed a review_queue slot for the new correction so it
+    // surfaces on the dashboard's "to review" list. New corrections are
+    // due immediately (next_review_at is null at creation).
+    final dueAt = correction.nextReviewAt ?? DateTime.now();
+    await syncReviewQueue(
+      correctionId: correction.id,
+      dueAt: dueAt,
+    );
   }
 
   /// Look up an existing correction by (original, corrected, type).
@@ -310,6 +325,15 @@ class ChatRepository {
       correction.toMap(),
       where: 'id = ?',
       whereArgs: [correction.id],
+    );
+    // S5/S6 — keep the review_queue in sync with the correction's new
+    // next_review_at so the dashboard's "to review" list reflects the
+    // latest SM-2 schedule. Corrections with no next_review_at are due
+    // now; clearing the queue slot would hide them, so we keep them due.
+    final dueAt = correction.nextReviewAt ?? DateTime.now();
+    await syncReviewQueue(
+      correctionId: correction.id,
+      dueAt: dueAt,
     );
   }
 
@@ -425,5 +449,132 @@ class ChatRepository {
       setMap,
       scores: scoreMaps.map((m) => PhonemeScore.fromMap(m)).toList(),
     );
+  }
+
+  // ========== Review Queue (S5/S6) ==========
+
+  /// Upsert a review-queue slot for [correctionId], mirroring [dueAt].
+  /// Called whenever a correction's `next_review_at` changes (i.e. after
+  /// SM-2 scheduling) so the home dashboard's "to review" list stays in
+  /// sync without re-deriving the schedule.
+  Future<void> syncReviewQueue({
+    required String correctionId,
+    required DateTime dueAt,
+  }) async {
+    final db = await DatabaseHelper.database;
+    final now = DateTime.now().toIso8601String();
+    // SQLite has no native upsert in the sqflite helper; use
+    // INSERT OR REPLACE with a deterministic id so re-syncing the same
+    // correction doesn't create duplicate queue rows.
+    final id = '${correctionId}_rq';
+    await db.insert(
+      'review_queue',
+      {
+        'id': id,
+        'correction_id': correctionId,
+        'due_at': dueAt.toIso8601String(),
+        'created_at': now,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Remove a correction's review-queue slot. Called when a correction is
+  /// deleted so the queue doesn't reference a missing correction.
+  Future<void> removeReviewQueue(String correctionId) async {
+    final db = await DatabaseHelper.database;
+    await db.delete(
+      'review_queue',
+      where: 'correction_id = ?',
+      whereArgs: [correctionId],
+    );
+  }
+
+  /// Fetch the [limit] most urgent review-queue items — sorted by due_at
+  /// ascending so the soonest-due (most overdue) surface first. Joins the
+  /// corrections table so the dashboard can render the original/corrected
+  /// text without a second round-trip.
+  Future<List<ReviewQueueItem>> getReviewQueueItems({int limit = 5}) async {
+    final db = await DatabaseHelper.database;
+    final rows = await db.rawQuery('''
+      SELECT rq.id AS rq_id, rq.correction_id AS rq_cid, rq.due_at AS rq_due,
+             rq.created_at AS rq_created,
+             c.original AS c_orig, c.corrected AS c_corr, c.type AS c_type,
+             c.importance AS c_imp
+      FROM review_queue rq
+      INNER JOIN corrections c ON c.id = rq.correction_id
+      ORDER BY rq.due_at ASC
+      LIMIT ?
+    ''', [limit]);
+    return rows.map((row) {
+      return ReviewQueueItem(
+        queue: ReviewQueue(
+          id: row['rq_id'] as String,
+          correctionId: row['rq_cid'] as String,
+          dueAt: DateTime.parse(row['rq_due'] as String),
+          createdAt: DateTime.parse(row['rq_created'] as String),
+        ),
+        correction: CorrectionRef(
+          id: row['rq_cid'] as String,
+          original: row['c_orig'] as String,
+          corrected: row['c_corr'] as String,
+          type: row['c_type'] as String,
+          importance: (row['c_imp'] as int?) ?? 50,
+        ),
+      );
+    }).toList();
+  }
+
+  /// Count of review-queue items due now (due_at <= now). Powers the
+  /// dashboard's "due for review" badge.
+  Future<int> getDueReviewQueueCount() async {
+    final db = await DatabaseHelper.database;
+    final now = DateTime.now().toIso8601String();
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) AS count FROM review_queue WHERE due_at <= ?',
+      [now],
+    );
+    return (result.first['count'] as int?) ?? 0;
+  }
+
+  // ========== Practice Log (S5/S6) ==========
+
+  /// Upsert a practice_log row. The `date` column is UNIQUE so re-recording
+  /// practice on the same day updates the existing row instead of
+  /// inserting a duplicate. Returns the persisted row.
+  Future<PracticeLog> upsertPracticeLog(PracticeLog log) async {
+    final db = await DatabaseHelper.database;
+    await db.insert(
+      'practice_log',
+      log.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    return log;
+  }
+
+  /// Fetch the practice_log row for [dateKey] (`YYYY-MM-DD`), or null when
+  /// the user hasn't practised that day.
+  Future<PracticeLog?> getPracticeLogForDate(String dateKey) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'practice_log',
+      where: 'date = ?',
+      whereArgs: [dateKey],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return PracticeLog.fromMap(maps.first);
+  }
+
+  /// Fetch the most recent [days] practice_log rows (newest first) for the
+  /// streak bar's 30-day window.
+  Future<List<PracticeLog>> getRecentPracticeLogs({int days = 30}) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'practice_log',
+      orderBy: 'date DESC',
+      limit: days,
+    );
+    return maps.map((m) => PracticeLog.fromMap(m)).toList();
   }
 }

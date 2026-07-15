@@ -5,7 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/util/responsive.dart';
-import '../../features/chat/presentation/screens/home_screen.dart';
+import '../../features/home/presentation/screens/home_page.dart';
 import '../../features/chat/presentation/screens/chat_screen.dart';
 import '../../features/chat/presentation/screens/scenarios_screen.dart';
 import '../../features/chat/presentation/screens/review_screen.dart';
@@ -88,7 +88,7 @@ class AppRouter {
           GoRoute(
             path: '/',
             pageBuilder: (context, state) =>
-                _fadeTransitionPage(context, const HomeScreen()),
+                _fadeTransitionPage(context, const HomePage()),
           ),
           GoRoute(
             path: '/scenarios',

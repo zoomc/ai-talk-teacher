@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### S5-S6 — Home learning dashboard — 2026-07-15
+
+#### New HomePage dashboard
+- Replaced the legacy `HomeScreen` with a richer `HomePage` learning
+  dashboard at `/`. ChatScreen is now a push destination (`/chat/:id`),
+  so the app lands on the dashboard first. The dashboard surfaces six
+  sections: streak progress bar, 3 big quick-action buttons, today's
+  prioritised tasks, ability-overview radar, pending-review queue, and
+  a pull-to-refresh that invalidates all dashboard providers.
+
+#### Today's task card (dynamic 1–5 prioritised)
+- `DailyPlanService` now produces 1–5 prioritised tasks based on the
+  user's live state: due SRS reviews (P1), recent-mistake drill (P2),
+  voice-health pre-flight (P3), sentence practice (P4), and free-talk /
+  scenario conversation (P5). Each task shows title + duration + a P1–P5
+  priority pill. Added `recentErrorCount` input that counts corrections
+  seen in the last 3 days, driving the new "review recent mistakes" task.
+
+#### Streak progress bar (30-day + 7-day milestones)
+- Added `StreakService` that tracks consecutive completed practice days
+  on the new `practice_log` SQLite table. The streak is denormalised
+  onto each row for cheap reads. The dashboard renders a 30-day dot grid
+  with 7 / 14 / 21 / 28 milestone badges. Practice is recorded when the
+  user starts a conversation, opens pronunciation practice, or rates a
+  correction in ReviewScreen. Streak failures are best-effort (swallowed)
+  so they never block the primary user flow.
+
+#### Pending review queue
+- Added `review_queue` SQLite table that mirrors each correction's
+  `next_review_at` via `syncReviewQueue` (called in `saveCorrection` +
+  `updateCorrection`). The dashboard shows the 5 most urgent items
+  sorted by `due_at` ascending, joined with the correction text for
+  display. Tapping the section pushes to `/review`.
+
+#### Ability overview radar
+- Added `AbilityScores` (pronunciation / grammar / vocabulary / fluency)
+  derived by blending placement scores with correction-type distribution:
+  each dimension is nudged down proportional to the share of errors of
+  that type. Rendered as a 4-axis radar chart reusing the existing
+  `PlacementRadarChart` CustomPainter.
+
+#### Quick-action buttons
+- Three large glass buttons: "Start Conversation" (creates a session +
+  records practice), "Review Corrections" (pushes `/review`, badge shows
+  due count), "Pronunciation Practice" (pushes `/practice` + records
+  practice).
+
+#### Data model + schema
+- v6 SQLite schema: `practice_log` (id / date / duration_seconds /
+  completed / streak / timestamps) and `review_queue` (id / correction_id
+  FK / due_at / created_at). The v5→v6 migration back-fills `review_queue`
+  from existing corrections via `INSERT OR IGNORE`.
+
+#### i18n
+- Added `dashboard.*` keys (subtitle, streak_title, streak_days,
+  today_tasks, action_conversation, action_review, action_pronunciation,
+  ability_title, review_queue_title) and `plan.task.recent_errors` +
+  subtitle to all 7 locales (zh, en, ja, ko, es, fr, pt).
+
 ### P1 — learning system + pronunciation training + reliability + E-series — 2026-07-14
 
 #### Learning system

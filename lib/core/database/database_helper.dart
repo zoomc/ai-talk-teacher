@@ -11,7 +11,7 @@ import 'database_init_stub.dart'
 class DatabaseHelper {
   static Database? _database;
   static const String _dbName = 'speakflow.db';
-  static const int _dbVersion = 5;
+  static const int _dbVersion = 6;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -193,6 +193,37 @@ class DatabaseHelper {
         feedback TEXT,
         audio_path TEXT,
         FOREIGN KEY (set_id) REFERENCES phoneme_score_sets(id)
+      )
+    ''');
+
+    // S5/S6 — daily practice log + streak tracking. One row per calendar
+    // day the user engaged with the app (sent a message, reviewed a
+    // correction, etc.). `streak` is the consecutive-day count as of that
+    // day (denormalised for cheap reads on the home dashboard).
+    await db.execute('''
+      CREATE TABLE practice_log (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL UNIQUE,
+        duration_seconds INTEGER NOT NULL DEFAULT 0,
+        completed INTEGER NOT NULL DEFAULT 0,
+        streak INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    // S5/S6 — review queue. Mirrors each correction's next due time so the
+    // home dashboard can surface "what to review next" without re-deriving
+    // the SM-2 schedule. `correction_id` is unique (one queue slot per
+    // correction); the row is upserted whenever the correction's
+    // `next_review_at` changes.
+    await db.execute('''
+      CREATE TABLE review_queue (
+        id TEXT PRIMARY KEY,
+        correction_id TEXT NOT NULL UNIQUE,
+        due_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (correction_id) REFERENCES corrections(id)
       )
     ''');
 
@@ -477,6 +508,45 @@ class DatabaseHelper {
           audio_path TEXT,
           FOREIGN KEY (set_id) REFERENCES phoneme_score_sets(id)
         )
+      ''');
+    }
+
+    if (oldVersion < 6) {
+      // v6 adds the S5/S6 home-dashboard tables:
+      //   practice_log — one row per day the user practised, drives the
+      //     streak progress bar (max 30 days, 7-day milestone badges).
+      //   review_queue — one row per correction, mirrors its next due time
+      //     so the dashboard can show "what to review next" sorted by the
+      //     forgetting window.
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS practice_log (
+          id TEXT PRIMARY KEY,
+          date TEXT NOT NULL UNIQUE,
+          duration_seconds INTEGER NOT NULL DEFAULT 0,
+          completed INTEGER NOT NULL DEFAULT 0,
+          streak INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS review_queue (
+          id TEXT PRIMARY KEY,
+          correction_id TEXT NOT NULL UNIQUE,
+          due_at TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (correction_id) REFERENCES corrections(id)
+        )
+      ''');
+      // Back-fill review_queue from existing corrections so users on a v5
+      // database don't see an empty "to review" list on their first
+      // dashboard load. Corrections with no next_review_at are due now
+      // (due_at = created_at). SQLite has no uuid() builtin, so we derive a
+      // deterministic id from the correction id.
+      await db.execute('''
+        INSERT OR IGNORE INTO review_queue (id, correction_id, due_at, created_at)
+        SELECT id || '_rq', id, COALESCE(next_review_at, created_at), datetime('now')
+        FROM corrections
       ''');
     }
   }

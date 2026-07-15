@@ -10,6 +10,7 @@ import '../../../../shared/providers.dart';
 import '../../data/tts_playback_service.dart';
 import '../../data/tts_service.dart';
 import '../../domain/chat_models.dart';
+import '../../../home/presentation/home_providers.dart';
 import '../../../review/data/sm2_service.dart';
 
 class ReviewScreen extends ConsumerStatefulWidget {
@@ -261,6 +262,20 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     try {
       final updated = Sm2Service.scheduleReview(correction, quality);
       await ref.read(chatRepoProvider).updateCorrection(updated);
+
+      // S5/S6 — completing a review counts as today's practice: bump the
+      // streak so the home dashboard reflects the activity when the user
+      // returns. Streak failures are swallowed so a SQLite hiccup never
+      // interferes with the rating flow (the correction update already
+      // succeeded above).
+      try {
+        await ref.read(streakServiceProvider).recordPractice(
+              durationSeconds: 0,
+              completed: true,
+            );
+      } catch (_) {
+        // Streak recording is best-effort.
+      }
 
       // Brief feedback so the user understands what just happened.
       if (mounted) {
