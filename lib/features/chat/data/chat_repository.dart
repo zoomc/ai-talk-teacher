@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 import '../../../core/database/database_helper.dart';
 import '../domain/chat_models.dart';
 import '../domain/phoneme_score.dart';
+import '../domain/teacher_persona.dart';
 import '../../home/domain/home_models.dart';
 
 class ChatRepository {
@@ -68,12 +69,27 @@ class ChatRepository {
 
   Future<void> archiveSession(String id) async {
     final db = await DatabaseHelper.database;
+    // S7/S8 — when the archived session was a scenario roleplay, sync its
+    // review-queue slot so the home dashboard surfaces "review this
+    // scenario". Fetched before the UPDATE so we still see the original
+    // row's scenario_id. Mirrors how `saveCorrection` seeds the correction
+    // review_queue on insert.
+    final session = await getSession(id);
     await db.update(
       'chat_sessions',
       {'status': 'archived', 'updated_at': DateTime.now().toIso8601String()},
       where: 'id = ?',
       whereArgs: [id],
     );
+    final sid = session?.scenarioId;
+    if (sid != null && sid.isNotEmpty) {
+      final avgScore = await getScenarioAverageScore(sid);
+      await syncScenarioReviewQueue(
+        scenarioId: sid,
+        dueAt: DateTime.now(),
+        lastScore: avgScore,
+      );
+    }
   }
 
   /// Permanently delete a session and all of its messages + corrections.
@@ -719,5 +735,322 @@ class ChatRepository {
     final db = await DatabaseHelper.database;
     final maps = await db.query('user_goal', orderBy: 'created_at DESC');
     return maps.map((m) => UserGoal.fromMap(m)).toList();
+  }
+
+  // ========== Scenario Items (S7/S8 v8) ==========
+
+  /// Load the 5–8 structured core expressions for [scenarioId], ordered
+  /// by their insertion id so the practice screen shows them in the seed
+  /// order. Returns an empty list for scenarios that have no items yet.
+  Future<List<ScenarioItem>> getScenarioItems(String scenarioId) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'scenario_items',
+      where: 'scenario_id = ?',
+      whereArgs: [scenarioId],
+      orderBy: 'id ASC',
+    );
+    return maps.map((m) => ScenarioItem.fromMap(m)).toList();
+  }
+
+  /// Upsert a single [ScenarioItem]. Used by future content-management
+  /// UI to add/edit expressions. Idempotent via INSERT OR REPLACE on the
+  /// deterministic id.
+  Future<void> upsertScenarioItem(ScenarioItem item) async {
+    final db = await DatabaseHelper.database;
+    await db.insert(
+      'scenario_items',
+      item.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Persist the user's latest 0–100 mastery score on a scenario item.
+  /// Called after the practice screen rates an utterance. No-op when the
+  /// item id doesn't exist (defensive — practice screens may run against
+  /// a stale list).
+  Future<void> updateScenarioItemScore(String itemId, int score) async {
+    final db = await DatabaseHelper.database;
+    await db.update(
+      'scenario_items',
+      {'score': score.clamp(0, 100)},
+      where: 'id = ?',
+      whereArgs: [itemId],
+    );
+  }
+
+  /// Average mastery score across all items in [scenarioId]. 0 when the
+  /// scenario has no items. Used by the home dashboard to surface "you're
+  /// 60% through this scenario" and to seed [syncScenarioReviewQueue]'s
+  /// `last_score` when a scenario conversation finishes.
+  Future<int> getScenarioAverageScore(String scenarioId) async {
+    final db = await DatabaseHelper.database;
+    final result = await db.rawQuery(
+      'SELECT AVG(score) AS avg FROM scenario_items WHERE scenario_id = ?',
+      [scenarioId],
+    );
+    final avg = (result.first['avg'] as num?)?.toDouble();
+    if (avg == null) return 0;
+    return avg.round().clamp(0, 100);
+  }
+
+  // ========== Teacher Personas (S7/S8 v8) ==========
+
+  /// All teacher personas, ordered strict → encourage → humor (the seed
+  /// insertion order) so the settings picker shows the canonical order.
+  Future<List<TeacherPersona>> getAllTeacherPersonas() async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query('teacher_persona', orderBy: 'id ASC');
+    return maps.map((m) => TeacherPersona.fromMap(m)).toList();
+  }
+
+  /// One teacher persona by id, or null when it doesn't exist.
+  Future<TeacherPersona?> getTeacherPersona(String id) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'teacher_persona',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return TeacherPersona.fromMap(maps.first);
+  }
+
+  /// The user's currently-active persona id (stored in user_settings as
+  /// `active_persona_id`). Returns null when the user hasn't picked one;
+  /// the caller should fall back to a sensible default (encourage).
+  Future<String?> getActiveTeacherPersonaId() async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'user_settings',
+      where: 'key = ?',
+      whereArgs: ['active_persona_id'],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return maps.first['value'] as String;
+  }
+
+  /// Persist the user's persona choice. The chat session builder reads
+  /// this at conversation-start time to pick the system-prompt skeleton.
+  Future<void> setActiveTeacherPersona(String id) async {
+    final db = await DatabaseHelper.database;
+    await db.insert(
+      'user_settings',
+      {'key': 'active_persona_id', 'value': id},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// The active persona, or the 'encourage' default when the user hasn't
+  /// picked one. Falls back to the first persona in the table if the
+  /// stored id points at a deleted row (defensive).
+  Future<TeacherPersona> getActiveTeacherPersona() async {
+    final activeId = await getActiveTeacherPersonaId();
+    if (activeId != null) {
+      final p = await getTeacherPersona(activeId);
+      if (p != null) return p;
+    }
+    final all = await getAllTeacherPersonas();
+    if (all.isNotEmpty) return all.first;
+    // Last-resort synthetic persona — never happens in practice because
+    // the v8 migration seeds 3 personas, but keeps the contract non-null.
+    return TeacherPersona(
+      id: 'persona_encourage',
+      name: 'Ms. Lily',
+      style: TeacherPersonaStyle.encourage,
+      temp: 0.7,
+      promptTemplate: '{scenario_prompt}',
+    );
+  }
+
+  // ========== Scenario Review Queue (S7/S8 v8) ==========
+
+  /// Upsert a scenario review-queue slot for [scenarioId], mirroring
+  /// [dueAt] and the SM-2 state. Called when the user finishes a scenario
+  /// conversation (and after each re-practice rating) so the home
+  /// dashboard's "review this scenario" list stays in sync — the direct
+  /// analogue of [syncReviewQueue] for corrections.
+  ///
+  /// `last_score` is the user's latest 0–100 mastery on the scenario
+  /// (averaged from its scenario_items); the dashboard surfaces it as a
+  /// progress hint.
+  Future<void> syncScenarioReviewQueue({
+    required String scenarioId,
+    required DateTime dueAt,
+    int intervalDays = 0,
+    int repetitions = 0,
+    double easeFactor = 2.5,
+    int lastScore = 0,
+  }) async {
+    final db = await DatabaseHelper.database;
+    final now = DateTime.now().toIso8601String();
+    // Deterministic id so re-syncing the same scenario replaces the slot
+    // instead of creating duplicates (scenario_id is UNIQUE anyway, but
+    // the explicit id keeps the row stable across re-syncs).
+    final id = '${scenarioId}_srq';
+    await db.insert('scenario_review_queue', {
+      'id': id,
+      'scenario_id': scenarioId,
+      'due_at': dueAt.toIso8601String(),
+      'interval_days': intervalDays,
+      'repetitions': repetitions,
+      'ease_factor': easeFactor,
+      'last_score': lastScore,
+      'created_at': now,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Remove a scenario's review-queue slot. Called if the user resets a
+  /// scenario's progress so it falls out of the review rotation.
+  Future<void> removeScenarioReviewQueue(String scenarioId) async {
+    final db = await DatabaseHelper.database;
+    await db.delete(
+      'scenario_review_queue',
+      where: 'scenario_id = ?',
+      whereArgs: [scenarioId],
+    );
+  }
+
+  /// Fetch the [limit] most urgent scenario review-queue items, sorted by
+  /// due_at ascending (most overdue first). Joins the scenarios table so
+  /// the dashboard can render the name/icon without a second round-trip.
+  /// Mirrors [getReviewQueueItems] for corrections.
+  Future<List<ScenarioReviewQueueItem>> getScenarioReviewQueueItems({
+    int limit = 5,
+  }) async {
+    final db = await DatabaseHelper.database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT srq.id AS srq_id, srq.scenario_id AS srq_sid,
+             srq.due_at AS srq_due, srq.created_at AS srq_created,
+             srq.interval_days AS srq_interval, srq.repetitions AS srq_reps,
+             srq.ease_factor AS srq_ef, srq.last_score AS srq_score,
+             s.name AS s_name, s.icon AS s_icon, s.difficulty AS s_diff,
+             s.goal AS s_goal
+      FROM scenario_review_queue srq
+      INNER JOIN scenarios s ON s.id = srq.scenario_id
+      ORDER BY srq.due_at ASC
+      LIMIT ?
+    ''',
+      [limit],
+    );
+    return rows.map((row) {
+      return ScenarioReviewQueueItem(
+        queue: ScenarioReviewQueue(
+          id: row['srq_id'] as String,
+          scenarioId: row['srq_sid'] as String,
+          dueAt: DateTime.parse(row['srq_due'] as String),
+          intervalDays: (row['srq_interval'] as int?) ?? 0,
+          repetitions: (row['srq_reps'] as int?) ?? 0,
+          easeFactor: (row['srq_ef'] as num?)?.toDouble() ?? 2.5,
+          lastScore: (row['srq_score'] as int?) ?? 0,
+          createdAt: DateTime.parse(row['srq_created'] as String),
+        ),
+        scenario: ScenarioRef(
+          id: row['srq_sid'] as String,
+          name: row['s_name'] as String,
+          icon: row['s_icon'] as String,
+          difficulty: row['s_diff'] as String,
+          goal: row['s_goal'] as String?,
+        ),
+      );
+    }).toList();
+  }
+
+  /// Count of scenario review-queue items due now (due_at <= now). Powers
+  /// the dashboard's "scenarios to review" badge alongside the correction
+  /// due count.
+  Future<int> getDueScenarioReviewQueueCount() async {
+    final db = await DatabaseHelper.database;
+    final now = DateTime.now().toIso8601String();
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) AS count FROM scenario_review_queue WHERE due_at <= ?',
+      [now],
+    );
+    return (result.first['count'] as int?) ?? 0;
+  }
+
+  // ========== Content Settings (S7/S8 v8) ==========
+
+  /// Whether structured scenario content is enabled on the home dashboard.
+  /// Defaults to true (the spec ships content on by default; the user can
+  /// disable it from Settings → Content Management).
+  Future<bool> getContentEnabled() async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'user_settings',
+      where: 'key = ?',
+      whereArgs: ['content_enabled'],
+      limit: 1,
+    );
+    if (maps.isEmpty) return true;
+    return (maps.first['value'] as String) == 'true';
+  }
+
+  Future<void> setContentEnabled(bool enabled) async {
+    final db = await DatabaseHelper.database;
+    await db.insert(
+      'user_settings',
+      {'key': 'content_enabled', 'value': enabled ? 'true' : 'false'},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// How many scenarios the home dashboard recommends per day. Defaults
+  /// to 3; clamped to 1–10 by the setter so a malformed stored value can
+  /// never blow up the dashboard layout.
+  Future<int> getDailyScenarioRecommendationCount() async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'user_settings',
+      where: 'key = ?',
+      whereArgs: ['daily_scenario_count'],
+      limit: 1,
+    );
+    if (maps.isEmpty) return 3;
+    final n = int.tryParse(maps.first['value'] as String) ?? 3;
+    return n.clamp(1, 10);
+  }
+
+  Future<void> setDailyScenarioRecommendationCount(int count) async {
+    final db = await DatabaseHelper.database;
+    await db.insert(
+      'user_settings',
+      {'key': 'daily_scenario_count', 'value': '${count.clamp(1, 10)}'},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Scenarios the user hasn't started yet (no chat_session row), limited
+  /// to [limit]. Powers the home dashboard's "today's recommended
+  /// scenario" task and the structured-content strip. Falls back to all
+  /// scenarios when every scenario has been started — the dashboard still
+  /// wants something to show.
+  Future<List<Scenario>> getRecommendedScenarios({int limit = 3}) async {
+    final db = await DatabaseHelper.database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT s.* FROM scenarios s
+      WHERE s.id NOT IN (
+        SELECT DISTINCT scenario_id FROM chat_sessions
+        WHERE scenario_id IS NOT NULL
+      )
+      ORDER BY s.id ASC
+      LIMIT ?
+    ''',
+      [limit],
+    );
+    if (rows.length < limit) {
+      // Not enough untouched scenarios — top up with the earliest ones so
+      // the dashboard always has [limit] cards to render.
+      final all = await db.rawQuery(
+        'SELECT * FROM scenarios ORDER BY id ASC LIMIT ?',
+        [limit],
+      );
+      return all.map((m) => Scenario.fromMap(m)).toList();
+    }
+    return rows.map((m) => Scenario.fromMap(m)).toList();
   }
 }

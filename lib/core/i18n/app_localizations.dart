@@ -564,6 +564,25 @@ const Map<String, String> _zh = {
   'plan.task.conversation': '完成 1 段对话',
   'plan.task.conversation_subtitle': '把刚复习的内容用起来',
 
+  // S7/S8 — Structured content v1
+  'content.section_title': '结构化内容',
+  'content.enabled': '启用结构化内容',
+  'content.enabled_desc': '在首页显示场景推荐与复习',
+  'content.daily_count': '每日推荐数',
+  'content.daily_count_value': '每天 {n} 个',
+  'content.persona': '教师人格',
+  'content.recommended_today': '今日推荐',
+  'content.last_score': '上次得分 {n}',
+  'dashboard.scenario_review_title': '待复习场景',
+  'plan.task.start_scenario': '开始推荐场景',
+  'plan.task.start_scenario_subtitle': '练习今日推荐的核心表达',
+  'persona.style_strict': '严格',
+  'persona.style_encourage': '鼓励',
+  'persona.style_humor': '幽默',
+  'persona.style_strict_desc': '严格纠错，简短表扬',
+  'persona.style_encourage_desc': '温暖鼓励，正向反馈',
+  'persona.style_humor_desc': '幽默轻松，降低焦虑',
+
   // ── Phase-1 P0 #8: low bandwidth / dark mode polish ────────────────
   'settings.low_bandwidth': '低带宽模式',
   'settings.low_bandwidth_desc': '关闭 3D 头像与高耗动画，节省流量。',
@@ -1077,6 +1096,25 @@ const Map<String, String> _en = {
   'plan.task.conversation': 'Have 1 conversation',
   'plan.task.conversation_subtitle': 'Apply what you just reviewed',
 
+  // S7/S8 — Structured content v1
+  'content.section_title': 'Structured Content',
+  'content.enabled': 'Enable structured content',
+  'content.enabled_desc': 'Show scenario recommendations and review on home',
+  'content.daily_count': 'Daily recommendations',
+  'content.daily_count_value': '{n} per day',
+  'content.persona': 'Teacher persona',
+  'content.recommended_today': 'Recommended today',
+  'content.last_score': 'Last score {n}',
+  'dashboard.scenario_review_title': 'Scenarios to review',
+  'plan.task.start_scenario': 'Start recommended scenario',
+  'plan.task.start_scenario_subtitle': "Practice today's recommended core expressions",
+  'persona.style_strict': 'Strict',
+  'persona.style_encourage': 'Encouraging',
+  'persona.style_humor': 'Humor',
+  'persona.style_strict_desc': 'Demanding, error-focused, brief praise',
+  'persona.style_encourage_desc': 'Warm, positive, celebrates small wins',
+  'persona.style_humor_desc': 'Playful, light, uses humor',
+
   // Phase-1 P0 #8: low bandwidth
   'settings.low_bandwidth': 'Low bandwidth mode',
   'settings.low_bandwidth_desc':
@@ -1404,6 +1442,25 @@ const Map<String, String> _ja = {
   'progress.learning': '学習中',
   'progress.due_for_review': '復習予定',
   'progress.daily_activity': '過去7日間',
+
+  // S7/S8 — Structured content v1
+  'content.section_title': '構造化コンテンツ',
+  'content.enabled': '構造化コンテンツを有効化',
+  'content.enabled_desc': 'ホームにシナリオ推奨と復習を表示',
+  'content.daily_count': '1日の推奨数',
+  'content.daily_count_value': '1日 {n} 個',
+  'content.persona': '教師ペルソナ',
+  'content.recommended_today': '本日の推奨',
+  'content.last_score': '前回スコア {n}',
+  'dashboard.scenario_review_title': '復習すべきシナリオ',
+  'plan.task.start_scenario': '推奨シナリオを開始',
+  'plan.task.start_scenario_subtitle': '本日の推奨コア表現を練習',
+  'persona.style_strict': '厳格',
+  'persona.style_encourage': '鼓勵',
+  'persona.style_humor': 'ユーモア',
+  'persona.style_strict_desc': '厳格に訂正、簡潔な褒賞',
+  'persona.style_encourage_desc': '温かく鼓勵、前向きなフィードバック',
+  'persona.style_humor_desc': 'ユーモアでリラックス、冗談を交える',
 };
 
 // ── Korean ──────────────────────────────────────────────────────────────────
@@ -1668,6 +1725,25 @@ const Map<String, String> _ko = {
   'progress.learning': '학습 중',
   'progress.due_for_review': '복습 예정',
   'progress.daily_activity': '최근 7일',
+
+  // S7/S8 — Structured content v1
+  'content.section_title': '구조화 콘텐츠',
+  'content.enabled': '구조화 콘텐츠 활성화',
+  'content.enabled_desc': '홈에 시나리오 추천과 복습 표시',
+  'content.daily_count': '일일 추천 수',
+  'content.daily_count_value': '하루 {n}개',
+  'content.persona': '튜터 페르소나',
+  'content.recommended_today': '오늘의 추천',
+  'content.last_score': '지난 점수 {n}',
+  'dashboard.scenario_review_title': '복습할 시나리오',
+  'plan.task.start_scenario': '추천 시나리오 시작',
+  'plan.task.start_scenario_subtitle': '오늘 추천 핵심 표현 연습',
+  'persona.style_strict': '엄격',
+  'persona.style_encourage': '격려',
+  'persona.style_humor': '유머',
+  'persona.style_strict_desc': '엄격한 교정, 간결한 칭찬',
+  'persona.style_encourage_desc': '따뜻한 격려, 긍정적 피드백',
+  'persona.style_humor_desc': '유머로 편안하게, 농담 사용',
 };
 
 // ── Spanish ─────────────────────────────────────────────────────────────────
@@ -1950,6 +2026,25 @@ const Map<String, String> _es = {
   'progress.learning': 'Aprendiendo',
   'progress.due_for_review': 'Pendiente de repaso',
   'progress.daily_activity': 'Últimos 7 días',
+
+  // S7/S8 — Structured content v1
+  'content.section_title': 'Contenido estructurado',
+  'content.enabled': 'Habilitar contenido estructurado',
+  'content.enabled_desc': 'Mostrar recomendaciones y repaso de escenarios en inicio',
+  'content.daily_count': 'Recomendaciones diarias',
+  'content.daily_count_value': '{n} por día',
+  'content.persona': 'Personalidad del tutor',
+  'content.recommended_today': 'Recomendado hoy',
+  'content.last_score': 'Última puntuación {n}',
+  'dashboard.scenario_review_title': 'Escenarios para repasar',
+  'plan.task.start_scenario': 'Iniciar escenario recomendado',
+  'plan.task.start_scenario_subtitle': 'Practicar las expresiones clave recomendadas hoy',
+  'persona.style_strict': 'Estricto',
+  'persona.style_encourage': 'Animador',
+  'persona.style_humor': 'Humor',
+  'persona.style_strict_desc': 'Exigente, centrado en errores, elogio breve',
+  'persona.style_encourage_desc': 'Cálido, positivo, celebra pequeños logros',
+  'persona.style_humor_desc': 'Juguetón, ligero, usa humor',
 };
 
 // ── French ──────────────────────────────────────────────────────────────────
@@ -2231,6 +2326,25 @@ const Map<String, String> _fr = {
   'progress.learning': 'En apprentissage',
   'progress.due_for_review': 'À réviser',
   'progress.daily_activity': '7 derniers jours',
+
+  // S7/S8 — Structured content v1
+  'content.section_title': 'Contenu structuré',
+  'content.enabled': 'Activer le contenu structuré',
+  'content.enabled_desc': "Afficher les recommandations et révisions de scénarios sur l'accueil",
+  'content.daily_count': 'Recommandations quotidiennes',
+  'content.daily_count_value': '{n} par jour',
+  'content.persona': 'Personnalité du tuteur',
+  'content.recommended_today': "Recommandé aujourd'hui",
+  'content.last_score': 'Dernier score {n}',
+  'dashboard.scenario_review_title': 'Scénarios à réviser',
+  'plan.task.start_scenario': 'Démarrer le scénario recommandé',
+  'plan.task.start_scenario_subtitle': "Pratiquer les expressions clés recommandées aujourd'hui",
+  'persona.style_strict': 'Strict',
+  'persona.style_encourage': 'Encourageur',
+  'persona.style_humor': 'Humour',
+  'persona.style_strict_desc': 'Exigeant, axé sur les erreurs, éloges brefs',
+  'persona.style_encourage_desc': 'Chaleureux, positif, célèbre les petites victoires',
+  'persona.style_humor_desc': 'Ludique, léger, utilise humour',
 };
 
 // ── Portuguese ──────────────────────────────────────────────────────────────
@@ -2512,4 +2626,23 @@ const Map<String, String> _pt = {
   'progress.learning': 'Aprendendo',
   'progress.due_for_review': 'A revisar',
   'progress.daily_activity': 'Últimos 7 dias',
+
+  // S7/S8 — Structured content v1
+  'content.section_title': 'Conteúdo estruturado',
+  'content.enabled': 'Ativar conteúdo estruturado',
+  'content.enabled_desc': 'Mostrar recomendações e revisão de cenários no início',
+  'content.daily_count': 'Recomendações diárias',
+  'content.daily_count_value': '{n} por dia',
+  'content.persona': 'Personalidade do tutor',
+  'content.recommended_today': 'Recomendado hoje',
+  'content.last_score': 'Última pontuação {n}',
+  'dashboard.scenario_review_title': 'Cenários para revisar',
+  'plan.task.start_scenario': 'Iniciar cenário recomendado',
+  'plan.task.start_scenario_subtitle': 'Praticar as expressões-chave recomendadas hoje',
+  'persona.style_strict': 'Estrito',
+  'persona.style_encourage': 'Encorajador',
+  'persona.style_humor': 'Humor',
+  'persona.style_strict_desc': 'Exigente, focado em erros, elogio breve',
+  'persona.style_encourage_desc': 'Caloroso, positivo, celebra pequenas vitórias',
+  'persona.style_humor_desc': 'Brincalhão, leve, usa humor',
 };

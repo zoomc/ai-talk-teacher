@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:uuid/uuid.dart';
 
 const _uuid = Uuid();
@@ -291,6 +293,80 @@ class ChatSession {
   }
 }
 
+/// S7/S8 — one structured expression inside a scenario.
+///
+/// Each scenario ships 5–8 core expressions (the "what to say" backbone).
+/// `practiceType` controls how the practice screen presents the item:
+///   'repeat'   — listen to the demo and repeat
+///   'read'     — read the expression aloud
+///   'respond'  — answer a follow-up prompt
+///   'listen'   — identify the expression from audio
+/// `score` is the user's latest 0–100 mastery score on this item; 0 means
+/// "not practised yet". `audioUrl` is an optional TTS demo clip; null when
+/// the app should synthesise on demand from [expression].
+class ScenarioItem {
+  final String id;
+  final String scenarioId;
+  final String expression;
+  final String translation;
+  final String? audioUrl;
+  final String practiceType;
+  final int score;
+
+  ScenarioItem({
+    String? id,
+    required this.scenarioId,
+    required this.expression,
+    required this.translation,
+    this.audioUrl,
+    this.practiceType = 'repeat',
+    this.score = 0,
+  }) : id = id ?? _uuid.v4();
+
+  ScenarioItem copyWith({
+    String? expression,
+    String? translation,
+    String? audioUrl,
+    String? practiceType,
+    int? score,
+    bool clearAudioUrl = false,
+  }) {
+    return ScenarioItem(
+      id: id,
+      scenarioId: scenarioId,
+      expression: expression ?? this.expression,
+      translation: translation ?? this.translation,
+      audioUrl: clearAudioUrl ? null : (audioUrl ?? this.audioUrl),
+      practiceType: practiceType ?? this.practiceType,
+      score: score ?? this.score,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'scenario_id': scenarioId,
+      'expression': expression,
+      'translation': translation,
+      'audio_url': audioUrl,
+      'practice_type': practiceType,
+      'score': score,
+    };
+  }
+
+  factory ScenarioItem.fromMap(Map<String, dynamic> map) {
+    return ScenarioItem(
+      id: map['id'] as String,
+      scenarioId: map['scenario_id'] as String,
+      expression: map['expression'] as String,
+      translation: (map['translation'] as String?) ?? '',
+      audioUrl: map['audio_url'] as String?,
+      practiceType: (map['practice_type'] as String?) ?? 'repeat',
+      score: (map['score'] as int?) ?? 0,
+    );
+  }
+}
+
 class Scenario {
   final String id;
   final String name;
@@ -300,6 +376,22 @@ class Scenario {
   final String category;
   final String systemPrompt;
 
+  /// S7/S8 — free-text learning goal for this scenario (e.g.
+  /// "Order a coffee with confidence"). Shown on the scenario detail card
+  /// and surfaced in the home dashboard's recommendation. Nullable for
+  /// backward compatibility with pre-v8 rows.
+  final String? goal;
+
+  /// S7/S8 — arbitrary tags used for filtering / recommendations
+  /// (e.g. ['daily', 'food', 'beginner']). Stored as a JSON-encoded
+  /// array in SQLite. Empty list for pre-v8 rows that have no tags.
+  final List<String> tags;
+
+  /// S7/S8 — the 5–8 structured core expressions. Loaded lazily via
+  /// [ChatRepository.getScenarioItems]; empty when the Scenario was
+  /// constructed straight from the row without joining scenario_items.
+  final List<ScenarioItem> items;
+
   Scenario({
     String? id,
     required this.name,
@@ -308,7 +400,36 @@ class Scenario {
     required this.difficulty,
     required this.category,
     required this.systemPrompt,
+    this.goal,
+    this.tags = const [],
+    this.items = const [],
   }) : id = id ?? _uuid.v4();
+
+  Scenario copyWith({
+    String? name,
+    String? description,
+    String? icon,
+    String? difficulty,
+    String? category,
+    String? systemPrompt,
+    String? goal,
+    bool clearGoal = false,
+    List<String>? tags,
+    List<ScenarioItem>? items,
+  }) {
+    return Scenario(
+      id: id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      icon: icon ?? this.icon,
+      difficulty: difficulty ?? this.difficulty,
+      category: category ?? this.category,
+      systemPrompt: systemPrompt ?? this.systemPrompt,
+      goal: clearGoal ? null : (goal ?? this.goal),
+      tags: tags ?? this.tags,
+      items: items ?? this.items,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -319,10 +440,29 @@ class Scenario {
       'difficulty': difficulty,
       'category': category,
       'system_prompt': systemPrompt,
+      'goal': goal,
+      'tags': tags.isEmpty ? null : jsonEncode(tags),
     };
   }
 
   factory Scenario.fromMap(Map<String, dynamic> map) {
+    // S7/S8 — parse the optional goal / tags columns. Both ship as NULL
+    // for pre-v8 rows, so default to null / empty list.
+    final tagsRaw = map['tags'];
+    List<String> parsedTags = const [];
+    if (tagsRaw is String && tagsRaw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(tagsRaw);
+        if (decoded is List) {
+          parsedTags = decoded
+              .map((e) => e?.toString() ?? '')
+              .where((s) => s.isNotEmpty)
+              .toList(growable: false);
+        }
+      } catch (_) {
+        // Malformed JSON — fall back to empty tags rather than crashing.
+      }
+    }
     return Scenario(
       id: map['id'] as String,
       name: map['name'] as String,
@@ -331,6 +471,8 @@ class Scenario {
       difficulty: map['difficulty'] as String,
       category: map['category'] as String,
       systemPrompt: map['system_prompt'] as String,
+      goal: map['goal'] as String?,
+      tags: parsedTags,
     );
   }
 }

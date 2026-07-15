@@ -37,6 +37,13 @@ class DailyPlanTask {
   /// more urgent (e.g. due corrections rank above a free-talk warm-up).
   final int priority;
 
+  /// S7/S8 — the scenario id this task starts, when [action] is
+  /// [DailyPlanAction.startScenario]. Null for all other actions. Carried
+  /// on the task (rather than looked up at tap time) so the dashboard's
+  /// "today's recommended scenario" is stable across rebuilds and the
+  /// home page can navigate straight into the conversation.
+  final String? scenarioId;
+
   const DailyPlanTask({
     required this.id,
     required this.titleKey,
@@ -46,6 +53,7 @@ class DailyPlanTask {
     required this.action,
     this.badge,
     this.priority = 3,
+    this.scenarioId,
   });
 }
 
@@ -67,4 +75,10 @@ enum DailyPlanAction {
 
   /// Push /voice-health — pre-flight mic/network/STT/TTS check.
   openVoiceHealth,
+
+  /// S7/S8 — start a conversation with a specific recommended scenario.
+  /// The scenario id is carried on the [DailyPlanTask] (`scenarioId`).
+  /// The home page reads it and jumps straight into the chat, mirroring
+  /// the goal-recommendation strip's `_startScenario` flow.
+  startScenario,
 }

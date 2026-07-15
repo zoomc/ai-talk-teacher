@@ -9,6 +9,7 @@ import '../../../../core/services/version_service.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../../chat/data/tts_playback_service.dart';
+import '../../../chat/domain/teacher_persona.dart';
 import '../../../profile/domain/services/connection_tester.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -23,6 +24,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _ttsSpeed = '1.0';
   String _theme = 'system';
   bool _isLoading = true;
+  // S7/S8 — Content Management settings.
+  bool _contentEnabled = true;
+  int _dailyScenarioCount = 3;
+  String? _activePersonaId;
 
   @override
   void initState() {
@@ -32,14 +37,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     final repo = ref.read(profileRepoProvider);
+    final chatRepo = ref.read(chatRepoProvider);
     final cs = await repo.getSetting('correction_strength');
     final ts = await repo.getSetting('tts_speed');
     final th = await repo.getSetting('theme');
+    // S7/S8 — load content management settings in parallel with the rest.
+    final contentEnabled = await chatRepo.getContentEnabled();
+    final dailyCount = await chatRepo.getDailyScenarioRecommendationCount();
+    final personaId = await chatRepo.getActiveTeacherPersonaId();
     if (mounted) {
       setState(() {
         if (cs != null) _correctionStrength = cs;
         if (ts != null) _ttsSpeed = ts;
         if (th != null) _theme = th;
+        _contentEnabled = contentEnabled;
+        _dailyScenarioCount = dailyCount;
+        _activePersonaId = personaId;
         _isLoading = false;
       });
     }
@@ -54,6 +67,106 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           'low_bandwidth',
           value ? 'true' : 'false',
         );
+  }
+
+  /// S7/S8 — toggle structured scenario content on/off. Persists via the
+  /// chat repo (which owns the content settings) and updates local state
+  /// so the toggle animates immediately.
+  Future<void> _toggleContentEnabled(bool value) async {
+    setState(() => _contentEnabled = value);
+    await ref.read(chatRepoProvider).setContentEnabled(value);
+  }
+
+  /// S7/S8 — human-readable label for the active persona tile subtitle.
+  /// Falls back to the 'encourage' default when no persona is selected.
+  String _activePersonaLabel() {
+    final style = TeacherPersonaStyle.normalize(
+        _activePersonaId == 'persona_strict'
+            ? TeacherPersonaStyle.strict
+            : _activePersonaId == 'persona_humor'
+                ? TeacherPersonaStyle.humor
+                : TeacherPersonaStyle.encourage);
+    return _l.t(TeacherPersonaStyle.labelKey(style));
+  }
+
+  /// S7/S8 — pick how many scenarios the dashboard recommends per day.
+  /// SimpleDialog with 1–10 options; persists via the chat repo.
+  Future<void> _showDailyCountDialog() async {
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(_l.t('content.daily_count')),
+        children: [
+          for (var n = 1; n <= 10; n++)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, n),
+              child: Row(
+                children: [
+                  if (n == _dailyScenarioCount)
+                    const Icon(Icons.check, size: 18, color: AppColors.accentSecondary)
+                  else
+                    const SizedBox(width: 18),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text('$n'),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (picked != null && picked != _dailyScenarioCount) {
+      setState(() => _dailyScenarioCount = picked);
+      await ref.read(chatRepoProvider).setDailyScenarioRecommendationCount(picked);
+    }
+  }
+
+  /// S7/S8 — pick the active teacher persona. Fetches all personas from
+  /// the repo so the picker is always in sync with the seed data, then
+  /// persists the choice.
+  Future<void> _showPersonaDialog() async {
+    final chatRepo = ref.read(chatRepoProvider);
+    final personas = await chatRepo.getAllTeacherPersonas();
+    if (!mounted) return;
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(_l.t('content.persona')),
+        children: [
+          for (final p in personas)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, p.id),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (p.id == _activePersonaId)
+                    const Icon(Icons.check, size: 18, color: AppColors.accentSecondary)
+                  else
+                    const SizedBox(width: 18),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(p.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 2),
+                        Text(
+                          _l.t(TeacherPersonaStyle.descKey(p.style)),
+                          style: Theme.of(ctx).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (picked != null && picked != _activePersonaId) {
+      setState(() => _activePersonaId = picked);
+      await chatRepo.setActiveTeacherPersona(picked);
+    }
   }
 
   String _capitalize(String s) =>
@@ -169,6 +282,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: _l.t('placement.retake'),
                       subtitle: _l.t('placement.retake_sub'),
                       onTap: _retakePlacement,
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: AppSpacing.lg),
+
+                // S7/S8 — Content Management: structured scenario content
+                // toggle, daily recommendation count, and teacher persona.
+                _SettingsSection(
+                  title: _l.t('content.section_title'),
+                  children: [
+                    _SettingsToggleTile(
+                      icon: Icons.school_outlined,
+                      title: _l.t('content.enabled'),
+                      subtitle: _l.t('content.enabled_desc'),
+                      value: _contentEnabled,
+                      onChanged: _toggleContentEnabled,
+                    ),
+                    _SettingsTile(
+                      icon: Icons.calendar_today_outlined,
+                      title: _l.t('content.daily_count'),
+                      subtitle: _l.tArg('content.daily_count_value',
+                          {'n': '$_dailyScenarioCount'}),
+                      onTap: _showDailyCountDialog,
+                    ),
+                    _SettingsTile(
+                      icon: Icons.person_outline,
+                      title: _l.t('content.persona'),
+                      subtitle: _activePersonaLabel(),
+                      onTap: _showPersonaDialog,
                     ),
                   ],
                 ),

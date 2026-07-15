@@ -380,3 +380,95 @@ class GoalType {
     }
   }
 }
+
+/// S7/S8 — one scenario review-queue slot, mirroring the S5/S6
+/// [ReviewQueue] pattern but for scenarios. When the user finishes a
+/// scenario conversation, a slot is upserted with the SM-2 state so the
+/// home dashboard can surface "review this scenario" alongside correction
+/// reviews. Kept in a separate table (`scenario_review_queue`) so the
+/// existing review_queue's NOT NULL UNIQUE on correction_id stays intact.
+class ScenarioReviewQueue {
+  final String id;
+  final String scenarioId;
+  final DateTime dueAt;
+  /// SM-2 interval in days. 0 for a freshly finished scenario, grows on
+  /// each successful re-practice.
+  final int intervalDays;
+  /// SM-2 repetition count. 0 until the first successful re-practice.
+  final int repetitions;
+  /// SM-2 easiness factor. Starts at 2.5, bounded to >= 1.3.
+  final double easeFactor;
+  /// The user's latest 0–100 mastery score on this scenario (averaged
+  /// from its scenario_items scores at finish time). 0 means not scored.
+  final int lastScore;
+  final DateTime createdAt;
+
+  ScenarioReviewQueue({
+    String? id,
+    required this.scenarioId,
+    required this.dueAt,
+    this.intervalDays = 0,
+    this.repetitions = 0,
+    this.easeFactor = 2.5,
+    this.lastScore = 0,
+    DateTime? createdAt,
+  })  : id = id ?? _uuid.v4(),
+        createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'scenario_id': scenarioId,
+      'due_at': dueAt.toIso8601String(),
+      'interval_days': intervalDays,
+      'repetitions': repetitions,
+      'ease_factor': easeFactor,
+      'last_score': lastScore,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  factory ScenarioReviewQueue.fromMap(Map<String, dynamic> map) {
+    return ScenarioReviewQueue(
+      id: map['id'] as String,
+      scenarioId: map['scenario_id'] as String,
+      dueAt: DateTime.parse(map['due_at'] as String),
+      intervalDays: (map['interval_days'] as int?) ?? 0,
+      repetitions: (map['repetitions'] as int?) ?? 0,
+      easeFactor: (map['ease_factor'] as num?)?.toDouble() ?? 2.5,
+      lastScore: (map['last_score'] as int?) ?? 0,
+      createdAt: DateTime.parse(map['created_at'] as String),
+    );
+  }
+}
+
+/// S7/S8 — a scenario review-queue slot joined with its parent scenario.
+/// The home dashboard's "待复习场景" list needs both the due time (for sort
+/// order) and the scenario name/icon (for display), so this DTO carries
+/// both — mirroring [ReviewQueueItem].
+class ScenarioReviewQueueItem {
+  final ScenarioReviewQueue queue;
+  final ScenarioRef scenario;
+
+  const ScenarioReviewQueueItem({required this.queue, required this.scenario});
+}
+
+/// S7/S8 — lightweight scenario projection used by
+/// [ScenarioReviewQueueItem] and the dashboard's recommended-scenario
+/// strip. We only need a few fields for display, so we don't pull the
+/// whole `Scenario` row (which carries the full system_prompt + items).
+class ScenarioRef {
+  final String id;
+  final String name;
+  final String icon;
+  final String difficulty;
+  final String? goal;
+
+  const ScenarioRef({
+    required this.id,
+    required this.name,
+    required this.icon,
+    required this.difficulty,
+    this.goal,
+  });
+}

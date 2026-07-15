@@ -18,6 +18,13 @@ class DailyPlanService {
   /// - [recentErrorCount] — number of corrections seen in the last 3 days
   ///   (drives a "review recent mistakes" task when the user is actively
   ///   making new errors).
+  /// - [contentEnabled] — S7/S8 — whether structured scenario content is
+  ///   enabled in Settings. When true and [recommendedScenarioId] is set,
+  ///   the P5 task starts that specific scenario instead of opening the
+  ///   generic scenarios list.
+  /// - [recommendedScenarioId] — S7/S8 — the id of today's recommended
+  ///   scenario (from [ChatRepository.getRecommendedScenarios]). When
+  ///   non-null + content enabled, the P5 task uses `startScenario`.
   /// - [now] — injectable for tests; defaults to [DateTime.now].
   ///
   /// Priority scheme (1 = highest):
@@ -25,7 +32,8 @@ class DailyPlanService {
   ///   2. Recent-mistake review (when recentErrorCount > 0)
   ///   3. Voice health pre-flight (when no active session)
   ///   4. Sentence-by-sentence practice
-  ///   5. Free-talk / scenario conversation
+  ///   5. Free-talk / scenario conversation (specific scenario when
+  ///      structured content is enabled + a recommendation exists)
   ///
   /// The plan always has at least 1 task and at most 5, per the S5/S6 spec.
   DailyPlan buildForToday({
@@ -33,6 +41,8 @@ class DailyPlanService {
     required bool hasActiveSession,
     required int scenarioCount,
     int recentErrorCount = 0,
+    bool contentEnabled = false,
+    String? recommendedScenarioId,
     DateTime? now,
   }) {
     final today = (now ?? DateTime.now());
@@ -98,20 +108,38 @@ class DailyPlanService {
     }
 
     // 5. A 3-minute free-talk or scenario roleplay to apply what was
-    //    reviewed. When scenarios exist, nudge toward a roleplay because
-    //    it's more focused than abstract free talk.
+    //    reviewed. S7/S8 — when structured content is enabled AND we have
+    //    a recommended scenario, jump straight into it (startScenario)
+    //    rather than dropping the user on the scenarios list. This is the
+    //    "今日任务从 Scenario 推荐" hook: the home page reads the carried
+    //    scenarioId and navigates directly into the conversation.
     if (tasks.length < 5) {
-      tasks.add(DailyPlanTask(
-        id: 'conversation',
-        titleKey: 'plan.task.conversation',
-        subtitleKey: 'plan.task.conversation_subtitle',
-        icon: Icons.chat_bubble_outline,
-        durationMinutes: 4,
-        action: scenarioCount > 0
-            ? DailyPlanAction.openScenarios
-            : DailyPlanAction.startFreeTalk,
-        priority: 5,
-      ));
+      if (contentEnabled &&
+          recommendedScenarioId != null &&
+          recommendedScenarioId.isNotEmpty) {
+        tasks.add(DailyPlanTask(
+          id: 'scenario',
+          titleKey: 'plan.task.start_scenario',
+          subtitleKey: 'plan.task.start_scenario_subtitle',
+          icon: Icons.school_outlined,
+          durationMinutes: 5,
+          action: DailyPlanAction.startScenario,
+          scenarioId: recommendedScenarioId,
+          priority: 5,
+        ));
+      } else {
+        tasks.add(DailyPlanTask(
+          id: 'conversation',
+          titleKey: 'plan.task.conversation',
+          subtitleKey: 'plan.task.conversation_subtitle',
+          icon: Icons.chat_bubble_outline,
+          durationMinutes: 4,
+          action: scenarioCount > 0
+              ? DailyPlanAction.openScenarios
+              : DailyPlanAction.startFreeTalk,
+          priority: 5,
+        ));
+      }
     }
 
     // Sort by priority (1 first) so the dashboard renders them in order.
@@ -121,18 +149,30 @@ class DailyPlanService {
   }
 
   /// Convenience: build today's plan straight from a [ChatRepository].
-  /// Fetches due-count, active-session, scenario-count, and recent-error
-  /// count in one pass so the plan reflects live repository state.
+  /// Fetches due-count, active-session, scenario-count, recent-error
+  /// count, and (S7/S8) content-settings + recommended scenario in one
+  /// pass so the plan reflects live repository state.
   Future<DailyPlan> buildFromRepository(ChatRepository repo) async {
     final dueCount = await repo.getDueCorrectionCount();
     final active = await repo.getActiveSession();
     final scenarios = await repo.getAllScenarios();
     final recentErrors = await _getRecentErrorCount(repo);
+    // S7/S8 — pull content settings + today's recommended scenario so the
+    // P5 task can start a specific scenario when content is enabled.
+    final contentEnabled = await repo.getContentEnabled();
+    final dailyCount = await repo.getDailyScenarioRecommendationCount();
+    String? recommendedId;
+    if (contentEnabled) {
+      final recs = await repo.getRecommendedScenarios(limit: dailyCount);
+      if (recs.isNotEmpty) recommendedId = recs.first.id;
+    }
     return buildForToday(
       dueCount: dueCount,
       hasActiveSession: active != null,
       scenarioCount: scenarios.length,
       recentErrorCount: recentErrors,
+      contentEnabled: contentEnabled,
+      recommendedScenarioId: recommendedId,
     );
   }
 

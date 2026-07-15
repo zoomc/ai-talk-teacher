@@ -10,6 +10,7 @@ import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../../chat/domain/chat_models.dart';
 import '../../../chat/domain/daily_plan.dart';
+import '../../../chat/domain/teacher_persona.dart';
 import '../../../onboarding/presentation/widgets/placement_radar_chart.dart';
 import '../../domain/home_models.dart';
 import '../home_providers.dart';
@@ -151,8 +152,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                       child: Padding(
                         padding: const EdgeInsets.all(AppSpacing.lg),
                         child: _TodayTasksSection(
-                          onTap: (action) =>
-                              _handlePlanAction(context, action),
+                          onTap: (task) =>
+                              _handlePlanAction(context, task),
                         ),
                       ),
                     ),
@@ -196,6 +197,21 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ),
                     ),
 
+                    // ── S7/S8 — Structured scenario content ─────────────
+                    // Recommended scenarios strip + scenario review queue.
+                    // Hidden entirely when the user disabled content in
+                    // Settings → Content Management.
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+                        child: _StructuredContentSection(
+                          onStartScenario: (scenario) =>
+                              _startScenario(context, scenario),
+                        ),
+                      ),
+                    ),
+
                     const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.xxl),
                     ),
@@ -231,6 +247,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     ref.invalidate(userGoalProvider);
     ref.invalidate(recommendedScenariosProvider);
     ref.invalidate(skillMasteryListProvider);
+    // S7/S8 — refresh structured-content providers too.
+    ref.invalidate(contentSettingsProvider);
+    ref.invalidate(todayRecommendedScenariosProvider);
+    ref.invalidate(scenarioReviewQueueProvider);
+    ref.invalidate(dueScenarioReviewQueueCountProvider);
+    ref.invalidate(activeTeacherPersonaProvider);
     // Wait for the invalidated providers to settle so the
     // RefreshIndicator dismisses only after the data is fresh.
     await Future.delayed(const Duration(milliseconds: 100));
@@ -310,8 +332,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
-  void _handlePlanAction(BuildContext context, DailyPlanAction action) {
-    switch (action) {
+  void _handlePlanAction(BuildContext context, DailyPlanTask task) {
+    switch (task.action) {
       case DailyPlanAction.startFreeTalk:
         _startConversation(context);
         break;
@@ -327,7 +349,31 @@ class _HomePageState extends ConsumerState<HomePage> {
       case DailyPlanAction.openVoiceHealth:
         context.push('/voice-health');
         break;
+      case DailyPlanAction.startScenario:
+        // S7/S8 — the plan carried a specific recommended scenario id;
+        // look it up and jump straight into the conversation so the user
+        // doesn't have to pick from the scenarios list.
+        if (task.scenarioId != null && task.scenarioId!.isNotEmpty) {
+          _startScenarioById(context, task.scenarioId!);
+        } else {
+          context.push('/scenarios');
+        }
+        break;
     }
+  }
+
+  /// S7/S8 — start a conversation with the scenario identified by [id].
+  /// Used by the daily-plan `startScenario` action, which carries only the
+  /// id (the plan is built before the dashboard has the Scenario objects).
+  /// Falls back to the scenarios list if the id no longer exists.
+  Future<void> _startScenarioById(BuildContext context, String id) async {
+    final repo = ref.read(chatRepoProvider);
+    final scenario = await repo.getScenario(id);
+    if (scenario == null) {
+      if (context.mounted) context.push('/scenarios');
+      return;
+    }
+    if (context.mounted) _startScenario(context, scenario);
   }
 }
 
@@ -690,7 +736,7 @@ class _BigActionButton extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────
 
 class _TodayTasksSection extends ConsumerWidget {
-  final ValueChanged<DailyPlanAction> onTap;
+  final ValueChanged<DailyPlanTask> onTap;
   const _TodayTasksSection({required this.onTap});
 
   @override
@@ -735,7 +781,7 @@ class _TodayTasksSection extends ConsumerWidget {
             for (int i = 0; i < p.tasks.length; i++) ...[
               _TaskCard(
                 task: p.tasks[i],
-                onTap: () => onTap(p.tasks[i].action),
+                onTap: () => onTap(p.tasks[i]),
               ),
               if (i < p.tasks.length - 1)
                 const SizedBox(height: AppSpacing.sm),
@@ -1301,6 +1347,271 @@ class _ScenarioChip extends StatelessWidget {
       default:
         return Icons.chat_bubble_outline;
     }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// S7/S8 — Structured content section (recommended scenarios + scenario
+// review queue). Hidden entirely when the user disabled content in
+// Settings → Content Management.
+// ─────────────────────────────────────────────────────────────────────────
+
+class _StructuredContentSection extends ConsumerWidget {
+  final ValueChanged<Scenario> onStartScenario;
+  const _StructuredContentSection({required this.onStartScenario});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    final settingsAsync = ref.watch(contentSettingsProvider);
+
+    return settingsAsync.when(
+      data: (settings) {
+        if (!settings.enabled) return const SizedBox.shrink();
+        return GlassCard(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header: title + active persona hint
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.school_outlined,
+                            size: 18, color: AppColors.accentPrimary),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          l.t('content.section_title'),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
+                    _ActivePersonaBadge(),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                // Recommended scenarios strip
+                Text(
+                  l.t('content.recommended_today'),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                _RecommendedScenariosStrip(onStartScenario: onStartScenario),
+                const SizedBox(height: AppSpacing.md),
+                // Scenario review queue
+                _ScenarioReviewQueueList(),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const ShimmerBox(width: double.infinity, height: 120),
+      error: (_, _) => const SizedBox.shrink(),
+    );
+  }
+}
+
+/// S7/S8 — small badge showing the active teacher persona's name. Tapping
+/// it is a no-op here (the persona is changed in Settings); kept purely
+/// informational so the user knows which tutor style is active.
+class _ActivePersonaBadge extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    final personaAsync = ref.watch(activeTeacherPersonaProvider);
+    return personaAsync.when(
+      data: (p) => Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.accentSecondary.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.person_outline,
+                size: 12, color: AppColors.accentSecondary),
+            const SizedBox(width: 4),
+            Text(
+              l.t(TeacherPersonaStyle.labelKey(p.style)),
+              style: TextStyle(
+                color: AppColors.accentSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+    );
+  }
+}
+
+class _RecommendedScenariosStrip extends ConsumerWidget {
+  final ValueChanged<Scenario> onStartScenario;
+  const _RecommendedScenariosStrip({required this.onStartScenario});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    final scenariosAsync = ref.watch(todayRecommendedScenariosProvider);
+    return scenariosAsync.when(
+      data: (scenarios) {
+        if (scenarios.isEmpty) {
+          return Text(
+            l.t('common.empty'),
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: AppColors.textSecondary),
+          );
+        }
+        return SizedBox(
+          height: 80,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: scenarios.length,
+            separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
+            itemBuilder: (context, i) {
+              final s = scenarios[i];
+              return _ScenarioChip(
+                scenario: s,
+                onTap: () => onStartScenario(s),
+              );
+            },
+          ),
+        );
+      },
+      loading: () => const ShimmerBox(width: double.infinity, height: 80),
+      error: (_, _) => const SizedBox.shrink(),
+    );
+  }
+}
+
+/// S7/S8 — list of scenarios due for review (mirrors the correction
+/// review-queue list). Tapping a row starts the scenario conversation so
+/// the user re-practices it; the SM-2 slot is rescheduled on finish.
+class _ScenarioReviewQueueList extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    final queueAsync = ref.watch(scenarioReviewQueueProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l.t('dashboard.scenario_review_title'),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        queueAsync.when(
+          data: (items) {
+            if (items.isEmpty) {
+              return Text(
+                l.t('review.nothing_due'),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: AppColors.textSecondary),
+              );
+            }
+            return Column(
+              children: [
+                for (int i = 0; i < items.length; i++) ...[
+                  _ScenarioReviewTile(item: items[i]),
+                  if (i < items.length - 1)
+                    const Divider(height: 1, color: AppColors.glassBorder),
+                ],
+              ],
+            );
+          },
+          loading: () =>
+              const ShimmerBox(width: double.infinity, height: 60),
+          error: (_, _) => const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+class _ScenarioReviewTile extends ConsumerWidget {
+  final ScenarioReviewQueueItem item;
+  const _ScenarioReviewTile({required this.item});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    final dueText = _formatDue(item.queue.dueAt);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        children: [
+          Text(item.scenario.icon,
+              style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.scenario.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                if (item.queue.lastScore > 0)
+                  Text(
+                    l.tArg('content.last_score', {'n': '${item.queue.lastScore}'}),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: AppColors.textMuted),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+            child: Text(
+              dueText,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDue(DateTime dueAt) {
+    final now = DateTime.now();
+    final diff = dueAt.difference(now);
+    if (diff.isNegative || diff.inHours == 0) return 'Now';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    if (diff.inDays == 1) return '1d';
+    return '${diff.inDays}d';
   }
 }
 

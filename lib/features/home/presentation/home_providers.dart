@@ -7,6 +7,7 @@ import '../../chat/data/chat_repository.dart';
 import '../../chat/data/daily_plan_service.dart';
 import '../../chat/domain/chat_models.dart';
 import '../../chat/domain/daily_plan.dart';
+import '../../chat/domain/teacher_persona.dart';
 import '../../onboarding/domain/placement_result.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/skill_mastery_service.dart';
@@ -215,4 +216,89 @@ final recommendedScenariosProvider =
   ref.watch(userGoalProvider);
   final svc = ref.watch(userGoalServiceProvider);
   return svc.recommendScenarios(limit: 3);
+});
+
+// ===========================================================================
+// S7/S8 — Structured content v1 providers
+// ====================================================================================
+
+/// S7/S8 — content management settings snapshot. Read by the home dashboard
+/// to decide whether to render the structured-scenario strip + the
+/// "today's recommended scenario" task, and by the settings screen for the
+/// Content Management section. A small DTO keeps the two values together
+/// so a single provider invalidates both at once when the user toggles.
+class ContentSettings {
+  final bool enabled;
+  final int dailyScenarioCount;
+
+  const ContentSettings({required this.enabled, required this.dailyScenarioCount});
+
+  ContentSettings copyWith({bool? enabled, int? dailyScenarioCount}) =>
+      ContentSettings(
+        enabled: enabled ?? this.enabled,
+        dailyScenarioCount: dailyScenarioCount ?? this.dailyScenarioCount,
+      );
+}
+
+/// S7/S8 — content management settings (enabled + daily recommendation
+/// count). Defaults to enabled=true, daily count=3 (see
+/// [ChatRepository.getContentEnabled] /
+/// [ChatRepository.getDailyScenarioRecommendationCount]).
+final contentSettingsProvider =
+    FutureProvider<ContentSettings>((ref) async {
+  final repo = ref.watch(chatRepoProvider);
+  return ContentSettings(
+    enabled: await repo.getContentEnabled(),
+    dailyScenarioCount: await repo.getDailyScenarioRecommendationCount(),
+  );
+});
+
+/// S7/S8 — all teacher personas (strict / encourage / humor). Powers the
+/// settings picker.
+final teacherPersonasProvider =
+    FutureProvider<List<TeacherPersona>>((ref) async {
+  final repo = ref.watch(chatRepoProvider);
+  return repo.getAllTeacherPersonas();
+});
+
+/// S7/S8 — the user's active teacher persona. Falls back to the
+/// 'encourage' default inside the repo. Used by the home dashboard's
+/// "your tutor" hint and (eventually) the chat session builder.
+final activeTeacherPersonaProvider =
+    FutureProvider<TeacherPersona>((ref) async {
+  final repo = ref.watch(chatRepoProvider);
+  return repo.getActiveTeacherPersona();
+});
+
+/// S7/S8 — the 5 most urgent scenario review-queue items, sorted by
+/// due_at ascending (most overdue first). Powers the dashboard's
+/// "待复习场景" list — the scenario analogue of [reviewQueueProvider].
+final scenarioReviewQueueProvider =
+    FutureProvider<List<ScenarioReviewQueueItem>>((ref) async {
+  final repo = ref.watch(chatRepoProvider);
+  return repo.getScenarioReviewQueueItems(limit: 5);
+});
+
+/// S7/S8 — count of due scenario review-queue items. Drives the badge on
+/// the structured-content strip.
+final dueScenarioReviewQueueCountProvider = FutureProvider<int>((ref) async {
+  final repo = ref.watch(chatRepoProvider);
+  return repo.getDueScenarioReviewQueueCount();
+});
+
+/// S7/S8 — today's recommended scenarios for the structured-content strip.
+/// Respects the content-enabled flag (returns empty when disabled) and the
+/// daily-recommendation-count setting. Scenarios the user hasn't started
+/// yet are preferred; falls back to the earliest scenarios so the strip is
+/// never empty when content is on.
+final todayRecommendedScenariosProvider =
+    FutureProvider<List<Scenario>>((ref) async {
+  // Depend on contentSettingsProvider so a toggle / count change refreshes
+  // the list immediately. `.future` unwraps the AsyncValue into a
+  // Future<ContentSettings> we can await; Riverpod auto-propagates the
+  // loading state into this provider while it resolves.
+  final s = await ref.watch(contentSettingsProvider.future);
+  final repo = ref.watch(chatRepoProvider);
+  if (!s.enabled) return const [];
+  return repo.getRecommendedScenarios(limit: s.dailyScenarioCount);
 });

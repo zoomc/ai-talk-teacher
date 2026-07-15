@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### S7-S8 — Structured content v1 — 2026-07-15
+
+#### Content data model + v8 migration
+- Added `goal` / `tags` columns to the `scenarios` table (nullable for
+  backward compatibility). `tags` is stored as a JSON-encoded array and
+  parsed defensively in `Scenario.fromMap`.
+- New `scenario_items` table (id / scenario_id / expression / translation /
+  audio_url / practice_type / score) for the 5–8 structured core
+  expressions per scenario.
+- New `teacher_persona` table (id / name / style / temp / prompt_template)
+  holding the AI tutor style matrix.
+- New `scenario_review_queue` table (SM-2 slots for scenarios, mirroring
+  the correction `review_queue`) so the dashboard can surface
+  "review this scenario" alongside correction reviews. Kept separate from
+  `review_queue` so its NOT NULL UNIQUE on `correction_id` stays intact.
+- v7→v8 migration is fully additive: ALTERs scenarios, CREATEs the 3 new
+  tables with `IF NOT EXISTS`, back-fills goal/tags on pre-existing
+  scenarios, and seeds the new content idempotently (`INSERT OR IGNORE`).
+
+#### 10 structured scenarios + 67 expressions
+- 6 new spec scenarios seeded: `self_intro`, `order_coffee`, `book_hotel`,
+  `phone_call`, `ask_directions`, `social_icebreaker`. Combined with the
+  4 pre-existing spec scenarios (`job_interview`, `business_meeting`,
+  `shopping`, `doctor`) this covers all 10 required topics:
+  self-introduction, ordering coffee, booking a hotel, seeing a doctor,
+  interviews, business meetings, phone calls, asking directions,
+  shopping, and social icebreakers.
+- Each scenario ships 5–7 core expressions with a zh translation and a
+  deterministic id (`${scenarioId}_${expression.hashCode}`) so the seed
+  is idempotent across reinstalls.
+
+#### Teacher persona matrix
+- 3 canonical personas seeded: `persona_strict` (Mr. Sterling, temp 0.4),
+  `persona_encourage` (Ms. Lily, temp 0.7), `persona_humor` (Coach Max,
+  temp 0.9). Each `prompt_template` wraps the scenario prompt via a
+  `{scenario_prompt}` placeholder resolved by `renderSystemPrompt`.
+- `TeacherPersonaStyle` provides `normalize` / `labelKey` / `descKey`
+  helpers shared by the Settings picker and the home persona badge.
+
+#### Operations config (Settings → Content Management)
+- New Settings section with three tiles: content enable/disable toggle,
+  daily recommendation count (1–10, default 3), and active teacher
+  persona picker. All persist via `user_settings` keys
+  (`content_enabled` / `daily_scenario_count` / `active_persona_id`).
+
+#### Home dashboard integration
+- `DailyPlanService.buildFromRepository` now pulls content settings + the
+  day's recommended scenario; when content is enabled, the P5 task uses
+  the new `startScenario` action with the scenario id carried on the
+  task, so the dashboard navigates straight into the conversation.
+- New `_StructuredContentSection` on the home page: active-persona badge,
+  recommended-scenarios strip, and a scenario review-queue list. Hidden
+  entirely when content is disabled.
+- `archiveSession` now syncs `scenario_review_queue` when the archived
+  session was a scenario roleplay (averaging its items' scores), so
+  completed scenarios surface for spaced-repetition review.
+
+#### i18n
+- Added 17 new keys (`content.*`, `dashboard.scenario_review_title`,
+  `plan.task.start_scenario[_subtitle]`, `persona.style_*[_desc]`) to all
+  7 locales (zh / en / ja / ko / es / fr / pt).
+
+#### Tests
+- `scenario_item_model_test.dart` (6 tests) and
+  `teacher_persona_model_test.dart` (10 tests) covering serialization
+  round-trips, defaults, `copyWith` flags, `renderSystemPrompt`, and the
+  `TeacherPersonaStyle` helpers.
+
 ### S5-S6 — Home learning dashboard — 2026-07-15
 
 #### New HomePage dashboard
