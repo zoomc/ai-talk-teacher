@@ -1,3 +1,5 @@
+import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
+
 import '../../../core/database/database_helper.dart';
 import '../domain/chat_models.dart';
 import '../domain/phoneme_score.dart';
@@ -89,13 +91,15 @@ class ChatRepository {
       // so the subquery still resolves.
       await txn.delete(
         'phoneme_scores',
-        where: 'set_id IN (SELECT id FROM phoneme_score_sets WHERE '
+        where:
+            'set_id IN (SELECT id FROM phoneme_score_sets WHERE '
             'message_id IN (SELECT id FROM chat_messages WHERE session_id = ?))',
         whereArgs: [id],
       );
       await txn.delete(
         'phoneme_score_sets',
-        where: 'message_id IN '
+        where:
+            'message_id IN '
             '(SELECT id FROM chat_messages WHERE session_id = ?)',
         whereArgs: [id],
       );
@@ -103,7 +107,8 @@ class ChatRepository {
       // belongs to a message in this session.
       await txn.delete(
         'corrections',
-        where: 'session_id = ? OR message_id IN '
+        where:
+            'session_id = ? OR message_id IN '
             '(SELECT id FROM chat_messages WHERE session_id = ?)',
         whereArgs: [id, id],
       );
@@ -118,11 +123,7 @@ class ChatRepository {
         where: 'session_id = ?',
         whereArgs: [id],
       );
-      await txn.delete(
-        'chat_sessions',
-        where: 'id = ?',
-        whereArgs: [id],
-      );
+      await txn.delete('chat_sessions', where: 'id = ?', whereArgs: [id]);
     });
   }
 
@@ -244,10 +245,7 @@ class ChatRepository {
     // surfaces on the dashboard's "to review" list. New corrections are
     // due immediately (next_review_at is null at creation).
     final dueAt = correction.nextReviewAt ?? DateTime.now();
-    await syncReviewQueue(
-      correctionId: correction.id,
-      dueAt: dueAt,
-    );
+    await syncReviewQueue(correctionId: correction.id, dueAt: dueAt);
   }
 
   /// Look up an existing correction by (original, corrected, type).
@@ -269,11 +267,7 @@ class ChatRepository {
           'LOWER(TRIM(original)) = LOWER(TRIM(?)) AND '
           'LOWER(TRIM(corrected)) = LOWER(TRIM(?)) AND '
           'type = ?',
-      whereArgs: [
-        original,
-        corrected,
-        type,
-      ],
+      whereArgs: [original, corrected, type],
       limit: 1,
     );
     if (maps.isEmpty) return null;
@@ -331,10 +325,7 @@ class ChatRepository {
     // latest SM-2 schedule. Corrections with no next_review_at are due
     // now; clearing the queue slot would hide them, so we keep them due.
     final dueAt = correction.nextReviewAt ?? DateTime.now();
-    await syncReviewQueue(
-      correctionId: correction.id,
-      dueAt: dueAt,
-    );
+    await syncReviewQueue(correctionId: correction.id, dueAt: dueAt);
   }
 
   Future<int> getCorrectionCount() async {
@@ -467,16 +458,12 @@ class ChatRepository {
     // INSERT OR REPLACE with a deterministic id so re-syncing the same
     // correction doesn't create duplicate queue rows.
     final id = '${correctionId}_rq';
-    await db.insert(
-      'review_queue',
-      {
-        'id': id,
-        'correction_id': correctionId,
-        'due_at': dueAt.toIso8601String(),
-        'created_at': now,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('review_queue', {
+      'id': id,
+      'correction_id': correctionId,
+      'due_at': dueAt.toIso8601String(),
+      'created_at': now,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// Remove a correction's review-queue slot. Called when a correction is
@@ -496,7 +483,8 @@ class ChatRepository {
   /// text without a second round-trip.
   Future<List<ReviewQueueItem>> getReviewQueueItems({int limit = 5}) async {
     final db = await DatabaseHelper.database;
-    final rows = await db.rawQuery('''
+    final rows = await db.rawQuery(
+      '''
       SELECT rq.id AS rq_id, rq.correction_id AS rq_cid, rq.due_at AS rq_due,
              rq.created_at AS rq_created,
              c.original AS c_orig, c.corrected AS c_corr, c.type AS c_type,
@@ -505,7 +493,9 @@ class ChatRepository {
       INNER JOIN corrections c ON c.id = rq.correction_id
       ORDER BY rq.due_at ASC
       LIMIT ?
-    ''', [limit]);
+    ''',
+      [limit],
+    );
     return rows.map((row) {
       return ReviewQueueItem(
         queue: ReviewQueue(

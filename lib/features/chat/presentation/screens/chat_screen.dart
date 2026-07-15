@@ -187,7 +187,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _guestTimer?.cancel();
       _ttsPlaybackService.stop();
       if (_isRecording) {
-        await _recordingService.stop();
+        await _recordingService.cancelRecording();
         _isRecording = false;
       }
       final repo = ref.read(chatRepoProvider);
@@ -250,29 +250,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // processing (instead of silence during the LLM round-trip).
   void _startThinkingFiller() {
     _thinkingFillerTimer?.cancel();
-    _thinkingFillerTimer = Timer.periodic(
-      const Duration(seconds: 3),
-      (_) async {
-        try {
-          final profileRepo = ref.read(profileRepoProvider);
-          final ttsProfile = await profileRepo.getActiveTtsProfile();
-          if (ttsProfile == null) return;
-          final tts = TtsService(ttsProfile);
-          // E7 — English filler phrases spoken aloud by the TTS so the
-          // learner hears natural English "thinking" sounds. Kept in
-          // English on purpose (the user is learning English); not
-          // localised.
-          const fillers = ['Hmm...', 'Let me think...', 'Well...'];
-          final filler = fillers[DateTime.now().second % fillers.length];
-          await _ttsPlaybackService.playCached(
-            filler,
-            () => tts.synthesize(filler),
-          );
-        } catch (_) {
-          // Best-effort — filler is non-critical.
-        }
-      },
-    );
+    _thinkingFillerTimer = Timer.periodic(const Duration(seconds: 3), (
+      _,
+    ) async {
+      try {
+        final profileRepo = ref.read(profileRepoProvider);
+        final ttsProfile = await profileRepo.getActiveTtsProfile();
+        if (ttsProfile == null) return;
+        final tts = TtsService(ttsProfile);
+        // E7 — English filler phrases spoken aloud by the TTS so the
+        // learner hears natural English "thinking" sounds. Kept in
+        // English on purpose (the user is learning English); not
+        // localised.
+        const fillers = ['Hmm...', 'Let me think...', 'Well...'];
+        final filler = fillers[DateTime.now().second % fillers.length];
+        await _ttsPlaybackService.playCached(
+          filler,
+          () => tts.synthesize(filler),
+        );
+      } catch (_) {
+        // Best-effort — filler is non-critical.
+      }
+    });
   }
 
   void _stopThinkingFiller() {
@@ -302,10 +301,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(
-      messagesProvider(widget.sessionId),
-      (_, _) => _scrollToBottom(),
-    );
+    ref.listen(messagesProvider(widget.sessionId), (_, _) => _scrollToBottom());
 
     final sideBySide = Responsive.shouldUseSideBySide(context);
     final hidePanel = Responsive.shouldHideStackedCharacterPanel(context);
@@ -316,8 +312,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Focus(
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
-        backgroundColor:
-            isLight ? AppColors.lightBgPrimary : AppColors.bgPrimary,
+        backgroundColor: isLight
+            ? AppColors.lightBgPrimary
+            : AppColors.bgPrimary,
         appBar: ChatHeader(
           tutorName: _tutorName,
           tutorAvatar: _tutorAvatar,
@@ -404,11 +401,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       child: Text(
                         l.t('chat.voice_not_configured'),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.warning,
-                            ),
+                          color: AppColors.warning,
+                        ),
                       ),
                     ),
-                    Icon(Icons.chevron_right, size: 16, color: AppColors.warning),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: AppColors.warning,
+                    ),
                   ],
                 ),
               ),
@@ -438,16 +439,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   child: Text(
                     l.tArg('guest.minutes_left', {
                       'min': (_guestSecondsLeft ~/ 60).toString(),
-                      'sec': (_guestSecondsLeft % 60)
-                          .toString()
-                          .padLeft(2, '0'),
+                      'sec': (_guestSecondsLeft % 60).toString().padLeft(
+                        2,
+                        '0',
+                      ),
                     }),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: _guestSecondsLeft <= 30
-                              ? AppColors.error
-                              : AppColors.accentSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      color: _guestSecondsLeft <= 30
+                          ? AppColors.error
+                          : AppColors.accentSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -548,7 +550,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
 
       final topic = session?.topic;
-      final isReviewSession = topic != null &&
+      final isReviewSession =
+          topic != null &&
           (topic.startsWith('AI Review Session') ||
               topic.startsWith('Practice:'));
       List<Correction> dueCorrections = const [];
@@ -608,11 +611,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         shouldRetry: isTransientRetryable,
         onProgress: (p) {
           if (mounted) {
-            setState(() => _retryHint =
-                l.tArg('retry.progress', {
-                  'attempt': p.nextAttempt.toString(),
-                  'max': p.maxAttempts.toString(),
-                }));
+            setState(
+              () => _retryHint = l.tArg('retry.progress', {
+                'attempt': p.nextAttempt.toString(),
+                'max': p.maxAttempts.toString(),
+              }),
+            );
           }
         },
       );
@@ -730,8 +734,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         if (audioData == null || audioData.isEmpty) {
           if (mounted) {
             final l = AppLocalizations.of(context);
-            ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(content: Text(l.t('chat.no_audio'))));
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(l.t('chat.no_audio'))));
             _setCharacterState(CharacterState.idle);
           }
           return;
@@ -763,10 +768,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             shouldRetry: isTransientRetryable,
             onProgress: (p) {
               if (mounted) {
-                setState(() => _retryHint = l.tArg('retry.progress', {
-                      'attempt': p.nextAttempt.toString(),
-                      'max': p.maxAttempts.toString(),
-                    }));
+                setState(
+                  () => _retryHint = l.tArg('retry.progress', {
+                    'attempt': p.nextAttempt.toString(),
+                    'max': p.maxAttempts.toString(),
+                  }),
+                );
               }
             },
           );
@@ -914,10 +921,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           shouldRetry: isTransientRetryable,
           onProgress: (p) {
             if (mounted) {
-              setState(() => _retryHint = l.tArg('retry.progress', {
-                    'attempt': p.nextAttempt.toString(),
-                    'max': p.maxAttempts.toString(),
-                  }));
+              setState(
+                () => _retryHint = l.tArg('retry.progress', {
+                  'attempt': p.nextAttempt.toString(),
+                  'max': p.maxAttempts.toString(),
+                }),
+              );
             }
           },
         );
@@ -954,7 +963,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _attachPlayerStateListener(String messageId) {
     _playerStateSub?.cancel();
-    _playerStateSub = _ttsPlaybackService.player.playerStateStream.listen((state) {
+    _playerStateSub = _ttsPlaybackService.player.playerStateStream.listen((
+      state,
+    ) {
       if (state.processingState == ProcessingState.completed) {
         if (!mounted) return;
         setState(() {
@@ -1000,11 +1011,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final isLight = Theme.of(context).brightness == Brightness.light;
     showModalBottomSheet(
       context: context,
-      backgroundColor:
-          isLight ? AppColors.lightBgSecondary : AppColors.bgTertiary,
+      backgroundColor: isLight
+          ? AppColors.lightBgSecondary
+          : AppColors.bgTertiary,
       shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
       builder: (context) => Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -1012,8 +1023,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading:
-                  const Icon(Icons.archive, color: AppColors.textSecondary),
+              leading: const Icon(
+                Icons.archive,
+                color: AppColors.textSecondary,
+              ),
               title: Text(l.t('chat.archive_session')),
               onTap: () async {
                 final repo = ref.read(chatRepoProvider);
@@ -1204,7 +1217,10 @@ class _CharacterPanel extends StatelessWidget {
       return Container(
         height: panelHeight,
         margin: const EdgeInsets.fromLTRB(
-          AppSpacing.sm, AppSpacing.xs, AppSpacing.sm, AppSpacing.xs,
+          AppSpacing.sm,
+          AppSpacing.xs,
+          AppSpacing.sm,
+          AppSpacing.xs,
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(AppRadius.xl),
@@ -1251,15 +1267,15 @@ class _StageIcon extends StatelessWidget {
   const _StageIcon({required this.icon});
   @override
   Widget build(BuildContext context) => Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.76),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white),
-        ),
-        child: Icon(icon, size: 20, color: AppColors.lightTextPrimary),
-      );
+    width: 36,
+    height: 36,
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.76),
+      shape: BoxShape.circle,
+      border: Border.all(color: Colors.white),
+    ),
+    child: Icon(icon, size: 20, color: AppColors.lightTextPrimary),
+  );
 }
 
 class _TutorLive2DPortrait extends StatefulWidget {

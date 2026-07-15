@@ -557,7 +557,6 @@ const Map<String, String> _zh = {
   'common.start': '开始',
   'common.done': '完成',
   'common.try_again': '重试',
-  'common.loading': '加载中…',
   'common.empty': '暂无内容',
 
   // ── P1 task 3: retry UI ───────────────────────────────────────────
@@ -965,11 +964,13 @@ const Map<String, String> _en = {
   'guest.trial_topic': 'Guest trial',
   'guest.minutes_left': 'Guest trial left {min}:{sec}',
   'guest.trial_ended_title': 'Trial ended',
-  'guest.trial_ended_body': 'Your 3-minute guest trial is over. Set up your own API keys to keep practicing.',
+  'guest.trial_ended_body':
+      'Your 3-minute guest trial is over. Set up your own API keys to keep practicing.',
   'guest.set_up_keys': 'Set up my keys',
   'guest.start_failed': 'Could not start guest trial: {error}',
   'guest.start_trial': 'Start trial',
-  'guest.unavailable': 'Guest service unavailable. Set up your own keys or try again later.',
+  'guest.unavailable':
+      'Guest service unavailable. Set up your own keys or try again later.',
 
   // Phase-1 P0 #2: voice health
   'health.title': 'Voice Health Check',
@@ -1002,7 +1003,8 @@ const Map<String, String> _en = {
   'practice.you_said': 'You said',
   'practice.target': 'Target',
   'practice.done': 'Done',
-  'practice.empty': 'No sentences to practice yet — collect corrections in a chat first.',
+  'practice.empty':
+      'No sentences to practice yet — collect corrections in a chat first.',
   'practice.tap_demo': 'Tap to play the AI demo',
   'practice.error': 'Practice error. Please retry.',
 
@@ -1043,14 +1045,14 @@ const Map<String, String> _en = {
 
   // Phase-1 P0 #8: low bandwidth
   'settings.low_bandwidth': 'Low bandwidth mode',
-  'settings.low_bandwidth_desc': 'Disable 3D avatar and heavy animations to save data.',
+  'settings.low_bandwidth_desc':
+      'Disable 3D avatar and heavy animations to save data.',
   'settings.voice_health': 'Voice Health Check',
   'settings.voice_health_desc': 'Check mic, network, STT/TTS are ready.',
 
   'common.start': 'Start',
   'common.done': 'Done',
   'common.try_again': 'Retry',
-  'common.loading': 'Loading…',
   'common.empty': 'Nothing here yet',
 
   // P1 task 3: retry UI
@@ -1080,7 +1082,8 @@ const Map<String, String> _en = {
 
   // P1 task 6: placement AI
   'placement.ai_title': 'AI Placement Test',
-  'placement.ai_subtitle': 'Have a 5-turn chat with the AI to assess your English.',
+  'placement.ai_subtitle':
+      'Have a 5-turn chat with the AI to assess your English.',
   'placement.turn': 'Turn {n} / {total}',
   'placement.thinking': 'AI is thinking…',
   'placement.listening': 'Your turn…',
@@ -1095,7 +1098,8 @@ const Map<String, String> _en = {
   'placement.week': 'Week {n}',
   'placement.path_generated': 'A 4-week plan was generated for your level.',
   'placement.skip_to_chat': 'Chat later',
-  'placement.error_no_llm': 'Configure an LLM profile first to run AI placement.',
+  'placement.error_no_llm':
+      'Configure an LLM profile first to run AI placement.',
   'placement.error_failed': 'Placement failed, please retry later.',
   'placement.tap_to_speak': 'Tap to record',
   'placement.tap_to_send': 'Send',
@@ -1830,7 +1834,8 @@ const Map<String, String> _es = {
   'dashboard.ability_title': 'Resumen de habilidades',
   'dashboard.review_queue_title': 'Repasos pendientes',
   'plan.task.recent_errors': 'Repasar errores recientes',
-  'plan.task.recent_errors_subtitle': 'Reforzar correcciones de los últimos 3 días',
+  'plan.task.recent_errors_subtitle':
+      'Reforzar correcciones de los últimos 3 días',
   'home.continue_practice': 'Continuar práctica',
   'home.start_new': 'Nuevo chat',
   'home.quick_actions': 'Acciones rápidas',
@@ -2093,7 +2098,8 @@ const Map<String, String> _fr = {
   'dashboard.ability_title': 'Aperçu des compétences',
   'dashboard.review_queue_title': 'Révisions en attente',
   'plan.task.recent_errors': 'Réviser les erreurs récentes',
-  'plan.task.recent_errors_subtitle': 'Renforcer les corrections des 3 derniers jours',
+  'plan.task.recent_errors_subtitle':
+      'Renforcer les corrections des 3 derniers jours',
   'home.continue_practice': 'Continuer la pratique',
   'home.start_new': 'Nouveau chat',
   'home.quick_actions': 'Actions rapides',
