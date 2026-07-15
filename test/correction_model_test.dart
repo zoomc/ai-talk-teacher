@@ -47,6 +47,46 @@ void main() {
       }
     });
 
+    test('fluency is a valid CorrectionType', () {
+      expect(CorrectionType.values, contains(CorrectionType.fluency));
+    });
+
+    test('skill field round-trips through toMap/fromMap', () {
+      final original = Correction(
+        original: 'I goes',
+        corrected: 'I go',
+        type: CorrectionType.grammar,
+        skill: 'grammar/subject-verb-agreement',
+        createdAt: DateTime(2026, 6, 28, 12, 0),
+      );
+      final map = original.toMap();
+      expect(map['skill'], 'grammar/subject-verb-agreement');
+      final restored = Correction.fromMap(map);
+      expect(restored.skill, 'grammar/subject-verb-agreement');
+    });
+
+    test('skill field defaults to null when not set', () {
+      final c = Correction(
+        original: 'x',
+        corrected: 'y',
+        type: CorrectionType.grammar,
+      );
+      expect(c.skill, isNull);
+      expect(c.toMap()['skill'], isNull);
+    });
+
+    test('fromMap handles null skill field with default', () {
+      final map = {
+        'id': 'x',
+        'original': 'a',
+        'corrected': 'b',
+        'type': 'grammar',
+        'skill': null,
+        'created_at': DateTime(2026, 1, 1).toIso8601String(),
+      };
+      expect(Correction.fromMap(map).skill, isNull);
+    });
+
     test('fromMap handles null optional fields with defaults', () {
       final map = {
         'id': 'x',
@@ -132,6 +172,38 @@ void main() {
       );
       final copy = original.copyWith(reviewCount: 2);
       expect(copy.nextReviewAt, dt);
+    });
+
+    test('copyWith sets skill when provided', () {
+      final original = Correction(
+        original: 'a',
+        corrected: 'b',
+        type: CorrectionType.grammar,
+      );
+      final copy = original.copyWith(skill: 'grammar/articles');
+      expect(copy.skill, 'grammar/articles');
+    });
+
+    test('copyWith preserves skill when not changing it', () {
+      final original = Correction(
+        original: 'a',
+        corrected: 'b',
+        type: CorrectionType.grammar,
+        skill: 'grammar/tenses',
+      );
+      final copy = original.copyWith(reviewCount: 1);
+      expect(copy.skill, 'grammar/tenses');
+    });
+
+    test('clearSkill sets skill to null', () {
+      final original = Correction(
+        original: 'a',
+        corrected: 'b',
+        type: CorrectionType.grammar,
+        skill: 'grammar/tenses',
+      );
+      final copy = original.copyWith(clearSkill: true);
+      expect(copy.skill, isNull);
     });
   });
 }

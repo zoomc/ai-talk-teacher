@@ -255,6 +255,10 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   ///
   /// After scheduling + persisting, the card is removed from the visible
   /// "due now" list — the next review is in the future.
+  ///
+  /// S5/S6 v7 — when the correction carries a skill tag, we also recompute
+  /// that skill's mastery score so the home dashboard's ability radar +
+  /// skill list reflect the new SM-2 state on the next refresh.
   Future<void> _rateCorrection(Correction correction, int quality) async {
     if (_ratingInFlight.contains(correction.id)) return;
     setState(() => _ratingInFlight.add(correction.id));
@@ -262,6 +266,19 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     try {
       final updated = Sm2Service.scheduleReview(correction, quality);
       await ref.read(chatRepoProvider).updateCorrection(updated);
+
+      // S5/S6 v7 — recompute the skill's mastery so the dashboard's
+      // ability overview + skill list stay fresh. Best-effort: a failure
+      // here doesn't invalidate the rating (the correction update above
+      // already succeeded). Skip when the correction has no skill tag.
+      final skill = updated.skill;
+      if (skill != null && skill.trim().isNotEmpty) {
+        try {
+          await ref.read(skillMasteryServiceProvider).recompute(skill);
+        } catch (_) {
+          // Mastery recompute is best-effort.
+        }
+      }
 
       // S5/S6 — completing a review counts as today's practice: bump the
       // streak so the home dashboard reflects the activity when the user
@@ -295,6 +312,15 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           _corrections.removeWhere((c) => c.id == correction.id);
           _ratingInFlight.remove(correction.id);
         });
+
+        // S5/S6 v7 — invalidate home dashboard providers so the review
+        // queue, due-count badge, ability radar, and skill mastery list
+        // are fresh when the user returns to the home page.
+        ref.invalidate(reviewQueueProvider);
+        ref.invalidate(dueReviewQueueCountProvider);
+        ref.invalidate(abilityScoresProvider);
+        ref.invalidate(skillMasteryListProvider);
+        ref.invalidate(dailyPlanProvider);
       }
     } catch (e) {
       if (mounted) {
@@ -368,6 +394,8 @@ class _CorrectionCardState extends ConsumerState<_CorrectionCard> {
         return AppColors.warning;
       case CorrectionType.pronunciation:
         return AppColors.accentSecondary;
+      case CorrectionType.fluency:
+        return AppColors.info;
     }
   }
 
@@ -379,6 +407,8 @@ class _CorrectionCardState extends ConsumerState<_CorrectionCard> {
         return AppLocalizations.of(context).t('correction.type_vocabulary');
       case CorrectionType.pronunciation:
         return AppLocalizations.of(context).t('correction.type_pronunciation');
+      case CorrectionType.fluency:
+        return AppLocalizations.of(context).t('correction.type_fluency');
     }
   }
 

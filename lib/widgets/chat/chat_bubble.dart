@@ -707,6 +707,8 @@ class _CorrectionInlineState extends ConsumerState<CorrectionInline> {
         return AppColors.warning;
       case CorrectionType.pronunciation:
         return AppColors.accentSecondary;
+      case CorrectionType.fluency:
+        return AppColors.info;
     }
   }
 
@@ -718,6 +720,8 @@ class _CorrectionInlineState extends ConsumerState<CorrectionInline> {
         return AppLocalizations.of(context).t('correction.type_vocabulary');
       case CorrectionType.pronunciation:
         return AppLocalizations.of(context).t('correction.type_pronunciation');
+      case CorrectionType.fluency:
+        return AppLocalizations.of(context).t('correction.type_fluency');
     }
   }
 

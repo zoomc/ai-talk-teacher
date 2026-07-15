@@ -90,16 +90,32 @@ class PracticeLog {
 /// S5/S6 — one review-queue slot per correction, mirroring its next due
 /// time so the home dashboard can surface "what to review next" sorted by
 /// the forgetting window without re-deriving the SM-2 schedule.
+///
+/// S5/S6 v7 — carries the full SM-2 state (intervalDays / repetitions /
+/// easeFactor) so the dashboard's "today's tasks" can be ordered by SM-2
+/// progression (lower repetitions → earlier in the day's plan) without
+/// joining back to the corrections table.
 class ReviewQueue {
   final String id;
   final String correctionId;
   final DateTime dueAt;
+  /// SM-2 interval in days. 0 for a brand-new correction, grows on each
+  /// successful review.
+  final int intervalDays;
+  /// SM-2 repetition count. 0 until the first successful review; reset to
+  /// 0 on a failed (quality < 3) review.
+  final int repetitions;
+  /// SM-2 easiness factor. Starts at 2.5, bounded to >= 1.3.
+  final double easeFactor;
   final DateTime createdAt;
 
   ReviewQueue({
     String? id,
     required this.correctionId,
     required this.dueAt,
+    this.intervalDays = 0,
+    this.repetitions = 0,
+    this.easeFactor = 2.5,
     DateTime? createdAt,
   })  : id = id ?? _uuid.v4(),
         createdAt = createdAt ?? DateTime.now();
@@ -109,6 +125,9 @@ class ReviewQueue {
       'id': id,
       'correction_id': correctionId,
       'due_at': dueAt.toIso8601String(),
+      'interval_days': intervalDays,
+      'repetitions': repetitions,
+      'ease_factor': easeFactor,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -118,6 +137,11 @@ class ReviewQueue {
       id: map['id'] as String,
       correctionId: map['correction_id'] as String,
       dueAt: DateTime.parse(map['due_at'] as String),
+      // v7 migration back-fills these for pre-existing rows; older maps
+      // (e.g. from in-memory tests) won't have the keys → default values.
+      intervalDays: (map['interval_days'] as int?) ?? 0,
+      repetitions: (map['repetitions'] as int?) ?? 0,
+      easeFactor: (map['ease_factor'] as num?)?.toDouble() ?? 2.5,
       createdAt: DateTime.parse(map['created_at'] as String),
     );
   }
@@ -141,7 +165,7 @@ class CorrectionRef {
   final String id;
   final String original;
   final String corrected;
-  final String type; // 'grammar' | 'vocabulary' | 'pronunciation'
+  final String type; // 'grammar' | 'vocabulary' | 'pronunciation' | 'fluency'
   final int importance;
 
   const CorrectionRef({
@@ -184,4 +208,175 @@ class AbilityScores {
 
   int get overall =>
       ((pronunciation + grammar + vocabulary + fluency) / 4).round();
+}
+
+/// S5/S6 v7 — one row per skill point (e.g. 'grammar/subject-verb-agreement').
+///
+/// `score` is 0–100 produced by [SkillMasteryService] from the latest 20
+/// practice events on this skill, weighted by time-decay (newest = highest
+/// weight). `level` is the human-readable bucket used by the home dashboard
+/// to colour-code the skill list:
+///   0–19   → 'new'
+///   20–39  → 'learning'
+///   40–69  → 'familiar'
+///   70–89  → 'mastered'
+///   90–100 → 'expert'
+class SkillMastery {
+  final String id;
+  /// Stable skill identifier — the kebab-case tag from corrections.skill
+  /// (e.g. 'grammar/subject-verb-agreement'). UNIQUE in the table.
+  final String skillId;
+  final int score;
+  final String level;
+  final DateTime updatedAt;
+
+  SkillMastery({
+    String? id,
+    required this.skillId,
+    required this.score,
+    required this.level,
+    DateTime? updatedAt,
+  })  : id = id ?? _uuid.v4(),
+        updatedAt = updatedAt ?? DateTime.now();
+
+  SkillMastery copyWith({
+    int? score,
+    String? level,
+    DateTime? updatedAt,
+  }) {
+    return SkillMastery(
+      id: id,
+      skillId: skillId,
+      score: score ?? this.score,
+      level: level ?? this.level,
+      updatedAt: updatedAt ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'skill_id': skillId,
+      'score': score,
+      'level': level,
+      'updated_at': updatedAt.toIso8601String(),
+    };
+  }
+
+  factory SkillMastery.fromMap(Map<String, dynamic> map) {
+    return SkillMastery(
+      id: map['id'] as String,
+      skillId: map['skill_id'] as String,
+      score: (map['score'] as int?) ?? 0,
+      level: (map['level'] as String?) ?? 'new',
+      updatedAt: map['updated_at'] != null
+          ? DateTime.parse(map['updated_at'] as String)
+          : DateTime.now(),
+    );
+  }
+
+  /// Bucket the numeric [score] into the human-readable level string. Kept
+  /// as a static so [SkillMasteryService] can derive the level from a freshly
+  /// computed score without duplicating the thresholds.
+  static String levelFromScore(int score) {
+    if (score >= 90) return 'expert';
+    if (score >= 70) return 'mastered';
+    if (score >= 40) return 'familiar';
+    if (score >= 20) return 'learning';
+    return 'new';
+  }
+}
+
+/// S5/S6 v7 — the user's learning goal. The home dashboard reads the most
+/// recent row (by `created_at`) as the "active" goal and uses it to
+/// recommend scenarios + practice content.
+///
+/// `goalType` is one of: 'interview' | 'travel' | 'daily' | 'ielts'.
+/// `target` is a free-text description the user can fill in (e.g.
+/// "Silicon Valley engineering interview" or "Band 7 in IELTS speaking")
+/// — kept optional so a user can pick a goal type without being forced to
+/// write a target.
+class UserGoal {
+  final String id;
+  final String goalType;
+  final String target;
+  final DateTime createdAt;
+
+  UserGoal({
+    String? id,
+    required this.goalType,
+    required this.target,
+    DateTime? createdAt,
+  })  : id = id ?? _uuid.v4(),
+        createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'goal_type': goalType,
+      'target': target,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  factory UserGoal.fromMap(Map<String, dynamic> map) {
+    return UserGoal(
+      id: map['id'] as String,
+      goalType: map['goal_type'] as String,
+      target: (map['target'] as String?) ?? '',
+      createdAt: DateTime.parse(map['created_at'] as String),
+    );
+  }
+}
+
+/// S5/S6 v7 — the four supported goal types. Kept as a static const list
+/// so the goal-picker dialog and the recommendation service share a single
+/// source of truth. Order matches the spec
+/// (interview / travel / daily / ielts).
+class GoalType {
+  static const String interview = 'interview';
+  static const String travel = 'travel';
+  static const String daily = 'daily';
+  static const String ielts = 'ielts';
+
+  static const List<String> all = [interview, travel, daily, ielts];
+
+  /// Validate a stored goal_type string. Returns the input if it's one of
+  /// the known values, otherwise `daily` (the safe default).
+  static String normalize(String? raw) {
+    if (raw == null) return daily;
+    return all.contains(raw) ? raw : daily;
+  }
+
+  /// i18n key for the human-readable name of [goalType].
+  static String labelKey(String goalType) {
+    switch (goalType) {
+      case interview:
+        return 'goal.type_interview';
+      case travel:
+        return 'goal.type_travel';
+      case ielts:
+        return 'goal.type_ielts';
+      case daily:
+      default:
+        return 'goal.type_daily';
+    }
+  }
+
+  /// Scenario category most aligned with [goalType] — used by the home
+  /// dashboard's "recommended for your goal" section. Mirrors the
+  /// `category` column in the scenarios table.
+  static String preferredCategory(String goalType) {
+    switch (goalType) {
+      case interview:
+        return 'career';
+      case travel:
+        return 'travel';
+      case ielts:
+        return 'general';
+      case daily:
+      default:
+        return 'daily';
+    }
+  }
 }

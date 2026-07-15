@@ -4,7 +4,11 @@ const _uuid = Uuid();
 
 enum MessageRole { user, assistant, system }
 
-enum CorrectionType { grammar, vocabulary, pronunciation }
+/// S5/S6 v7 — `fluency` added so the LLM can flag disfluency / hesitation
+/// errors (fillers, false starts, run-on sentences) that aren't strictly
+/// grammar or vocabulary. Mirrors the four-dimension AbilityScores used by
+/// the home dashboard radar.
+enum CorrectionType { grammar, vocabulary, pronunciation, fluency }
 
 class Correction {
   final String id;
@@ -37,6 +41,12 @@ class Correction {
   // When [isFavorite] was last toggled on. Null when not starred. Used to
   // keep starred ordering stable (newest star first).
   final DateTime? favoriteAt;
+  // S5/S6 v7 — skill tag for this error (e.g. 'grammar/subject-verb-agreement',
+  // 'pronunciation/th-digraph', 'vocabulary/collocation'). Free-text so the
+  // LLM can introduce new skill points without a schema change. Drives the
+  // skill_mastery roll-up: each distinct skill_id gets a 0-100 mastery score.
+  // Null for legacy rows + when the LLM omits the field (graceful degrade).
+  final String? skill;
 
   Correction({
     String? id,
@@ -56,6 +66,7 @@ class Correction {
     this.importance = 50,
     this.isFavorite = false,
     this.favoriteAt,
+    this.skill,
   }) : id = id ?? _uuid.v4(),
        createdAt = createdAt ?? DateTime.now(),
        lastSeenAt = lastSeenAt ?? createdAt ?? DateTime.now();
@@ -78,6 +89,8 @@ class Correction {
     bool? isFavorite,
     DateTime? favoriteAt,
     bool clearFavoriteAt = false,
+    String? skill,
+    bool clearSkill = false,
   }) {
     return Correction(
       id: id,
@@ -99,6 +112,7 @@ class Correction {
       importance: importance ?? this.importance,
       isFavorite: isFavorite ?? this.isFavorite,
       favoriteAt: clearFavoriteAt ? null : (favoriteAt ?? this.favoriteAt),
+      skill: clearSkill ? null : (skill ?? this.skill),
     );
   }
 
@@ -121,6 +135,7 @@ class Correction {
       'importance': importance,
       'is_favorite': isFavorite ? 1 : 0,
       'favorite_at': favoriteAt?.toIso8601String(),
+      'skill': skill,
     };
   }
 
@@ -151,6 +166,8 @@ class Correction {
       favoriteAt: map['favorite_at'] != null
           ? DateTime.parse(map['favorite_at'] as String)
           : null,
+      // v7 migration back-fills NULL for pre-existing rows.
+      skill: map['skill'] as String?,
     );
   }
 }

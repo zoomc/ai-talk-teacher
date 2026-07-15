@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/util/responsive.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
+import '../../../chat/domain/chat_models.dart';
 import '../../../chat/domain/daily_plan.dart';
 import '../../../onboarding/presentation/widgets/placement_radar_chart.dart';
 import '../../domain/home_models.dart';
@@ -123,6 +124,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ),
                     ),
 
+                    // ── Goal + recommended scenarios ─────────────────────
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+                        child: _GoalSection(
+                          onStartScenario: (scenario) =>
+                              _startScenario(context, scenario),
+                        ),
+                      ),
+                    ),
+
                     // ── Today's tasks ───────────────────────────────────
                     SliverToBoxAdapter(
                       child: Padding(
@@ -214,6 +227,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     ref.invalidate(dailyPlanProvider);
     ref.invalidate(activeSessionProvider);
     ref.invalidate(abilityScoresProvider);
+    // S5/S6 v7 — refresh goal + mastery-backed providers too.
+    ref.invalidate(userGoalProvider);
+    ref.invalidate(recommendedScenariosProvider);
+    ref.invalidate(skillMasteryListProvider);
     // Wait for the invalidated providers to settle so the
     // RefreshIndicator dismisses only after the data is fresh.
     await Future.delayed(const Duration(milliseconds: 100));
@@ -265,6 +282,31 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
     if (context.mounted) {
       context.push('/practice');
+    }
+  }
+
+  /// S5/S6 v7 — start a conversation with a recommended scenario. Mirrors
+  /// [ScenariosScreen._startScenario] but records today's practice so the
+  /// streak is bumped when the user engages with a goal recommendation.
+  Future<void> _startScenario(BuildContext context, Scenario scenario) async {
+    final repo = ref.read(chatRepoProvider);
+    final session = await repo.createSession(
+      topic: scenario.name,
+      scenarioId: scenario.id,
+    );
+    try {
+      await ref.read(streakServiceProvider).recordPractice(
+            durationSeconds: 0,
+            completed: true,
+          );
+      ref.invalidate(currentStreakProvider);
+      ref.invalidate(streakHistoryProvider);
+      ref.invalidate(todayPracticeLogProvider);
+    } catch (_) {
+      // Streak recording is best-effort.
+    }
+    if (context.mounted) {
+      context.push('/chat/${session.id}');
     }
   }
 
@@ -1034,8 +1076,322 @@ class _ReviewQueueTile extends StatelessWidget {
         return AppColors.warning;
       case 'pronunciation':
         return AppColors.accentSecondary;
+      case 'fluency':
+        return AppColors.info;
       default:
         return AppColors.textMuted;
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Goal section + recommended scenarios (S5/S6 v7)
+// ─────────────────────────────────────────────────────────────────────────
+
+class _GoalSection extends ConsumerWidget {
+  final ValueChanged<Scenario> onStartScenario;
+  const _GoalSection({required this.onStartScenario});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    final goalAsync = ref.watch(userGoalProvider);
+    final scenariosAsync = ref.watch(recommendedScenariosProvider);
+
+    return GlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header: title + set/change button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.flag_outlined,
+                        size: 18, color: AppColors.accentPrimary),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      l.t('goal.section_title'),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
+                TextButton.icon(
+                  onPressed: () => _openSetGoalDialog(context),
+                  icon: const Icon(Icons.edit, size: 16),
+                  label: Text(l.t('goal.set_goal')),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            // Current goal or empty-state prompt
+            goalAsync.when(
+              data: (goal) {
+                if (goal == null) {
+                  return Text(
+                    l.t('goal.no_goal'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                  );
+                }
+                return Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentPrimary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                      child: Text(
+                        l.t(GoalType.labelKey(goal.goalType)),
+                        style: TextStyle(
+                          color: AppColors.accentPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (goal.target.isNotEmpty) ...[
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          goal.target,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+              loading: () => const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
+              error: (_, _) => const SizedBox.shrink(),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            // Recommended scenarios strip
+            Text(
+              l.t('goal.recommended'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            scenariosAsync.when(
+              data: (scenarios) {
+                if (scenarios.isEmpty) {
+                  return Text(
+                    l.t('common.empty'),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: AppColors.textSecondary),
+                  );
+                }
+                return SizedBox(
+                  height: 80,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: scenarios.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(width: AppSpacing.sm),
+                    itemBuilder: (context, i) {
+                      final s = scenarios[i];
+                      return _ScenarioChip(
+                        scenario: s,
+                        onTap: () => onStartScenario(s),
+                      );
+                    },
+                  ),
+                );
+              },
+              loading: () => const ShimmerBox(width: double.infinity, height: 80),
+              error: (_, _) => const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openSetGoalDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => const _SetGoalDialog(),
+    );
+  }
+}
+
+class _ScenarioChip extends StatelessWidget {
+  final Scenario scenario;
+  final VoidCallback onTap;
+  const _ScenarioChip({required this.scenario, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      child: SizedBox(
+        width: 140,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Icon(_iconFor(scenario.icon),
+                    size: 16, color: AppColors.accentPrimary),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    scenario.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              scenario.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _iconFor(String name) {
+    switch (name) {
+      case 'work':
+      case 'interview':
+        return Icons.work_outline;
+      case 'restaurant':
+        return Icons.restaurant_outlined;
+      case 'airport':
+        return Icons.flight_takeoff;
+      case 'shopping':
+        return Icons.shopping_bag_outlined;
+      case 'doctor':
+        return Icons.local_hospital_outlined;
+      case 'date':
+        return Icons.favorite_outline;
+      default:
+        return Icons.chat_bubble_outline;
+    }
+  }
+}
+
+/// Bottom-sheet-style dialog for picking a goal type + optional target text.
+/// On save, persists the new goal via [UserGoalService.setGoal] and
+/// invalidates [userGoalProvider] so the dashboard refreshes immediately.
+class _SetGoalDialog extends ConsumerStatefulWidget {
+  const _SetGoalDialog();
+
+  @override
+  ConsumerState<_SetGoalDialog> createState() => _SetGoalDialogState();
+}
+
+class _SetGoalDialogState extends ConsumerState<_SetGoalDialog> {
+  String _selectedType = GoalType.interview;
+  final _targetController = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _targetController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l.t('goal.set_goal')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              for (final type in GoalType.all)
+                ChoiceChip(
+                  label: Text(l.t(GoalType.labelKey(type))),
+                  selected: _selectedType == type,
+                  onSelected: (_) =>
+                      setState(() => _selectedType = type),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            controller: _targetController,
+            decoration: InputDecoration(
+              labelText: l.t('goal.set_goal'),
+              hintText: 'e.g. Software engineer interview',
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+            maxLength: 80,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: Text(l.t('common.cancel')),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : Text(l.t('common.save')),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await ref.read(userGoalServiceProvider).setGoal(
+            goalType: _selectedType,
+            target: _targetController.text,
+          );
+      ref.invalidate(userGoalProvider);
+      ref.invalidate(recommendedScenariosProvider);
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 }

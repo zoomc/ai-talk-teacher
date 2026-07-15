@@ -204,9 +204,22 @@ class LlmService {
               case 'pronunciation':
                 type = CorrectionType.pronunciation;
                 break;
+              case 'fluency':
+                type = CorrectionType.fluency;
+                break;
               default:
                 type = CorrectionType.grammar;
             }
+
+            // S5/S6 v7 — parse the skill tag. Trim + lower-case the
+            // kebab-case form so the same mistake maps to the same skill
+            // id across turns even when the LLM varies capitalisation.
+            // Empty / whitespace-only strings become null so the mastery
+            // roll-up doesn't create a "" skill bucket.
+            final rawSkill = item['skill'] as String?;
+            final skill = rawSkill == null
+                ? null
+                : (rawSkill.trim().isEmpty ? null : rawSkill.trim());
 
             corrections.add(
               Correction(
@@ -218,6 +231,7 @@ class LlmService {
                 // score (0-100). Clamp + default so a malformed value can't
                 // corrupt the review ordering; missing falls back to 50.
                 importance: _parseImportance(item['importance']),
+                skill: skill,
               ),
             );
           }

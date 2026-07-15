@@ -138,17 +138,26 @@ Reply in two parts:
 formatted EXACTLY like this:
 ```corrections
 [
-  {"original": "what the student said", "corrected": "correct version", "type": "grammar|vocabulary|pronunciation", "importance": 75, "explanation": "brief one-line explanation"}
+  {"original": "what the student said", "corrected": "correct version", "type": "grammar|vocabulary|pronunciation|fluency", "importance": 75, "explanation": "brief one-line explanation", "skill": "grammar/subject-verb-agreement"}
 ]
 ```
 - "original" must be a short verbatim snippet of what the student actually \
 said (not a paraphrase).
-- "type" must be exactly one of: grammar, vocabulary, pronunciation.
+- "type" must be exactly one of: grammar, vocabulary, pronunciation, fluency.
+  Use "fluency" for disfluencies, fillers, false starts, and run-on \
+  sentences that aren't strictly grammar or word-choice errors.
 - "importance" is an integer 0-100 scoring how much this error matters for \
 the student's progress right now. 90-100 = errors that block understanding \
 or repeat high-frequency patterns; 50-89 = clear errors worth fixing soon; \
 0-49 = minor nitpicks. The review list is sorted by this, so be honest and \
 reserve 90+ for the errors that genuinely matter most.
+- "skill" is a short kebab-case tag identifying the underlying skill point, \
+formatted as "<type>/<specific-point>" — e.g. \
+"grammar/subject-verb-agreement", "vocabulary/collocation", \
+"pronunciation/th-digraph", "fluency/filler-words". Be specific enough that \
+the same mistake maps to the same skill tag across turns; the home dashboard \
+rolls these up into a per-skill mastery score. Omit the field only when you \
+genuinely can't classify the skill point.
 - If there were no errors, do NOT include the corrections block at all.
 - Keep the block at the END of the reply so the spoken part stays clean.
 

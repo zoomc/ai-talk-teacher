@@ -245,7 +245,13 @@ class ChatRepository {
     // surfaces on the dashboard's "to review" list. New corrections are
     // due immediately (next_review_at is null at creation).
     final dueAt = correction.nextReviewAt ?? DateTime.now();
-    await syncReviewQueue(correctionId: correction.id, dueAt: dueAt);
+    await syncReviewQueue(
+      correctionId: correction.id,
+      dueAt: dueAt,
+      intervalDays: correction.intervalDays,
+      repetitions: correction.reviewCount,
+      easeFactor: correction.easinessFactor,
+    );
   }
 
   /// Look up an existing correction by (original, corrected, type).
@@ -324,8 +330,16 @@ class ChatRepository {
     // next_review_at so the dashboard's "to review" list reflects the
     // latest SM-2 schedule. Corrections with no next_review_at are due
     // now; clearing the queue slot would hide them, so we keep them due.
+    // S5/S6 v7 — also mirror the SM-2 state (interval / repetitions / EF)
+    // so the dashboard can order today's tasks by progression.
     final dueAt = correction.nextReviewAt ?? DateTime.now();
-    await syncReviewQueue(correctionId: correction.id, dueAt: dueAt);
+    await syncReviewQueue(
+      correctionId: correction.id,
+      dueAt: dueAt,
+      intervalDays: correction.intervalDays,
+      repetitions: correction.reviewCount,
+      easeFactor: correction.easinessFactor,
+    );
   }
 
   Future<int> getCorrectionCount() async {
@@ -444,13 +458,22 @@ class ChatRepository {
 
   // ========== Review Queue (S5/S6) ==========
 
-  /// Upsert a review-queue slot for [correctionId], mirroring [dueAt].
-  /// Called whenever a correction's `next_review_at` changes (i.e. after
-  /// SM-2 scheduling) so the home dashboard's "to review" list stays in
-  /// sync without re-deriving the schedule.
+  /// Upsert a review-queue slot for [correctionId], mirroring [dueAt] and
+  /// (S5/S6 v7) the SM-2 state. Called whenever a correction's
+  /// `next_review_at` changes (i.e. after SM-2 scheduling) so the home
+  /// dashboard's "to review" list stays in sync without re-deriving the
+  /// schedule.
+  ///
+  /// [intervalDays] / [repetitions] / [easeFactor] default to the SM-2
+  /// starting values so pre-v7 callers keep working; the dashboard uses
+  /// these to order today's tasks by SM-2 progression (lower repetitions
+  /// → earlier in the plan).
   Future<void> syncReviewQueue({
     required String correctionId,
     required DateTime dueAt,
+    int intervalDays = 0,
+    int repetitions = 0,
+    double easeFactor = 2.5,
   }) async {
     final db = await DatabaseHelper.database;
     final now = DateTime.now().toIso8601String();
@@ -462,6 +485,9 @@ class ChatRepository {
       'id': id,
       'correction_id': correctionId,
       'due_at': dueAt.toIso8601String(),
+      'interval_days': intervalDays,
+      'repetitions': repetitions,
+      'ease_factor': easeFactor,
       'created_at': now,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
@@ -480,13 +506,20 @@ class ChatRepository {
   /// Fetch the [limit] most urgent review-queue items — sorted by due_at
   /// ascending so the soonest-due (most overdue) surface first. Joins the
   /// corrections table so the dashboard can render the original/corrected
-  /// text without a second round-trip.
+  /// text without a second round-trip. S5/S6 v7 — also returns the SM-2
+  /// state (interval_days / repetitions / ease_factor) for data-model
+  /// completeness; the dashboard's "today's tasks" section surfaces the
+  /// SM-2-driven review task at priority 1, and the pending-review list
+  /// is ordered by due_at per the spec.
   Future<List<ReviewQueueItem>> getReviewQueueItems({int limit = 5}) async {
     final db = await DatabaseHelper.database;
     final rows = await db.rawQuery(
       '''
       SELECT rq.id AS rq_id, rq.correction_id AS rq_cid, rq.due_at AS rq_due,
              rq.created_at AS rq_created,
+             rq.interval_days AS rq_interval,
+             rq.repetitions AS rq_reps,
+             rq.ease_factor AS rq_ef,
              c.original AS c_orig, c.corrected AS c_corr, c.type AS c_type,
              c.importance AS c_imp
       FROM review_queue rq
@@ -502,6 +535,12 @@ class ChatRepository {
           id: row['rq_id'] as String,
           correctionId: row['rq_cid'] as String,
           dueAt: DateTime.parse(row['rq_due'] as String),
+          // v7 columns are NULL for rows that pre-date the migration;
+          // fall back to the SM-2 starting values so the model contract
+          // (non-null) holds.
+          intervalDays: (row['rq_interval'] as int?) ?? 0,
+          repetitions: (row['rq_reps'] as int?) ?? 0,
+          easeFactor: (row['rq_ef'] as num?)?.toDouble() ?? 2.5,
           createdAt: DateTime.parse(row['rq_created'] as String),
         ),
         correction: CorrectionRef(
@@ -566,5 +605,119 @@ class ChatRepository {
       limit: days,
     );
     return maps.map((m) => PracticeLog.fromMap(m)).toList();
+  }
+
+  // ========== Skill-Tagged Corrections (S5/S6 v7) ==========
+
+  /// The most recent [limit] corrections tagged with [skillId], newest
+  /// `last_seen_at` first. Powers [SkillMasteryService.computeScore]'s
+  /// "latest 20 practice events" window. Corrections with a NULL or empty
+  /// skill tag are excluded by the WHERE clause.
+  Future<List<Correction>> getRecentCorrectionsBySkill(
+    String skillId, {
+    int limit = 20,
+  }) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'corrections',
+      where: 'skill = ?',
+      whereArgs: [skillId],
+      orderBy: 'last_seen_at DESC',
+      limit: limit,
+    );
+    return maps.map((m) => Correction.fromMap(m)).toList();
+  }
+
+  /// All distinct non-empty skill tags the user has been flagged on.
+  /// Used by [SkillMasteryService.recomputeAll] to iterate over every
+  /// skill that has at least one correction. Returns the tags in
+  /// arbitrary order; the caller sorts if needed.
+  Future<List<String>> getDistinctSkillIds() async {
+    final db = await DatabaseHelper.database;
+    final rows = await db.rawQuery(
+      "SELECT DISTINCT skill FROM corrections "
+      "WHERE skill IS NOT NULL AND TRIM(skill) != ''",
+    );
+    return rows
+        .map((r) => r['skill'] as String?)
+        .whereType<String>()
+        .toList();
+  }
+
+  // ========== Skill Mastery (S5/S6 v7) ==========
+
+  /// Upsert a skill_mastery row. The `skill_id` column is UNIQUE so
+  /// re-computing a skill's score replaces the previous row instead of
+  /// creating a duplicate. Uses INSERT OR REPLACE with a deterministic
+  /// id derived from the skill id so re-computations land on the same row.
+  Future<void> upsertSkillMastery(SkillMastery mastery) async {
+    final db = await DatabaseHelper.database;
+    final id = '${mastery.skillId}_sm';
+    await db.insert(
+      'skill_mastery',
+      {
+        'id': id,
+        'skill_id': mastery.skillId,
+        'score': mastery.score,
+        'level': mastery.level,
+        'updated_at': mastery.updatedAt.toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// All skill_mastery rows, ordered by score ASC so the weakest skills
+  /// surface first on the dashboard (the user wants to see what to work
+  /// on next, not what they've already mastered).
+  Future<List<SkillMastery>> getAllSkillMastery() async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query('skill_mastery', orderBy: 'score ASC');
+    return maps.map((m) => SkillMastery.fromMap(m)).toList();
+  }
+
+  /// One skill_mastery row by skill_id, or null when the skill hasn't been
+  /// scored yet. Used by the dashboard's per-skill drill-down.
+  Future<SkillMastery?> getSkillMastery(String skillId) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'skill_mastery',
+      where: 'skill_id = ?',
+      whereArgs: [skillId],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return SkillMastery.fromMap(maps.first);
+  }
+
+  // ========== User Goal (S5/S6 v7) ==========
+
+  /// Insert a new user_goal row. We keep history (one row per goal change)
+  /// so the user can later review past goals; the "active" goal is the
+  /// most recent row by `created_at` (see [getLatestUserGoal]).
+  Future<void> insertUserGoal(UserGoal goal) async {
+    final db = await DatabaseHelper.database;
+    await db.insert('user_goal', goal.toMap());
+  }
+
+  /// The most recent user_goal row by `created_at`, or null when the user
+  /// hasn't set a goal yet. This is the "active" goal the home dashboard
+  /// reads for scenario recommendations.
+  Future<UserGoal?> getLatestUserGoal() async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'user_goal',
+      orderBy: 'created_at DESC',
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return UserGoal.fromMap(maps.first);
+  }
+
+  /// All user_goal rows newest-first (goal history). Kept for a future
+  /// "past goals" UI; the dashboard only reads [getLatestUserGoal].
+  Future<List<UserGoal>> getAllUserGoals() async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query('user_goal', orderBy: 'created_at DESC');
+    return maps.map((m) => UserGoal.fromMap(m)).toList();
   }
 }

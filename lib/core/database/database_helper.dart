@@ -11,7 +11,7 @@ import 'database_init_stub.dart'
 class DatabaseHelper {
   static Database? _database;
   static const String _dbName = 'speakflow.db';
-  static const int _dbVersion = 6;
+  static const int _dbVersion = 7;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -138,6 +138,7 @@ class DatabaseHelper {
         importance INTEGER NOT NULL DEFAULT 50,
         is_favorite INTEGER NOT NULL DEFAULT 0,
         favorite_at TEXT,
+        skill TEXT,
         FOREIGN KEY (message_id) REFERENCES chat_messages(id),
         FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
       )
@@ -217,13 +218,48 @@ class DatabaseHelper {
     // the SM-2 schedule. `correction_id` is unique (one queue slot per
     // correction); the row is upserted whenever the correction's
     // `next_review_at` changes.
+    // S5/S6 v7 — adds `interval`, `repetitions`, `ease_factor` columns so
+    // the queue carries the full SM-2 state (not just due_at). Lets the
+    // dashboard order today's tasks by SM-2 progression without joining
+    // back to corrections.
     await db.execute('''
       CREATE TABLE review_queue (
         id TEXT PRIMARY KEY,
         correction_id TEXT NOT NULL UNIQUE,
         due_at TEXT NOT NULL,
+        interval_days INTEGER NOT NULL DEFAULT 0,
+        repetitions INTEGER NOT NULL DEFAULT 0,
+        ease_factor REAL NOT NULL DEFAULT 2.5,
         created_at TEXT NOT NULL,
         FOREIGN KEY (correction_id) REFERENCES corrections(id)
+      )
+    ''');
+
+    // S5/S6 v7 — skill mastery. One row per skill (e.g. 'grammar/tenses',
+    // 'pronunciation/th-digraph'). `score` is 0-100 produced by
+    // [SkillMasteryService] from the latest 20 practice events with a
+    // time-decay weight. `level` is the human-readable bucket
+    // ('new' / 'learning' / 'familiar' / 'mastered' / 'expert').
+    await db.execute('''
+      CREATE TABLE skill_mastery (
+        id TEXT PRIMARY KEY,
+        skill_id TEXT NOT NULL UNIQUE,
+        score INTEGER NOT NULL DEFAULT 0,
+        level TEXT NOT NULL DEFAULT 'new',
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    // S5/S6 v7 — user goal. The user picks one active goal
+    // (interview / travel / daily / ielts) which the home dashboard uses to
+    // recommend scenarios + practice content. Only the most recent row is
+    // "active" (UI shows the latest by created_at).
+    await db.execute('''
+      CREATE TABLE user_goal (
+        id TEXT PRIMARY KEY,
+        goal_type TEXT NOT NULL,
+        target TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
       )
     ''');
 
@@ -547,6 +583,75 @@ class DatabaseHelper {
         INSERT OR IGNORE INTO review_queue (id, correction_id, due_at, created_at)
         SELECT id || '_rq', id, COALESCE(next_review_at, created_at), datetime('now')
         FROM corrections
+      ''');
+    }
+
+    if (oldVersion < 7) {
+      // v7 adds the S5/S6 "learning profile v1" schema:
+      //   corrections.skill            — free-text skill tag (e.g.
+      //     'grammar/subject-verb-agreement') so each error can be rolled up
+      //     under a skill point in the mastery table.
+      //   review_queue.interval_days / repetitions / ease_factor — mirrors
+      //     the SM-2 state so the dashboard can sort today's tasks by
+      //     progression without joining back to corrections.
+      //   skill_mastery (new table)   — one row per skill_id with a 0-100
+      //     score + level bucket, written by SkillMasteryService.
+      //   user_goal (new table)       — the user's current learning goal
+      //     (interview / travel / daily / ielts) used for scenario
+      //     recommendations on the home dashboard.
+      //
+      // Per the S5/S6 spec we ONLY add migration steps here — existing
+      // tables get new nullable / default columns, new tables are created
+      // with `IF NOT EXISTS` so the migration is idempotent and a fresh
+      // install (which runs _onCreate at v7) is consistent.
+      final batch = db.batch();
+      batch.execute('ALTER TABLE corrections ADD COLUMN skill TEXT');
+      batch.execute(
+        'ALTER TABLE review_queue ADD COLUMN interval_days INTEGER NOT NULL DEFAULT 0',
+      );
+      batch.execute(
+        'ALTER TABLE review_queue ADD COLUMN repetitions INTEGER NOT NULL DEFAULT 0',
+      );
+      batch.execute(
+        'ALTER TABLE review_queue ADD COLUMN ease_factor REAL NOT NULL DEFAULT 2.5',
+      );
+      await batch.commit();
+
+      // Back-fill the new review_queue SM-2 columns from the joined
+      // corrections so the dashboard's "today's tasks" ordering by SM-2
+      // progression works immediately on upgrade.
+      await db.execute('''
+        UPDATE review_queue
+        SET interval_days = COALESCE((
+              SELECT interval_days FROM corrections
+              WHERE corrections.id = review_queue.correction_id
+            ), 0),
+            repetitions = COALESCE((
+              SELECT review_count FROM corrections
+              WHERE corrections.id = review_queue.correction_id
+            ), 0),
+            ease_factor = COALESCE((
+              SELECT easiness_factor FROM corrections
+              WHERE corrections.id = review_queue.correction_id
+            ), 2.5)
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS skill_mastery (
+          id TEXT PRIMARY KEY,
+          skill_id TEXT NOT NULL UNIQUE,
+          score INTEGER NOT NULL DEFAULT 0,
+          level TEXT NOT NULL DEFAULT 'new',
+          updated_at TEXT NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS user_goal (
+          id TEXT PRIMARY KEY,
+          goal_type TEXT NOT NULL,
+          target TEXT NOT NULL DEFAULT '',
+          created_at TEXT NOT NULL
+        )
       ''');
     }
   }

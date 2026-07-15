@@ -66,6 +66,97 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   ability_title, review_queue_title) and `plan.task.recent_errors` +
   subtitle to all 7 locales (zh, en, ja, ko, es, fr, pt).
 
+### S5-S6 — Learning profile v1 (error tags + mastery + goals + review) — 2026-07-15
+
+#### Error tag model + fluency type
+- Added `fluency` to the `CorrectionType` enum so disfluencies, fillers,
+  and false starts are a first-class error category alongside
+  grammar / vocabulary / pronunciation. Updated the LLM system-prompt
+  JSON contract and the `llm_service` parser to emit and parse the new
+  type. All UI switch statements (review screen, chat bubble, home
+  dashboard) now handle `fluency` with a distinct colour (`AppColors.info`).
+- Added a `skill TEXT` column to the `corrections` table and a `skill`
+  field on the `Correction` model (with `clearSkill` flag in `copyWith`).
+  The LLM contract now emits a kebab-case skill tag
+  (`<type>/<specific-point>`, e.g. `grammar/subject-verb-agreement`) so
+  new skill points can be introduced without a schema change.
+
+#### Skill mastery (time-decay weighted)
+- New `skill_mastery` SQLite table (id / skill_id / score / level /
+  updated_at) and `SkillMastery` domain model with `levelFromScore`
+  thresholds (new < 20, learning < 40, familiar < 70, mastered < 90,
+  expert ≥ 90).
+- `SkillMasteryService.computeScore` — a `@visibleForTesting` pure
+  function that derives a 0-100 mastery score per skill from the latest
+  20 corrections, weighted by time decay (decay = 0.85, newest = highest
+  weight). Each correction's SM-2 state (reviewCount + easinessFactor)
+  maps to a per-item contribution (0 / 30 / 50 / 70 / 90 / 100).
+  `recompute` / `recomputeAll` persist the result; called after each
+  review rating so the dashboard reflects the new state.
+
+#### Goal system
+- New `user_goal` SQLite table (id / goal_type / target / created_at)
+  and `UserGoal` model. `GoalType` provides four types
+  (interview / travel / daily / ielts) with `normalize`, `labelKey`, and
+  `preferredCategory` utilities.
+- `UserGoalService` — history-preserving goal CRUD (each `setGoal` inserts
+  a new row; `getActiveGoal` reads the latest by `created_at`).
+  `recommendScenarios` filters scenarios by the goal's preferred category
+  (interview → career, travel → travel, ielts → general, daily → daily),
+  falling back to all scenarios when no goal is set or the category has
+  no matches.
+- Home dashboard goal section: shows the current goal (or a "no goal"
+  prompt), a set-goal dialog (4 `ChoiceChip`s + optional target text),
+  and a horizontally-scrolling strip of recommended scenarios. Tapping a
+  scenario starts a conversation with that scenario and records practice.
+
+#### SM-2 review queue extension
+- Extended `review_queue` with `interval_days`, `repetitions`,
+  `ease_factor` columns (SM-2 state). `syncReviewQueue` now persists all
+  SM-2 fields on every `saveCorrection` / `updateCorrection`. The
+  dashboard's pending-review list is sorted by `due_at` ascending; the
+  daily plan surfaces the SM-2-driven review task at priority 1.
+
+#### Home dashboard integration
+- `abilityScoresProvider` now blends placement scores 50/50 with
+  `skill_mastery` averages per dimension (skills roll up via
+  `skillId.startsWith('<dimension>/')` prefix matching), so the radar
+  reflects recent practice trajectory rather than just the placement-day
+  snapshot. The fluency share-penalty now uses the first-class
+  `CorrectionType.fluency` count.
+- Review screen now invalidates home dashboard providers
+  (`reviewQueueProvider`, `dueReviewQueueCountProvider`,
+  `abilityScoresProvider`, `skillMasteryListProvider`, `dailyPlanProvider`)
+  after each rating so the dashboard is fresh when the user returns.
+- Pull-to-refresh now also invalidates `userGoalProvider`,
+  `recommendedScenariosProvider`, and `skillMasteryListProvider`.
+
+#### Data model + schema (v7 migration)
+- v7 SQLite migration: `ALTER TABLE corrections ADD COLUMN skill TEXT`;
+  `ALTER TABLE review_queue ADD COLUMN interval_days / repetitions /
+  ease_factor` (with safe `NOT NULL DEFAULT` values); back-fill `UPDATE`
+  that joins `corrections` to populate the new `review_queue` columns via
+  `COALESCE`. `CREATE TABLE IF NOT EXISTS skill_mastery` and `user_goal`.
+  No existing tables are recreated — only `ALTER TABLE` + `CREATE TABLE
+  IF NOT EXISTS`, per spec. Fresh installs run `_onCreate` at v7 with the
+  full schema.
+
+#### i18n
+- Added `correction.type_fluency`, `goal.*` (section_title, set_goal,
+  recommended, no_goal, type_interview, type_travel, type_daily,
+  type_ielts), and `mastery.*` (new, learning, familiar, mastered,
+  expert) keys to all 7 locales (zh, en, ja, ko, es, fr, pt).
+
+#### Tests
+- Extended `correction_model_test.dart` with `skill` field round-trip,
+  default-null, and `clearSkill` copyWith tests.
+- New `skill_mastery_service_test.dart` — tests `computeScore` for empty
+  lists, per-threshold scores, time-decay weighting, latest-20 bounding,
+  and 0-100 range invariant.
+- New `user_goal_service_test.dart` — tests `GoalType` utilities
+  (normalize, labelKey, preferredCategory), `UserGoal` and `SkillMastery`
+  model serialization, and `levelFromScore` thresholds.
+
 ### P1 — learning system + pronunciation training + reliability + E-series — 2026-07-14
 
 #### Learning system
