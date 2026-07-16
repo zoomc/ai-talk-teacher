@@ -111,7 +111,11 @@ class TtsPlaybackService {
   /// Play TTS audio for [text], caching by text hash so repeated playback of
   /// the same AI reply reuses the synthesized bytes/file. [synthesize] should
   /// produce fresh bytes on a cache miss.
-  Future<void> playCached(
+  ///
+  /// Phase 3 — returns the audio [Uint8List] that was played. Callers can
+  /// hand the bytes to a Rhubarb Lip Sync analyser (see [RhubarbService])
+  /// to derive a viseme timeline for phoneme-synced lip motion.
+  Future<Uint8List> playCached(
     String text,
     Future<Uint8List> Function() synthesize,
   ) async {
@@ -158,10 +162,37 @@ class TtsPlaybackService {
         }
       }
       await player.play();
+      return bytes;
     } catch (e) {
       throw TtsPlaybackException('Failed to play audio: $e');
     }
   }
+
+  /// Phase 3 — fetch the cached audio bytes for [text] without playing them.
+  /// Returns null when the text has never been synthesised. Used by the
+  /// avatar stage to feed Rhubarb Lip Sync without blocking on synthesis.
+  Future<Uint8List?> cachedBytesFor(String text) async {
+    final key = _keyOf(text);
+    final cached = _memCache[key];
+    if (cached != null) return cached;
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/tts_cache/$key.mp3');
+      if (file.existsSync()) {
+        final bytes = await file.readAsBytes();
+        _memCache[key] = bytes;
+        return bytes;
+      }
+    } catch (_) {
+      // Best-effort — return null when the cache can't be read.
+    }
+    return null;
+  }
+
+  /// Phase 3 — stable cache key for [text]. Used by callers (e.g. the
+  /// avatar stage) to deduplicate Rhubarb analysis by the same key the
+  /// TTS cache uses.
+  String cacheKeyFor(String text) => _keyOf(text);
 
   /// Stop current playback
   Future<void> stop() async {

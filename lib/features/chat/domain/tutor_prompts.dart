@@ -161,6 +161,18 @@ genuinely can't classify the skill point.
 - If there were no errors, do NOT include the corrections block at all.
 - Keep the block at the END of the reply so the spoken part stays clean.
 
+## Expression marker
+Prefix your spoken reply with an expression marker so the tutor's avatar can \
+show the right face. Use exactly one marker, at the very start of the reply, \
+chosen from: [emotion:neutral] [emotion:happy] [emotion:encouraging] \
+[emotion:thinking] [emotion:waiting]. Pick the one that best matches the tone \
+of your reply (e.g. [emotion:happy] for praise, [emotion:encouraging] after \
+a mistake, [emotion:thinking] while reasoning, [emotion:waiting] when asking \
+the student to take their turn, [emotion:neutral] otherwise). The marker is \
+stripped before the reply is shown to the student or spoken by TTS, so it will \
+never appear in the conversation — it only drives the avatar's expression. \
+Do NOT use any other marker format.
+
 ## Level adaptation
 $levelGuidance''';
   }

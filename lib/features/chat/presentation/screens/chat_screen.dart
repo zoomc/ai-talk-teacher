@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,7 +13,6 @@ import '../../../../core/util/retry.dart';
 import '../../../../core/services/connectivity_check.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
-import '../../../../shared/widgets/virtual_character.dart';
 import '../../../../shared/providers.dart';
 import '../../data/llm_service.dart';
 import '../../data/llm_streaming.dart';
@@ -26,6 +26,9 @@ import '../../domain/phoneme_score.dart';
 import '../../domain/tutor.dart';
 import '../../domain/tutor_prompts.dart';
 import '../../domain/tutor_emotion.dart';
+import '../../../avatar/data/rhubarb_service.dart';
+import '../../../avatar/domain/viseme_timeline.dart';
+import '../../../avatar/presentation/widgets/avatar_stage.dart';
 import '../../../profile/domain/guest_profiles.dart';
 import '../../../../widgets/chat/chat_bubble.dart';
 import '../../../../widgets/chat/chat_input_bar.dart';
@@ -51,6 +54,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final RecordingService _recordingService = RecordingService();
   final TtsPlaybackService _ttsPlaybackService = TtsPlaybackService();
   final FocusNode _messageFocusNode = FocusNode();
+
+  /// Phase 3 — key into the avatar stage so we can push viseme timelines
+  /// produced by Rhubarb into the live widget.
+  final GlobalKey<AvatarStageState> _avatarKey = GlobalKey<AvatarStageState>();
+
+  /// Phase 3 — Rhubarb Lip Sync service. Lazily probed; when the binary
+  /// isn't installed the avatar stage silently falls back to the
+  /// amplitude-driven mouth open path.
+  RhubarbService? _rhubarbService;
+  bool _rhubarbProbed = false;
 
   bool _isRecording = false;
   bool _isLoading = false;
@@ -264,9 +277,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         // localised.
         const fillers = ['Hmm...', 'Let me think...', 'Well...'];
         final filler = fillers[DateTime.now().second % fillers.length];
-        await _ttsPlaybackService.playCached(
+        final bytes = await _ttsPlaybackService.playCached(
           filler,
           () => tts.synthesize(filler),
+        );
+        // Phase 3 — best-effort viseme analysis. Fillers are short so the
+        // timeline may arrive after playback finished; the avatar stage
+        // handles that gracefully by ignoring stale timelines.
+        unawaited(
+          _maybeAnalyzeVisemes(text: filler, audioBytes: bytes),
         );
       } catch (_) {
         // Best-effort — filler is non-critical.
@@ -297,6 +316,50 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         setState(() => _tutorEmotion = emotion);
       }
     });
+  }
+
+  /// Phase 3 — lazily resolve the Rhubarb Lip Sync service. Returns null
+  /// when the binary isn't installed (or the platform doesn't support
+  /// running native binaries, e.g. Flutter Web). The avatar stage falls
+  /// back to amplitude-driven mouth opening in that case.
+  RhubarbService? _resolveRhubarb() {
+    if (_rhubarbProbed) return _rhubarbService;
+    _rhubarbProbed = true;
+    final svc = RhubarbService();
+    if (svc.isAvailable) {
+      _rhubarbService = svc;
+    }
+    return _rhubarbService;
+  }
+
+  /// Phase 3 — kick off a Rhubarb Lip Sync analysis on [audioBytes] and
+  /// push the resulting viseme timeline to the [AvatarStage] via
+  /// [_avatarKey]. Runs async — never blocks TTS playback. Failures are
+  /// swallowed because the amplitude fallback path is already running.
+  Future<void> _maybeAnalyzeVisemes({
+    required String text,
+    required Uint8List audioBytes,
+  }) async {
+    final svc = _resolveRhubarb();
+    if (svc == null) return;
+    final audioHash = _ttsPlaybackService.cacheKeyFor(text);
+    try {
+      final timeline = await svc.analyze(
+        audioBytes,
+        audioHash: audioHash,
+        formatExtension: 'mp3',
+      );
+      if (!mounted) return;
+      // Only push the timeline when we're still speaking the same text —
+      // avoids a stale timeline being applied to a newer reply.
+      if (_speakingText == text) {
+        _avatarKey.currentState?.setVisemeTimeline(timeline);
+      }
+    } catch (e) {
+      // Best-effort — the avatar stage keeps running on the amplitude
+      // fallback path.
+      debugPrint('Rhubarb analysis failed: $e');
+    }
   }
 
   @override
@@ -340,6 +403,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       speakingText: _speakingText,
                       emotion: _tutorEmotion,
                       panelWidth: Responsive.sidePanelWidth(context),
+                      avatarKey: _avatarKey,
+                      amplitudeStream: _ttsPlaybackService.amplitudeStream,
                     ),
                     const VerticalDivider(
                       width: 1,
@@ -360,6 +425,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       emotion: _tutorEmotion,
                       panelHeight: Responsive.characterPanelHeight(context),
                       compact: true,
+                      avatarKey: _avatarKey,
+                      amplitudeStream: _ttsPlaybackService.amplitudeStream,
                     ),
                     Expanded(child: _chatColumn(context)),
                   ],
@@ -626,11 +693,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       // Clean the streamed content (strip corrections block).
       final cleanedContent = cleanStreamedReply(fullContent);
 
+      // Phase 3 — parse the LLM emotion marker from the pre-strip reply so
+      // the avatar expression follows the model's intent precisely, then
+      // strip the marker so it never leaks into the saved message, the chat
+      // bubble, or TTS speech. `cleanedContent` retains the marker for
+      // emotion parsing; `displayContent` is the clean user-facing text.
+      final displayContent = stripEmotionMarkers(cleanedContent);
+
       // Save AI response
       final aiResponse = ChatMessage(
         sessionId: widget.sessionId,
         role: MessageRole.assistant,
-        content: cleanedContent,
+        content: displayContent,
       );
       await repo.saveMessage(aiResponse);
 
@@ -667,7 +741,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         }
       }
 
-      // P1 task 5 — update tutor emotion from the AI reply text.
+      // P1 task 5 — update tutor emotion from the AI reply text. Uses the
+      // pre-strip `cleanedContent` so an explicit `[emotion:id]` marker
+      // (Phase 3) wins over keyword matching.
       _updateEmotionFromText(cleanedContent);
 
       ref.invalidate(messagesProvider(widget.sessionId));
@@ -681,8 +757,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         });
       }
 
-      // Auto-play TTS for the full AI reply.
-      _autoplayTts(aiResponse.id, cleanedContent);
+      // Auto-play TTS for the full AI reply. Uses the marker-stripped
+      // `displayContent` so the TTS engine never speaks the marker aloud.
+      _autoplayTts(aiResponse.id, displayContent);
     } on RetryExhausted catch (e) {
       if (mounted) {
         setState(() {
@@ -718,8 +795,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (match == null) return;
     final firstSentence = match.group(1)!.trim();
     if (firstSentence.isEmpty) return;
+    // Phase 3 — strip any emotion marker before handing the text to TTS
+    // so the marker is never spoken aloud. The marker is parsed later
+    // from the full reply in _handleSend.
+    final clean = stripEmotionMarkers(firstSentence);
+    if (clean.isEmpty) return;
     // Fire-and-forget — the full TTS will play after streaming completes.
-    _autoplayTts('__early__', firstSentence);
+    _autoplayTts('__early__', clean);
   }
 
   Future<void> _handleRecordToggle() async {
@@ -844,10 +926,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _subscribeAmplitude();
       _updateEmotionFromText(text);
 
-      await _ttsPlaybackService.playCached(
+      final bytes = await _ttsPlaybackService.playCached(
         text,
         () => ttsService.synthesize(text),
       );
+      // Phase 3 — analyse the just-played audio with Rhubarb and push the
+      // timeline into the avatar stage. Runs in the background; the stage
+      // falls back to amplitude-driven motion until the timeline lands.
+      unawaited(_maybeAnalyzeVisemes(text: text, audioBytes: bytes));
     } catch (e) {
       debugPrint('Auto TTS failed: $e');
       if (mounted) {
@@ -855,6 +941,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           _playingMessageId = null;
           _speakingText = null;
         });
+        _avatarKey.currentState?.clearVisemeTimeline();
         if (_characterState == CharacterState.speaking) {
           _setCharacterState(CharacterState.idle);
         }
@@ -913,7 +1000,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       // P1 task 3 — retry TTS with exponential backoff.
       final l = AppLocalizations.of(context);
       try {
-        await withRetry(
+        final bytes = await withRetry(
           () => _ttsPlaybackService.playCached(
             text,
             () => ttsService.synthesize(text),
@@ -931,6 +1018,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           },
         );
         if (mounted) setState(() => _retryHint = null);
+        // Phase 3 — Rhubarb viseme analysis runs after playback started so
+        // it doesn't delay the retry loop. Best-effort.
+        unawaited(_maybeAnalyzeVisemes(text: text, audioBytes: bytes));
       } on RetryExhausted catch (e) {
         if (mounted) {
           setState(() {
@@ -939,6 +1029,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             _playingMessageId = null;
             _speakingText = null;
           });
+          _avatarKey.currentState?.clearVisemeTimeline();
           _setCharacterState(CharacterState.idle);
           _showAppError(e.lastError);
         }
@@ -950,6 +1041,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           _playingMessageId = null;
           _speakingText = null;
         });
+        _avatarKey.currentState?.clearVisemeTimeline();
         _setCharacterState(CharacterState.idle);
       }
     }
@@ -972,6 +1064,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           _playingMessageId = null;
           _speakingText = null;
         });
+        // Phase 3 — drop any active Rhubarb timeline so the avatar mouth
+        // returns to idle.
+        _avatarKey.currentState?.clearVisemeTimeline();
         if (_characterState == CharacterState.speaking) {
           _setCharacterState(CharacterState.idle);
         }
@@ -1174,6 +1269,16 @@ class _CharacterPanel extends StatelessWidget {
   /// P1 task 5 — emotion drives a subtle accent color shift on the panel.
   final TutorEmotion emotion;
 
+  /// Phase 3 — key into the avatar stage so the panel can pass through the
+  /// parent screen's [AvatarStage] key (used by the screen to push Rhubarb
+  /// viseme timelines into the live widget).
+  final GlobalKey<AvatarStageState>? avatarKey;
+
+  /// Phase 3 — TTS amplitude stream forwarded into the [AvatarStage] so the
+  /// amplitude-driven mouth open fallback works without the screen having
+  /// to push each sample manually.
+  final Stream<double>? amplitudeStream;
+
   const _CharacterPanel({
     required this.state,
     required this.tutorName,
@@ -1183,6 +1288,8 @@ class _CharacterPanel extends StatelessWidget {
     this.panelHeight,
     this.compact = false,
     this.emotion = TutorEmotion.neutral,
+    this.avatarKey,
+    this.amplitudeStream,
   });
 
   String _stateLabel(BuildContext context, CharacterState s) {
@@ -1201,10 +1308,15 @@ class _CharacterPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = _TutorLive2DPortrait(
+    final child = AvatarStage(
+      key: avatarKey,
       tutorName: tutorName,
-      state: state,
+      phase: AvatarPhase.fromCharacterState(state),
+      emotion: emotion,
       speakingText: speakingText,
+      amplitudeStream: amplitudeStream,
+      panelWidth: panelWidth,
+      panelHeight: panelHeight,
     );
 
     final labelled = Semantics(
@@ -1278,194 +1390,11 @@ class _StageIcon extends StatelessWidget {
   );
 }
 
-class _TutorLive2DPortrait extends StatefulWidget {
-  final String tutorName;
-  final CharacterState state;
-  final String? speakingText;
+// Phase 3 — the legacy `_TutorLive2DPortrait` / `_TutorStageStatus` /
+// `_TutorMouthOverlay` classes that previously rendered the placeholder
+// image + discrete viseme overlay were replaced by the unified
+// [AvatarStage] widget (see `lib/features/avatar/presentation/widgets/`).
+// Their behaviour is preserved inside AvatarStage's fallback renderer, so
+// the user-visible mouth motion stays the same — but now it composes with
+// the idle + emotion + Rhubarb viseme timeline controllers.
 
-  const _TutorLive2DPortrait({
-    required this.tutorName,
-    required this.state,
-    this.speakingText,
-  });
-
-  @override
-  State<_TutorLive2DPortrait> createState() => _TutorLive2DPortraitState();
-}
-
-class _TutorLive2DPortraitState extends State<_TutorLive2DPortrait>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 4200),
-  )..repeat(reverse: true);
-  Timer? _visemeTimer;
-  int _visemeIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _syncLipAnimation();
-  }
-
-  @override
-  void didUpdateWidget(covariant _TutorLive2DPortrait oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.state != widget.state ||
-        oldWidget.speakingText != widget.speakingText) {
-      _syncLipAnimation();
-    }
-  }
-
-  void _syncLipAnimation() {
-    _visemeTimer?.cancel();
-    _visemeIndex = 0;
-    final text = widget.speakingText;
-    if (widget.state != CharacterState.speaking ||
-        text == null ||
-        text.isEmpty) {
-      if (mounted) setState(() {});
-      return;
-    }
-    _visemeTimer = Timer.periodic(const Duration(milliseconds: 92), (_) {
-      if (!mounted) return;
-      setState(() => _visemeIndex = (_visemeIndex + 1) % text.length);
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _visemeTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final text = widget.speakingText ?? '';
-    final isSpeaking =
-        widget.state == CharacterState.speaking && text.isNotEmpty;
-    final viseme = isSpeaking
-        ? VirtualCharacter.visemeForChar(text, _visemeIndex)
-        : Viseme.closed;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (_, _) => Stack(
-        fit: StackFit.expand,
-        children: [
-          Transform.translate(
-            offset: Offset(0, -3 + _controller.value * 6),
-            child: Transform.scale(
-              scale: isSpeaking ? 1.012 : 1,
-              child: Image.asset(
-                'assets/images/tutor-hero-v1.png',
-                fit: BoxFit.cover,
-                alignment: const Alignment(0, -0.22),
-              ),
-            ),
-          ),
-          if (isSpeaking)
-            Align(
-              alignment: const Alignment(0.10, 0.10),
-              child: _TutorMouthOverlay(viseme: viseme),
-            ),
-          Positioned(
-            left: AppSpacing.md,
-            bottom: AppSpacing.md,
-            child: _TutorStageStatus(
-              name: widget.tutorName,
-              state: widget.state,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TutorStageStatus extends StatelessWidget {
-  final String name;
-  final CharacterState state;
-  const _TutorStageStatus({required this.name, required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final (label, color) = switch (state) {
-      CharacterState.idle => (l.t('chat.ready'), AppColors.accentPrimary),
-      CharacterState.listening => (
-        l.t('chat.listening'),
-        AppColors.accentSecondary,
-      ),
-      CharacterState.thinking => (l.t('chat.thinking'), AppColors.warning),
-      CharacterState.speaking => (l.t('chat.speaking'), AppColors.success),
-    };
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(AppRadius.full),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Text(
-              '$name · $label',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TutorMouthOverlay extends StatelessWidget {
-  final Viseme viseme;
-  const _TutorMouthOverlay({required this.viseme});
-
-  @override
-  Widget build(BuildContext context) {
-    final rounded = {
-      Viseme.roundedSmall,
-      Viseme.roundedLarge,
-      Viseme.pucker,
-    }.contains(viseme);
-    final wide = {
-      Viseme.wideOpen,
-      Viseme.wide,
-      Viseme.wideFlat,
-      Viseme.smileOpen,
-    }.contains(viseme);
-    final open = {
-      Viseme.mediumOpen,
-      Viseme.wideOpen,
-      Viseme.roundedLarge,
-      Viseme.oval,
-      Viseme.openTeeth,
-    }.contains(viseme);
-    final width = rounded ? 18.0 : (wide ? 36.0 : 28.0);
-    final height = open ? 12.0 : 6.0;
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: const Color(0xFF9B3F58).withValues(alpha: open ? 0.75 : 0.5),
-        borderRadius: BorderRadius.circular(AppRadius.full),
-        border: Border.all(
-          color: const Color(0xFFE997AD).withValues(alpha: 0.45),
-        ),
-      ),
-    );
-  }
-}

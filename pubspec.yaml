@@ -65,3 +65,10 @@ flutter:
     - assets/animations/
     - assets/images/
     - assets/3d/
+    # Phase 3 — Live2D model folder. Empty in this commit; when a model
+    # ships (outsourced Live2D art), drop the .model3.json + .moc3 +
+    # textures + motions + expressions under assets/live2d/tutor/ and the
+    # loader (lib/features/avatar/data/live2d_loader.dart) will pick it up
+    # automatically. The directory entry must exist for Flutter to include
+    # any sub-paths at build time.
+    - assets/live2d/
