@@ -7,6 +7,106 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 5 — Pronunciation scoring, progress dashboard & session continuity — 2026-07-17
+
+#### Pronunciation scoring (phoneme-level)
+- `PronunciationDetailScreen` with overall score ring, per-phoneme breakdown
+  colour-tagged by `PhonemeScoreBand` (green/amber/red), common-errors list,
+  and a trend-line chart of recent pronunciation scores across sessions.
+- `PronunciationReport` model persisted via `pronunciation_reports` table and
+  auto-built by `ProgressService.buildPronunciationReport` from existing
+  `phoneme_score_sets` + `phoneme_scores` data. Reports are available for
+  any session via `/pronunciation/:sessionId` route.
+- `ProgressService` generates per-phoneme breakdowns (IPA phoneme → avg score
+  + occurrence count), aggregates poor/fair/good counts, and surfaces the
+  5 most common pronunciation errors (worst first).
+
+#### Learning progress & statistics
+- **Calendar heatmap**: `CalendarHeatmap` widget renders a compact 7-column
+  grid of practice activity over 60 days, colour-coded by duration intensity
+  (4 levels). Integrated into the ProgressScreen below the daily-activity chart.
+- **Weekly trend chart**: `WeeklyTrendChart` renders a bar chart (messages +
+  corrections per day) with summary stat chips (active days, avg minutes,
+  correction count). Driven by the new `WeeklyStats` / `DailyStats` domain
+  models and `currentWeekStatsProvider`.
+- **Weak-area analysis**: `WeakAreaCard` displays persistent weak spots with
+  type icon, description, frequency badge, and severity colour. The
+  `ProgressService.analyzeWeakAreas` scans all corrections for recurring error
+  patterns and upserts into the `weak_areas` table. `generateReviewSuggestions`
+  produces prioritised review actions from weak areas + skill mastery data.
+- `ProgressScreen` now includes three new Phase 5 sections (calendar heatmap,
+  weekly trend chart, weak areas list) with Riverpod async loading/error/data
+  state handling.
+
+#### Advanced dialogue mode
+- `ExpressionSuggestion` model stores AI-generated alternative expressions
+  per message. Persisted in the `expression_suggestions` table.
+- `ProgressService.getHeatmapData` provides practice-log data for the
+  calendar heatmap with configurable lookback window (default 60 days).
+
+#### Session continuity
+- **Crash recovery**: `SessionSnapshot` model persists the last message id
+  + optional context summary per session. `SessionContinuityService` provides
+  `saveSnapshot`/`hasRecoverableSnapshot`/`getLastMessageId`/`clearSnapshot`
+  for save-on-each-turn / restore-on-start patterns.
+- **Session metadata**: `SessionMetadata` (UNIQUE on session_id) tracks
+  duration, message count, correction count, auto-summary, topic tags, and
+  adaptive difficulty level. Updated incrementally via
+  `SessionContinuityService.updateSessionMeta`.
+- **Enhanced history**: `HistoryScreen` rewritten with search/filter bar,
+  enriched metadata chips (duration, message count, corrections), session
+  summary display (truncated to 2 lines), and a "Score" button linking to
+  the pronunciation detail screen.
+- **Auto-summary**: `SessionContinuityService.generateSessionSummary` builds
+  a heuristic summary from the session's topic, turn count, and correction
+  type distribution. Saved via `saveSessionSummary` for display in history.
+- `SessionContinuityService.getEnrichedSessionHistory` returns full session
+  list with metadata joined, driving the enriched history list.
+
+#### Data model + schema (v10 migration)
+- 5 new tables: `pronunciation_reports`, `weak_areas`, `session_snapshots`,
+  `expression_suggestions`, `session_metadata`. All `CREATE TABLE IF NOT
+  EXISTS` for idempotent fresh installs and upgrades from v9. No data to
+  back-fill — these are new accumulation tables.
+- New domain models in `chat/domain/chat_models.dart`:
+  `ExpressionSuggestion`, `SessionSnapshot`, `SessionMetadata`.
+- New domain models in `home/domain/progress_models.dart`:
+  `PronunciationReport`, `PhonemeErrorEntry`, `WeakArea`, `WeeklyStats`,
+  `DailyStats`, `ReviewSuggestion`.
+- `ChatRepository` extended with 15 new CRUD methods across all Phase 5
+  tables.
+
+#### Services
+- `ProgressService` (`home/data/progress_service.dart`): weekly stats
+  aggregation, calendar heatmap data, weak-area analysis from corrections,
+  review-suggestion generation, pronunciation report builder from phoneme
+  scores.
+- `SessionContinuityService` (`chat/data/session_continuity_service.dart`):
+  snapshot save/restore (crash recovery), session metadata management,
+  auto-summary generation, enriched history browsing with search.
+
+#### Providers (Riverpod)
+- 11 new providers in `home_providers.dart`: `progressServiceProvider`,
+  `currentWeekStatsProvider`, `previousWeekStatsProvider`,
+  `heatmapDataProvider`, `weakAreasProvider`, `reviewSuggestionsProvider`,
+  `pronunciationReportProvider` (family), `recentPronunciationReportsProvider`,
+  `enrichedSessionHistoryProvider`, `sessionMetadataProvider` (family).
+
+#### i18n
+- 38 new Chinese keys, 38 new English keys, and 19 new Japanese keys for
+  progress dashboard (calendar heatmap, weekly trend, weak areas),
+  pronunciation detail screen (phoneme breakdown, common errors, trend),
+  and history enhancements (search, empty state, conversations label).
+
+#### Integration
+- New `/pronunciation/:sessionId` route wired in GoRouter with slide
+  transition.
+- `ProgressScreen` imports and renders `CalendarHeatmap`, `WeeklyTrendChart`,
+  and `WeakAreaCard` widgets, driven by `heatmapDataProvider`,
+  `currentWeekStatsProvider`, and `weakAreasProvider`.
+- `HistoryScreen` imports `SessionContinuityService` for enriched history
+  and routes to `/pronunciation/:sessionId` for detail navigation.
+
 ### Phase 3 — Virtual Character: Live2D + Rhubarb Lip Sync — 2026-07-16
 
 #### New `features/avatar` module (framework-first)
