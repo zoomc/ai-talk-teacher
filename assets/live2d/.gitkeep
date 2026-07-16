@@ -1,0 +1,1 @@
+Place Live2D Cubism model assets (.model3.json, .moc3, textures/, motions/, expressions/) under assets/live2d/<model-name>/. The loader at lib/features/avatar/data/live2d_loader.dart detects and parses them automatically. Until then the avatar stage falls back to the placeholder illustration.

@@ -7,6 +7,155 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 3 — Virtual Character: Live2D + Rhubarb Lip Sync — 2026-07-16
+
+#### New `features/avatar` module (framework-first)
+- New feature module under `lib/features/avatar/` with a clean
+  domain/data/presentation split. All domain code is pure Dart (no
+  Flutter) so it unit-tests without a binding.
+- `Live2DModel` / `Live2DParamId` / `Live2DTextureRef` /
+  `Live2DMotionRef` / `Live2DExpressionRef` model the Cubism SDK's
+  `.model3.json` + `.moc3` + textures + motions + expressions
+  manifest. Parameter IDs mirror Cubism's canonical IDs
+  (`ParamMouthOpenY`, `ParamMouthForm`, `ParamAngleX/Y/Z`,
+  `ParamBreath`, `ParamEyeLOpen/ROpen`, …) so a future native
+  binding needs no renaming.
+- `Live2DLoader` probes the `AssetManifest` for
+  `assets/live2d/<subdir>/*.model3.json`, parses the manifest
+  (resolving Moc/Textures/Physics/Pose/DisplayInfo/Expressions/
+  Motions), and returns `null` on any failure so the avatar always
+  falls back gracefully. The native Cubism rendering branch is a
+  single extension point in `AvatarStage._buildStageContent` —
+  flipping it on when a model ships is a one-line change.
+- `assets/live2d/` directory declared in `pubspec.yaml` with a
+  `.gitkeep` placeholder + instructions. Drop a model under
+  `assets/live2d/tutor/` and the loader picks it up automatically.
+
+#### Rhubarb Lip Sync pipeline (TTS audio → visemes → mouth)
+- `RhubarbService` runs the external `rhubarb` CLI
+  (`--machineReadable`) on TTS audio bytes via a conditional-import
+  runner (`rhubarb_runner_io.dart` for `dart:io` platforms,
+  `rhubarb_runner_stub.dart` for web). Audio is written to a temp
+  file, analysed, parsed, and the temp file is deleted in `finally`.
+- 32-entry LRU cache keyed by a stable audio hash
+  (`TtsPlaybackService.cacheKeyFor`) so repeated TTS of the same
+  text doesn't re-run rhubarb.
+- `parseRhubarbJson` defensively parses rhubarb's JSON
+  (`metadata.duration` + `mouthCues[]`) into a `VisemeTimeline`;
+  never throws — returns `VisemeTimeline.empty` on malformed input,
+  inserts a leading silence cue when missing, and sorts cues.
+- `VisemeTimelinePlayer` samples the timeline at a given offset,
+  interpolating between consecutive cues (80ms ramp) for smooth
+  mouth-shape transitions. Exposes `start` / `stop` /
+  `replaceTimeline` / `sampleAt` / `dispose`.
+- `kRhubarbToLive2DMap` — complete viseme → Live2D mouth-parameter
+  mapping table covering all 9 rhubarb visemes (A–H) + X (silence),
+  mapping each to `mouthOpenY` / `mouthForm` / `mouthFormL` /
+  `mouthFormR`. `visemeToPainter` also maps each viseme to the
+  legacy `VirtualCharacter.Viseme` enum so the fallback renderer
+  reuses the existing painter.
+
+#### Idle animation system (breathing / blinking / smile / head micro-turn)
+- `IdleAnimationController` is a pure-Dart, time-driven controller
+  (no internal timers — deterministic for tests). `sample(elapsed,
+  {phase, emotion})` returns an `IdleFrame` of parameter → value
+  pairs.
+- Breathing: 3.3s sine wave around `ParamBreath = 0.5`.
+- Blinking: deterministic hashed pseudo-random schedule (~3.5s
+  mean interval, 120ms ramp + 40ms hold), both eyes driven
+  together. Deterministic so tests are stable.
+- Head micro-turn: yaw/pitch/roll as three sinusoids at different
+  periods (8/11/13s) + phases — never repeats exactly → natural
+  loop. Body sway at 7s.
+- Smile baseline biased by emotion.
+- Per-phase multipliers: idle (full motion), listening (attentive
+  tilt + reduced smile), thinking (slower blinks), speaking
+  (smileScale 0 so visemes own the mouth; headScale 0.2; breathing
+  retained).
+
+#### Emotion state machine with smooth easing
+- `TutorEmotion` extended with `waiting` (now 7 states: neutral,
+  happy, thinking, encouraging, confused, focused, waiting).
+- `EmotionController` is a time-driven state machine with smooth
+  easing transitions (default 250ms, `easeOutCubic`). Supports
+  `linear` / `easeInOutQuad` / `easeOutCubic` easing curves.
+- `kDefaultEmotionPoses` — pose table covering all 7 emotions
+  (mouthForm / eyeSmile / browY / cheek / headPitchBias /
+  headRollBias). `EmotionPose.lerp` blends poses.
+- `parseEmotionMarker(text)` — parses explicit `[emotion:id]` or
+  `(emotion:id)` LLM markers (case-insensitive, whitespace-
+  tolerant). `stripEmotionMarkers(text)` removes them and collapses
+  double spaces. `emotionFromText` prefers an explicit marker over
+  keyword matching.
+- `TutorPromptBuilder` now instructs the LLM to prefix each reply
+  with exactly one `[emotion:neutral|happy|encouraging|thinking|
+  waiting]` marker. Markers are stripped before the reply is saved
+  to the DB, shown in the chat bubble, or spoken by TTS — they only
+  drive the avatar's expression.
+
+#### Unified AvatarStage widget
+- `AvatarStage` replaces the legacy `_TutorLive2DPortrait` widget
+  in the chat screen. Composes idle + emotion + viseme controllers
+  every tick and merges their parameter sets (idle base → emotion
+  override → viseme mouth override).
+- Inputs: `phase`, `emotion`, `speakingText`, `amplitudeStream`,
+  `tutorName`. Public state API: `setVisemeTimeline(timeline)`,
+  `clearVisemeTimeline()`, `hasLive2DModel`.
+- Fallback renderer: `assets/images/tutor-hero-v1.png` placeholder
+  with `errorBuilder` → coloured gradient + `Icons.face` (never a
+  blank screen even in tests). Composes breath-driven sway, head-
+  roll tilt, and a parameter-driven mouth overlay
+  (`_ParameterisedMouthOverlay`) so idle + emotion + viseme/
+  amplitude all flow into the placeholder.
+- `AvatarPhase` enum (idle/listening/thinking/speaking) with
+  `fromVoicePhase` / `fromCharacterState` / `toVoicePhase`
+  conversions, kept separate from `VoicePhase` to avoid import
+  cycles.
+
+#### Chat screen integration
+- `TtsPlaybackService.playCached` now returns `Future<Uint8List>`
+  (the played audio bytes) so the chat screen can feed them to
+  rhubarb. Added `cachedBytesFor(text)` and `cacheKeyFor(text)`.
+- All 3 TTS call sites (filler loop, autoplay, manual play) capture
+  the bytes and kick off `unawaited(_maybeAnalyzeVisemes(...))` so
+  rhubarb analysis runs without blocking playback. On success the
+  timeline is pushed to `AvatarStage` via the global key; failures
+  are swallowed (amplitude fallback stays active).
+- `_attachPlayerStateListener` clears the viseme timeline on
+  playback completion; error paths also clear it.
+- LLM reply emotion markers are parsed from the pre-strip reply
+  (so the marker wins over keyword matching), then stripped before
+  the message is saved, displayed, or spoken by TTS.
+
+#### Tests (5 new test files)
+- `test/avatar/viseme_mapping_test.dart` — `RhubarbViseme.fromCode`,
+  `kRhubarbToLive2DMap` coverage + ranges, `shapeForViseme`,
+  `Live2DMouthShape.lerp`, `visemeToPainter`.
+- `test/avatar/rhubarb_parser_test.dart` — `parseRhubarbJson`
+  canonical / malformed / edge cases, `VisemeTimeline` behaviour.
+- `test/avatar/idle_animation_test.dart` — parameter coverage,
+  breath / blink / head ranges, determinism, phase multipliers,
+  custom config.
+- `test/avatar/emotion_controller_test.dart` — transitions,
+  easing curves, custom poses, head pose biases, `waiting`.
+- `test/chat/tutor_emotion_test.dart` — `TutorEmotion` id/fromId,
+  `parseEmotionMarker` (bracket/paren/case/whitespace/multiple),
+  `stripEmotionMarkers`, `emotionFromText` (marker priority +
+  keyword fallback), `emotionFromAmplitude`.
+
+#### Follow-ups (tracked, non-blocking for framework-first merge)
+- Native Live2D Cubism SDK binding (model outsourcing noted as out
+  of scope; framework code is in place).
+- Viseme/audio clock sync: the viseme timeline is currently driven
+  by the widget's Ticker clock anchored to the speaking-phase start.
+  For tighter phoneme-level sync, plumb `just_audio`'s
+  `positionStream` into `AvatarStage` so the viseme clock follows
+  the real audio position (handles pause/seek/speed). The common
+  no-rhubarb amplitude path is already correctly synced.
+- Mid-speech TTS error listener (avatar currently stays in
+  `speaking` on just_audio decode errors; `ProcessingState.completed`
+  doesn't fire).
+
 ### S7-S8 — Structured content v1 — 2026-07-15
 
 #### Content data model + v8 migration

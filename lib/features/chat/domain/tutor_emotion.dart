@@ -8,13 +8,19 @@
 ///      → happy; "Hmm, let me think..." → thinking; "Can you repeat that?"
 ///      → confused.
 ///
+/// Phase 3 — extends the model with explicit LLM emotion markers (so the
+/// tutor's prompt can request `[emotion:happy]` style tags to drive the
+/// face precisely), and a new `waiting` emotion for the tutor holding the
+/// floor while the user thinks.
+///
 /// The keyword → emotion mapping table is configurable via [EmotionMapping],
 /// so tutors with different personalities can ship different mapping files
 /// without touching the widget code.
 library;
 
-/// The six base tutor emotions. Each maps to a distinct facial expression
-/// drawn by [VirtualCharacter] (or the 3D avatar) and to a state-pill colour.
+/// The seven base tutor emotions. Each maps to a distinct facial expression
+/// drawn by [VirtualCharacter] (or the Live2D avatar) and to a state-pill
+/// colour.
 enum TutorEmotion {
   /// Default — gentle smile, relaxed posture.
   neutral,
@@ -28,6 +34,10 @@ enum TutorEmotion {
   confused,
   /// Deep focus on a hard correction or pronunciation breakdown.
   focused,
+  /// Phase 3 — waiting for the user to reply / take their turn. Subtly
+  /// different from `neutral`: head slightly tilted, expectant smile, gentle
+  /// blink cadence. Used while the user is composing a spoken reply.
+  waiting,
 }
 
 /// Extension helpers for [TutorEmotion] so widgets can pick colours and
@@ -36,7 +46,8 @@ extension TutorEmotionX on TutorEmotion {
   /// Whether this emotion should pulse the tutor's glow while active.
   bool get isActive => this != TutorEmotion.neutral;
 
-  /// Stable id used to persist the user's custom keyword map.
+  /// Stable id used to persist the user's custom keyword map. Also the
+  /// string used inside LLM emotion markers (see [parseEmotionMarkers]).
   String get id {
     switch (this) {
       case TutorEmotion.neutral:
@@ -51,7 +62,23 @@ extension TutorEmotionX on TutorEmotion {
         return 'confused';
       case TutorEmotion.focused:
         return 'focused';
+      case TutorEmotion.waiting:
+        return 'waiting';
     }
+  }
+
+  /// Reverse lookup of [id] — used when parsing LLM emotion markers.
+  /// Returns `null` for unknown ids so the parser can skip them silently.
+  static TutorEmotion? fromId(String id) {
+    return const <String, TutorEmotion>{
+      'neutral': TutorEmotion.neutral,
+      'happy': TutorEmotion.happy,
+      'thinking': TutorEmotion.thinking,
+      'encouraging': TutorEmotion.encouraging,
+      'confused': TutorEmotion.confused,
+      'focused': TutorEmotion.focused,
+      'waiting': TutorEmotion.waiting,
+    }[id.toLowerCase()];
   }
 }
 
@@ -101,14 +128,58 @@ const List<EmotionMapping> kDefaultEmotionMappings = [
   EmotionMapping(keyword: 'practice this', emotion: TutorEmotion.focused),
 ];
 
+/// Phase 3 — parse explicit LLM emotion markers from the reply text.
+///
+/// The tutor's system prompt can request markers like `[emotion:happy]` or
+/// `[emotion:waiting]` to drive the avatar precisely, without relying on
+/// brittle keyword matching. Markers are removed from the visible reply
+/// (see [stripEmotionMarkers]) so the user never sees them.
+///
+/// Returns the *first* valid marker found (left-to-right scan), or `null`
+/// when no marker is present — in which case the caller should fall back to
+/// keyword matching via [emotionFromText].
+TutorEmotion? parseEmotionMarker(String text) {
+  if (text.isEmpty) return null;
+  // Match `[emotion:id]` or `(emotion:id)` allowing whitespace. The id must
+  // be one of the known [TutorEmotion.id] values; unknown ids are skipped.
+  final match = _emotionMarkerRE.firstMatch(text);
+  if (match == null) return null;
+  final id = match.group(1)?.trim() ?? '';
+  return TutorEmotionX.fromId(id);
+}
+
+final RegExp _emotionMarkerRE = RegExp(
+  r'[\[\(]\s*emotion\s*:\s*([a-zA-Z]+)\s*[\]\)]',
+  caseSensitive: false,
+);
+
+/// Strip every `[emotion:id]` / `(emotion:id)` marker from [text] so the
+/// visible reply shown to the user is clean. Also collapses the double
+/// spaces that removing markers can leave behind.
+String stripEmotionMarkers(String text) {
+  if (text.isEmpty) return text;
+  // RegExp has no replaceAll — String.replaceAll(Pattern, String) is the
+  // correct call. Previously this was `_emotionMarkerRE.replaceAll('', text)`
+  // which would not compile (RegExp has no such method).
+  final stripped = text.replaceAll(_emotionMarkerRE, '');
+  return stripped.replaceAll(RegExp(r'[ \t]{2,}'), ' ').trim();
+}
+
 /// Resolve the dominant emotion for an AI reply by scanning [text] against
 /// [mappings]. Returns [TutorEmotion.neutral] when no keyword matches —
 /// which is the correct default for short conversational replies.
+///
+/// Phase 3 — if the text contains an explicit LLM emotion marker
+/// (`[emotion:happy]`, …), that marker wins over keyword matching. The
+/// caller is expected to call [stripEmotionMarkers] separately before
+/// displaying the reply.
 TutorEmotion emotionFromText(
   String text, {
   List<EmotionMapping> mappings = kDefaultEmotionMappings,
 }) {
   if (text.isEmpty) return TutorEmotion.neutral;
+  final marker = parseEmotionMarker(text);
+  if (marker != null) return marker;
   final lower = text.toLowerCase();
   for (final rule in mappings) {
     if (lower.contains(rule.keyword)) return rule.emotion;
