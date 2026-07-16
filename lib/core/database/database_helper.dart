@@ -11,7 +11,7 @@ import 'database_init_stub.dart'
 class DatabaseHelper {
   static Database? _database;
   static const String _dbName = 'speakflow.db';
-  static const int _dbVersion = 9;
+  static const int _dbVersion = 10;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -365,6 +365,70 @@ class DatabaseHelper {
         payload TEXT,
         created_at TEXT NOT NULL,
         FOREIGN KEY (project_id) REFERENCES projects(id)
+      )
+    ''');
+
+    // ── Phase 5 — Pronunciation reports, weak area analysis, session
+    // snapshots (crash recovery), expression suggestions, and session
+    // metadata. All `CREATE TABLE IF NOT EXISTS` for idempotent fresh
+    // installs.
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS pronunciation_reports (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        overall_phoneme_score REAL NOT NULL DEFAULT 0,
+        phoneme_breakdown TEXT,
+        common_errors TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS weak_areas (
+        id TEXT PRIMARY KEY,
+        area_type TEXT NOT NULL,
+        description TEXT NOT NULL,
+        frequency_count INTEGER NOT NULL DEFAULT 1,
+        last_seen_at TEXT NOT NULL,
+        skill_id TEXT,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS session_snapshots (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        last_message_id TEXT,
+        context_summary TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (session_id) REFERENCES chat_sessions(id),
+        FOREIGN KEY (last_message_id) REFERENCES chat_messages(id)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS expression_suggestions (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        message_id TEXT NOT NULL,
+        user_text TEXT NOT NULL,
+        suggestions TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (message_id) REFERENCES chat_messages(id),
+        FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS session_metadata (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL UNIQUE,
+        duration_seconds INTEGER NOT NULL DEFAULT 0,
+        message_count INTEGER NOT NULL DEFAULT 0,
+        correction_count INTEGER NOT NULL DEFAULT 0,
+        summary TEXT,
+        topic_tags TEXT,
+        difficulty_level TEXT,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
       )
     ''');
   }
@@ -1192,6 +1256,73 @@ class DatabaseHelper {
           payload TEXT,
           created_at TEXT NOT NULL,
           FOREIGN KEY (project_id) REFERENCES projects(id)
+        )
+      ''');
+    }
+
+    if (oldVersion < 10) {
+      // v10 — Phase 5 tables: pronunciation reports, weak area analysis,
+      // session snapshots (crash recovery), expression suggestions, and
+      // session metadata. All CREATE TABLE IF NOT EXISTS so a re-run of
+      // the migration (e.g. from dev builds) is idempotent. No data to
+      // back-fill — these are new accumulation tables.
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS pronunciation_reports (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          overall_phoneme_score REAL NOT NULL DEFAULT 0,
+          phoneme_breakdown TEXT,
+          common_errors TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS weak_areas (
+          id TEXT PRIMARY KEY,
+          area_type TEXT NOT NULL,
+          description TEXT NOT NULL,
+          frequency_count INTEGER NOT NULL DEFAULT 1,
+          last_seen_at TEXT NOT NULL,
+          skill_id TEXT,
+          created_at TEXT NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS session_snapshots (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          last_message_id TEXT,
+          context_summary TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES chat_sessions(id),
+          FOREIGN KEY (last_message_id) REFERENCES chat_messages(id)
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS expression_suggestions (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          message_id TEXT NOT NULL,
+          user_text TEXT NOT NULL,
+          suggestions TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (message_id) REFERENCES chat_messages(id),
+          FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS session_metadata (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL UNIQUE,
+          duration_seconds INTEGER NOT NULL DEFAULT 0,
+          message_count INTEGER NOT NULL DEFAULT 0,
+          correction_count INTEGER NOT NULL DEFAULT 0,
+          summary TEXT,
+          topic_tags TEXT,
+          difficulty_level TEXT,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
         )
       ''');
     }

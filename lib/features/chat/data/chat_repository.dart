@@ -5,6 +5,7 @@ import '../domain/chat_models.dart';
 import '../domain/phoneme_score.dart';
 import '../domain/teacher_persona.dart';
 import '../../home/domain/home_models.dart';
+import '../../home/domain/progress_models.dart';
 
 class ChatRepository {
   // ========== Sessions ==========
@@ -1052,5 +1053,217 @@ class ChatRepository {
       return all.map((m) => Scenario.fromMap(m)).toList();
     }
     return rows.map((m) => Scenario.fromMap(m)).toList();
+  }
+
+  // ========== Phase 5 — Pronunciation Reports ==========
+
+  /// Save a pronunciation report for a session (idempotent upsert).
+  Future<void> savePronunciationReport(PronunciationReport report) async {
+    final db = await DatabaseHelper.database;
+    await db.insert('pronunciation_reports', report.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Load the pronunciation report for a session, or null if none exists.
+  Future<PronunciationReport?> getPronunciationReport(String sessionId) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'pronunciation_reports',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return PronunciationReport.fromMap(maps.first);
+  }
+
+  /// Recent pronunciation reports (newest first), for trend analysis.
+  Future<List<PronunciationReport>> getRecentPronunciationReports({
+    int limit = 10,
+  }) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'pronunciation_reports',
+      orderBy: 'created_at DESC',
+      limit: limit,
+    );
+    return maps.map((m) => PronunciationReport.fromMap(m)).toList();
+  }
+
+  // ========== Phase 5 — Weak Areas ==========
+
+  /// Upsert a weak area. When an area with the same (area_type, description)
+  /// exists, increments its frequency and updates last_seen_at.
+  Future<WeakArea> upsertWeakArea(WeakArea area) async {
+    final db = await DatabaseHelper.database;
+    final existing = await db.query(
+      'weak_areas',
+      where: 'area_type = ? AND description = ?',
+      whereArgs: [area.areaType, area.description],
+      limit: 1,
+    );
+    if (existing.isNotEmpty) {
+      final current = WeakArea.fromMap(existing.first);
+      final updated = current.copyWith(
+        frequencyCount: current.frequencyCount + 1,
+        lastSeenAt: DateTime.now(),
+      );
+      await db.update(
+        'weak_areas',
+        {
+          'frequency_count': updated.frequencyCount,
+          'last_seen_at': updated.lastSeenAt.toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [current.id],
+      );
+      return updated;
+    }
+    await db.insert('weak_areas', area.toMap());
+    return area;
+  }
+
+  /// All weak areas, ordered by frequency descending (most common first).
+  Future<List<WeakArea>> getWeakAreas({int limit = 20}) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'weak_areas',
+      orderBy: 'frequency_count DESC, last_seen_at DESC',
+      limit: limit,
+    );
+    return maps.map((m) => WeakArea.fromMap(m)).toList();
+  }
+
+  /// Weak areas filtered by type, for per-dimension analysis.
+  Future<List<WeakArea>> getWeakAreasByType(String areaType,
+      {int limit = 10}) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'weak_areas',
+      where: 'area_type = ?',
+      whereArgs: [areaType],
+      orderBy: 'frequency_count DESC',
+      limit: limit,
+    );
+    return maps.map((m) => WeakArea.fromMap(m)).toList();
+  }
+
+  // ========== Phase 5 — Session Snapshots (Crash Recovery) ==========
+
+  /// Save a session snapshot. Replaces any prior snapshot for the same
+  /// session (we only keep the latest).
+  Future<void> saveSessionSnapshot(SessionSnapshot snapshot) async {
+    final db = await DatabaseHelper.database;
+    await db.insert('session_snapshots', snapshot.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Load the latest snapshot for a session, or null if none exists.
+  Future<SessionSnapshot?> getSessionSnapshot(String sessionId) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'session_snapshots',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'created_at DESC',
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return SessionSnapshot.fromMap(maps.first);
+  }
+
+  /// Delete a session snapshot (called when the session ends cleanly).
+  Future<void> deleteSessionSnapshot(String sessionId) async {
+    final db = await DatabaseHelper.database;
+    await db.delete(
+      'session_snapshots',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+    );
+  }
+
+  // ========== Phase 5 — Expression Suggestions ==========
+
+  /// Save an expression suggestion for a message.
+  Future<void> saveExpressionSuggestion(
+      ExpressionSuggestion suggestion) async {
+    final db = await DatabaseHelper.database;
+    await db.insert('expression_suggestions', suggestion.toMap());
+  }
+
+  /// Get expression suggestions for a session, newest first.
+  Future<List<ExpressionSuggestion>> getExpressionSuggestions(
+      String sessionId, {int limit = 10}) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'expression_suggestions',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'created_at DESC',
+      limit: limit,
+    );
+    return maps.map((m) => ExpressionSuggestion.fromMap(m)).toList();
+  }
+
+  /// Get the suggestion for a specific message.
+  Future<ExpressionSuggestion?> getSuggestionForMessage(
+      String messageId) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'expression_suggestions',
+      where: 'message_id = ?',
+      whereArgs: [messageId],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return ExpressionSuggestion.fromMap(maps.first);
+  }
+
+  // ========== Phase 5 — Session Metadata ==========
+
+  /// Upsert session metadata. Rows are UNIQUE on session_id so this
+  /// replaces the whole row on conflict.
+  Future<void> upsertSessionMetadata(SessionMetadata meta) async {
+    final db = await DatabaseHelper.database;
+    await db.insert('session_metadata', meta.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Load session metadata for a specific session.
+  Future<SessionMetadata?> getSessionMetadata(String sessionId) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'session_metadata',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return SessionMetadata.fromMap(maps.first);
+  }
+
+  /// All session metadata rows, newest first, for the history list.
+  Future<List<SessionMetadata>> getAllSessionMetadata({int limit = 50}) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'session_metadata',
+      orderBy: 'updated_at DESC',
+      limit: limit,
+    );
+    return maps.map((m) => SessionMetadata.fromMap(m)).toList();
+  }
+
+  /// Search session metadata by topic tag.
+  Future<List<SessionMetadata>> searchSessionByTag(
+      String tag, {int limit = 20}) async {
+    final db = await DatabaseHelper.database;
+    final maps = await db.query(
+      'session_metadata',
+      where: 'topic_tags LIKE ?',
+      whereArgs: ['%$tag%'],
+      orderBy: 'updated_at DESC',
+      limit: limit,
+    );
+    return maps.map((m) => SessionMetadata.fromMap(m)).toList();
   }
 }

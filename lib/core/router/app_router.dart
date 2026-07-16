@@ -6,6 +6,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/util/responsive.dart';
 import '../../features/home/presentation/screens/home_page.dart';
+import '../../features/home/presentation/screens/pronunciation_detail_screen.dart';
 import '../../features/chat/presentation/screens/chat_screen.dart';
 import '../../features/chat/presentation/screens/scenarios_screen.dart';
 import '../../features/chat/presentation/screens/review_screen.dart';
@@ -158,6 +159,15 @@ class AppRouter {
         path: '/progress',
         pageBuilder: (context, state) =>
             _slideTransitionPage(context, const ProgressScreen()),
+      ),
+      GoRoute(
+        path: '/pronunciation/:sessionId',
+        pageBuilder: (context, state) => _slideTransitionPage(
+          context,
+          PronunciationDetailScreen(
+            sessionId: state.pathParameters['sessionId']!,
+          ),
+        ),
       ),
       GoRoute(
         path: '/history',

@@ -476,3 +476,202 @@ class Scenario {
     );
   }
 }
+
+/// Phase 5 — AI-generated alternative expression suggestion for a user's
+/// utterance. Stored in the `expression_suggestions` table and surfaced in
+/// the chat bubble as a "try this instead" panel.
+class ExpressionSuggestion {
+  final String id;
+  final String sessionId;
+  final String messageId;
+  final String userText;
+  final List<String> suggestions;
+  final DateTime createdAt;
+
+  ExpressionSuggestion({
+    String? id,
+    required this.sessionId,
+    required this.messageId,
+    required this.userText,
+    required this.suggestions,
+    DateTime? createdAt,
+  })  : id = id ?? _uuid.v4(),
+        createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'session_id': sessionId,
+      'message_id': messageId,
+      'user_text': userText,
+      'suggestions': jsonEncode(suggestions),
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  factory ExpressionSuggestion.fromMap(Map<String, dynamic> map) {
+    final raw = map['suggestions'];
+    List<String> parsed = [];
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          parsed = decoded.map((e) => e.toString()).toList();
+        }
+      } catch (_) {}
+    }
+    return ExpressionSuggestion(
+      id: map['id'] as String,
+      sessionId: map['session_id'] as String,
+      messageId: map['message_id'] as String,
+      userText: map['user_text'] as String,
+      suggestions: parsed,
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'] as String)
+          : null,
+    );
+  }
+}
+
+/// Phase 5 — snapshot of session state for crash recovery.
+///
+/// Saved periodically during a conversation so the app can restore
+/// the last known-good state if the user is interrupted (crash, app
+/// background-kill, network loss). `lastMessageId` is the last
+/// successfully saved message; `contextSummary` is an opaque JSON
+/// blob the LLM provider can use to reconstruct conversation context.
+class SessionSnapshot {
+  final String id;
+  final String sessionId;
+  final String? lastMessageId;
+  final String? contextSummary;
+  final DateTime createdAt;
+
+  SessionSnapshot({
+    String? id,
+    required this.sessionId,
+    this.lastMessageId,
+    this.contextSummary,
+    DateTime? createdAt,
+  })  : id = id ?? _uuid.v4(),
+        createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'session_id': sessionId,
+      'last_message_id': lastMessageId,
+      'context_summary': contextSummary,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  factory SessionSnapshot.fromMap(Map<String, dynamic> map) {
+    return SessionSnapshot(
+      id: map['id'] as String,
+      sessionId: map['session_id'] as String,
+      lastMessageId: map['last_message_id'] as String?,
+      contextSummary: map['context_summary'] as String?,
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'] as String)
+          : null,
+    );
+  }
+}
+
+/// Phase 5 — session-level metadata for history browsing and summary.
+///
+/// One row per session (UNIQUE on session_id), updated atomically as the
+/// conversation progresses. `summary` is an auto-generated session summary
+/// (set when the LLM produces one at conversation end). `topicTags` is a
+/// JSON-encoded list of discovered topics. `difficultyLevel` is the
+/// adaptive difficulty estimate for the session ('beginner'/'intermediate'/
+/// 'advanced').
+class SessionMetadata {
+  final String id;
+  final String sessionId;
+  final int durationSeconds;
+  final int messageCount;
+  final int correctionCount;
+  final String? summary;
+  final List<String> topicTags;
+  final String? difficultyLevel;
+  final DateTime updatedAt;
+
+  SessionMetadata({
+    String? id,
+    required this.sessionId,
+    this.durationSeconds = 0,
+    this.messageCount = 0,
+    this.correctionCount = 0,
+    this.summary,
+    this.topicTags = const [],
+    this.difficultyLevel,
+    DateTime? updatedAt,
+  })  : id = id ?? _uuid.v4(),
+        updatedAt = updatedAt ?? DateTime.now();
+
+  SessionMetadata copyWith({
+    int? durationSeconds,
+    int? messageCount,
+    int? correctionCount,
+    String? summary,
+    bool clearSummary = false,
+    List<String>? topicTags,
+    String? difficultyLevel,
+    bool clearDifficulty = false,
+    DateTime? updatedAt,
+  }) {
+    return SessionMetadata(
+      id: id,
+      sessionId: sessionId,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      messageCount: messageCount ?? this.messageCount,
+      correctionCount: correctionCount ?? this.correctionCount,
+      summary: clearSummary ? null : (summary ?? this.summary),
+      topicTags: topicTags ?? this.topicTags,
+      difficultyLevel: clearDifficulty ? null : (difficultyLevel ?? this.difficultyLevel),
+      updatedAt: updatedAt ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'session_id': sessionId,
+      'duration_seconds': durationSeconds,
+      'message_count': messageCount,
+      'correction_count': correctionCount,
+      'summary': summary,
+      'topic_tags': topicTags.isEmpty ? null : jsonEncode(topicTags),
+      'difficulty_level': difficultyLevel,
+      'updated_at': updatedAt.toIso8601String(),
+    };
+  }
+
+  factory SessionMetadata.fromMap(Map<String, dynamic> map) {
+    final tagsRaw = map['topic_tags'];
+    List<String> parsedTags = const [];
+    if (tagsRaw is String && tagsRaw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(tagsRaw);
+        if (decoded is List) {
+          parsedTags = decoded.map((e) => e.toString()).toList();
+        }
+      } catch (_) {}
+    }
+    return SessionMetadata(
+      id: map['id'] as String,
+      sessionId: map['session_id'] as String,
+      durationSeconds: (map['duration_seconds'] as int?) ?? 0,
+      messageCount: (map['message_count'] as int?) ?? 0,
+      correctionCount: (map['correction_count'] as int?) ?? 0,
+      summary: map['summary'] as String?,
+      topicTags: parsedTags,
+      difficultyLevel: map['difficulty_level'] as String?,
+      updatedAt: map['updated_at'] != null
+          ? DateTime.parse(map['updated_at'] as String)
+          : null,
+    );
+  }
+}

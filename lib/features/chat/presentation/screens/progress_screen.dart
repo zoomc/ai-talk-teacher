@@ -6,6 +6,11 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
+import '../../../../shared/providers.dart';
+import '../../../../features/home/presentation/home_providers.dart';
+import '../../../../features/home/presentation/widgets/calendar_heatmap.dart';
+import '../../../../features/home/presentation/widgets/weekly_trend_chart.dart';
+import '../../../../features/home/presentation/widgets/weak_area_card.dart';
 import '../../data/learning_stats_service.dart';
 
 final statsProvider = FutureProvider<LearningStats>((ref) async {
@@ -52,7 +57,7 @@ class ProgressScreen extends ConsumerWidget {
                 maxWidth: Responsive.contentMaxWidth(context),
               ),
               child: statsAsync.when(
-                data: (stats) => _buildContent(context, stats),
+                data: (stats) => _buildContent(context, ref, stats),
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(child: Text('Error: $e')),
               ),
@@ -63,8 +68,12 @@ class ProgressScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, LearningStats stats) {
+  Widget _buildContent(BuildContext context, WidgetRef ref, LearningStats stats) {
     final l = AppLocalizations.of(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final heatmapAsync = ref.watch(heatmapDataProvider);
+    final weekStatsAsync = ref.watch(currentWeekStatsProvider);
+    final weakAreasAsync = ref.watch(weakAreasProvider);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -189,6 +198,76 @@ class ProgressScreen extends ConsumerWidget {
             ),
           ],
 
+          const SizedBox(height: AppSpacing.xl),
+
+          // ── Phase 5 — Calendar heatmap ──────────────────────
+          Text(l.t('progress.calendar_heatmap'),
+              style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: AppSpacing.md),
+          GlassCard(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: heatmapAsync.when(
+                loading: () => const SizedBox(
+                  height: 80,
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                ),
+                error: (_, __) => Text(l.t('common.error_loading'),
+                    style: TextStyle(color: AppColors.error)),
+                data: (logs) => CalendarHeatmap(logs: logs),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+
+          // ── Phase 5 — Weekly trend ──────────────────────────
+          Text(l.t('progress.weekly_trend'),
+              style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: AppSpacing.md),
+          GlassCard(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: weekStatsAsync.when(
+                loading: () => const SizedBox(
+                  height: 120,
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                ),
+                error: (_, __) => Text(l.t('common.error_loading'),
+                    style: TextStyle(color: AppColors.error)),
+                data: (stats) => WeeklyTrendChart(stats: stats),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+
+          // ── Phase 5 — Weak areas ────────────────────────────
+          Text(l.t('progress.weak_areas'),
+              style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: AppSpacing.md),
+          GlassCard(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: weakAreasAsync.when(
+                loading: () => const SizedBox(
+                  height: 40,
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                ),
+                error: (_, __) => Text(l.t('common.error_loading'),
+                    style: TextStyle(color: AppColors.error)),
+                data: (areas) {
+                  if (areas.isEmpty) {
+                    return Text(l.t('progress.no_weak_areas'),
+                        style: TextStyle(color: AppColors.textSecondary));
+                  }
+                  return Column(
+                    children: areas
+                        .map((a) => WeakAreaCard(area: a, isLight: isLight))
+                        .toList(),
+                  );
+                },
+              ),
+            ),
+          ),
           const SizedBox(height: AppSpacing.xl),
 
           // Action button

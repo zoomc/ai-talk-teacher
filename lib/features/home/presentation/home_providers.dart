@@ -5,15 +5,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/providers.dart';
 import '../../chat/data/chat_repository.dart';
 import '../../chat/data/daily_plan_service.dart';
+import '../../chat/data/session_continuity_service.dart';
 import '../../chat/domain/chat_models.dart';
 import '../../chat/domain/daily_plan.dart';
 import '../../chat/domain/teacher_persona.dart';
 import '../../onboarding/domain/placement_result.dart';
 import '../../profile/data/profile_repository.dart';
+import '../data/progress_service.dart';
 import '../data/skill_mastery_service.dart';
 import '../data/streak_service.dart';
 import '../data/user_goal_service.dart';
 import '../domain/home_models.dart';
+import '../domain/progress_models.dart';
 
 /// S5/S6 — StreakService singleton. Wraps [chatRepoProvider] so the streak
 /// logic stays out of the repository and the dashboard.
@@ -301,4 +304,86 @@ final todayRecommendedScenariosProvider =
   final repo = ref.watch(chatRepoProvider);
   if (!s.enabled) return const [];
   return repo.getRecommendedScenarios(limit: s.dailyScenarioCount);
+});
+
+// ===========================================================================
+// Phase 5 — Learning Progress Providers
+// ===========================================================================
+
+/// Phase 5 — ProgressService singleton.
+final progressServiceProvider = Provider<ProgressService>((ref) {
+  return ProgressService(ref.watch(chatRepoProvider));
+});
+
+/// Phase 5 — weekly stats for the current week.
+final currentWeekStatsProvider = FutureProvider<WeeklyStats>((ref) async {
+  final svc = ref.watch(progressServiceProvider);
+  return svc.getWeeklyStats(ProgressService.currentWeekStart());
+});
+
+/// Phase 5 — weekly stats for the previous week (for trend comparison).
+final previousWeekStatsProvider = FutureProvider<WeeklyStats>((ref) async {
+  final svc = ref.watch(progressServiceProvider);
+  return svc.getWeeklyStats(ProgressService.previousWeekStart());
+});
+
+/// Phase 5 — practice log data for the calendar heatmap (last 60 days).
+final heatmapDataProvider =
+    FutureProvider<List<PracticeLog>>((ref) async {
+  final svc = ref.watch(progressServiceProvider);
+  return svc.getHeatmapData(days: 60);
+});
+
+/// Phase 5 — weak areas, ordered by frequency descending.
+final weakAreasProvider = FutureProvider<List<WeakArea>>((ref) async {
+  final svc = ref.watch(progressServiceProvider);
+  return svc.analyzeWeakAreas(limit: 20);
+});
+
+/// Phase 5 — review suggestions derived from weak areas + skill mastery.
+final reviewSuggestionsProvider =
+    FutureProvider<List<ReviewSuggestion>>((ref) async {
+  final svc = ref.watch(progressServiceProvider);
+  return svc.generateReviewSuggestions(limit: 5);
+});
+
+/// Phase 5 — pronunciation report for a given session.
+final pronunciationReportProvider =
+    FutureProvider.family<PronunciationReport?, String>(
+        (ref, sessionId) async {
+  // First try loading a persisted report.
+  final repo = ref.watch(chatRepoProvider);
+  var report = await repo.getPronunciationReport(sessionId);
+  if (report != null) return report;
+  // If none exists, build one from phoneme scores.
+  final svc = ref.watch(progressServiceProvider);
+  return svc.buildPronunciationReport(sessionId);
+});
+
+/// Phase 5 — recent pronunciation reports for trend display.
+final recentPronunciationReportsProvider =
+    FutureProvider<List<PronunciationReport>>((ref) async {
+  final repo = ref.watch(chatRepoProvider);
+  return repo.getRecentPronunciationReports(limit: 10);
+});
+
+// ===========================================================================
+// Phase 5 — Session Continuity Providers
+// ===========================================================================
+
+/// Phase 5 — enriched session history (chat_sessions + session_metadata).
+final enrichedSessionHistoryProvider =
+    FutureProvider<List<({ChatSession session, SessionMetadata? meta})>>(
+        (ref) async {
+  final repo = ref.watch(chatRepoProvider);
+  final svc = SessionContinuityService(repo);
+  return svc.getEnrichedSessionHistory();
+});
+
+/// Phase 5 — single session's enriched metadata.
+final sessionMetadataProvider =
+    FutureProvider.family<SessionMetadata?, String>(
+        (ref, sessionId) async {
+  final repo = ref.watch(chatRepoProvider);
+  return repo.getSessionMetadata(sessionId);
 });
