@@ -56,6 +56,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # Phase 4 — in-memory SQLite for repository tests.
+  sqflite_common_ffi: ^2.3.4
 
 flutter:
   uses-material-design: true

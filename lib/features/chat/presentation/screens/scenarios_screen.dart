@@ -8,6 +8,8 @@ import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../domain/chat_models.dart';
+import '../../../project_space/domain/project_models.dart';
+import '../../../project_space/presentation/widgets/join_project_sheet.dart';
 
 final scenariosProvider = FutureProvider<List<Scenario>>((ref) async {
   final repo = ref.watch(chatRepoProvider);
@@ -130,6 +132,20 @@ class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
                                   scenario: scenario,
                                   stats: _stats[scenario.id],
                                   onTap: () => _startScenario(scenario),
+                                  onLongPress: () async {
+                                    final linked = await JoinProjectSheet.show(
+                                      context,
+                                      contentType: ProjectContentType.scenario,
+                                      contentId: scenario.id,
+                                    );
+                                    if (linked && context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text(
+                                            AppLocalizations.of(context)
+                                                .t('projects.join.title'))),
+                                      );
+                                    }
+                                  },
                                 );
                               },
                             ),
@@ -158,11 +174,13 @@ class _ScenarioCard extends StatelessWidget {
   final Scenario scenario;
   final ScenarioStats? stats;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const _ScenarioCard({
     required this.scenario,
     required this.stats,
     required this.onTap,
+    this.onLongPress,
   });
 
   Color _difficultyColor(String difficulty) {
@@ -192,84 +210,87 @@ class _ScenarioCard extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(right: AppSpacing.md),
-      child: GlassCard(
-        onTap: onTap,
-        borderRadius: AppRadius.xl,
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: SizedBox(
-          width: 140,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(scenario.icon, style: const TextStyle(fontSize: 32)),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                scenario.name,
-                style: Theme.of(context).textTheme.titleMedium,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xs,
-                  vertical: 2,
+      child: GestureDetector(
+        onLongPress: onLongPress,
+        child: GlassCard(
+          onTap: onTap,
+          borderRadius: AppRadius.xl,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: SizedBox(
+            width: 140,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(scenario.icon, style: const TextStyle(fontSize: 32)),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  scenario.name,
+                  style: Theme.of(context).textTheme.titleMedium,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                decoration: BoxDecoration(
-                  color: diffColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-                child: Text(
-                  scenario.difficulty[0].toUpperCase() +
-                      scenario.difficulty.substring(1),
-                  style: TextStyle(
-                    color: diffColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xs,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: diffColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Text(
+                    scenario.difficulty[0].toUpperCase() +
+                        scenario.difficulty.substring(1),
+                    style: TextStyle(
+                      color: diffColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-              if (stats != null) ...[
-                const SizedBox(height: AppSpacing.xs),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.check_circle_outline,
-                      size: 12,
-                      color: AppColors.textMuted,
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        'Practiced ${stats!.count} times',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textMuted,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                if (stats != null) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline,
+                        size: 12,
+                        color: AppColors.textMuted,
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Icon(Icons.history, size: 12, color: AppColors.textMuted),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        'Last: ${_relativeTime(stats!.lastPracticedAt)}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textMuted,
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          'Practiced ${stats!.count} times',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textMuted,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(Icons.history, size: 12, color: AppColors.textMuted),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          'Last: ${_relativeTime(stats!.lastPracticedAt)}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textMuted,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

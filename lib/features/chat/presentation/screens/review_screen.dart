@@ -12,6 +12,8 @@ import '../../data/tts_service.dart';
 import '../../domain/chat_models.dart';
 import '../../../home/presentation/home_providers.dart';
 import '../../../review/data/sm2_service.dart';
+import '../../../project_space/domain/project_models.dart';
+import '../../../project_space/presentation/widgets/join_project_sheet.dart';
 
 class ReviewScreen extends ConsumerStatefulWidget {
   const ReviewScreen({super.key});
@@ -622,6 +624,24 @@ class _CorrectionCardState extends ConsumerState<_CorrectionCard> {
                     ? l.t('correction.unmark_favorite')
                     : l.t('correction.mark_favorite'),
                 onPressed: _isTogglingFav ? null : _toggleFavorite,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              _CardIconAction(
+                icon: const Icon(Icons.folder_outlined,
+                    size: 18, color: AppColors.accentPrimary),
+                tooltip: l.t('projects.join.title'),
+                onPressed: () async {
+                  final linked = await JoinProjectSheet.show(
+                    context,
+                    contentType: ProjectContentType.correction,
+                    contentId: _correction.id,
+                  );
+                  if (linked && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(l.t('projects.join.title'))),
+                    );
+                  }
+                },
               ),
             ],
           ),

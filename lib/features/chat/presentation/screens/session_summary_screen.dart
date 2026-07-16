@@ -11,6 +11,8 @@ import '../../data/llm_service.dart';
 import '../../data/tts_playback_service.dart';
 import '../../data/tts_service.dart';
 import '../../domain/session_summary.dart';
+import '../../../project_space/domain/project_models.dart';
+import '../../../project_space/presentation/widgets/join_project_sheet.dart';
 
 /// Phase-1 P0 #5 — post-class summary screen.
 ///
@@ -228,6 +230,22 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
               Expanded(
                 child: Text(_l.t('summary.title'),
                     style: Theme.of(context).textTheme.displayLarge),
+              ),
+              IconButton(
+                icon: const Icon(Icons.folder_outlined),
+                tooltip: _l.t('projects.join.title'),
+                onPressed: () async {
+                  final linked = await JoinProjectSheet.show(
+                    context,
+                    contentType: ProjectContentType.chatSession,
+                    contentId: widget.sessionId,
+                  );
+                  if (linked && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(_l.t('projects.join.title'))),
+                    );
+                  }
+                },
               ),
             ],
           ),

@@ -11,7 +11,7 @@ import 'database_init_stub.dart'
 class DatabaseHelper {
   static Database? _database;
   static const String _dbName = 'speakflow.db';
-  static const int _dbVersion = 8;
+  static const int _dbVersion = 9;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -324,6 +324,49 @@ class DatabaseHelper {
     // S7/S8 v8 — seed teacher personas + structured scenario items.
     await _insertDefaultTeacherPersonas(db);
     await _insertDefaultScenarioItems(db);
+
+    // ── v9 — Project Space (Phase 4 M1). Three tables backing the
+    // new /projects tab. `projects` carries the user's named collections
+    // (icon + colour + status + topics JSON); `project_links` joins a
+    // project to existing SpeakFlow content (chat sessions, scenarios,
+    // corrections); `project_activities` is the timeline the detail
+    // screen renders in reverse chronological order. No `user_id`
+    // column — every existing table is single-user (the device owner).
+    await db.execute('''
+      CREATE TABLE projects (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        icon TEXT NOT NULL DEFAULT 'star',
+        color TEXT NOT NULL DEFAULT '#6C5CE7',
+        description TEXT NOT NULL DEFAULT '',
+        goal TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'active',
+        topics TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        last_activity_at TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE project_links (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        content_type TEXT NOT NULL,
+        content_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE project_activities (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        payload TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id)
+      )
+    ''');
   }
 
   static Future<void> _insertDefaultScenarios(Database db) async {
@@ -1110,6 +1153,47 @@ class DatabaseHelper {
       // Seed the 3 canonical personas + the 10 spec scenarios' items.
       await _insertDefaultTeacherPersonas(db);
       await _insertDefaultScenarioItems(db);
+    }
+
+    if (oldVersion < 9) {
+      // v9 — Project Space (Phase 4 M1). Idempotent `CREATE TABLE IF NOT
+      // EXISTS` so a fresh install (which ran _onCreate at v9) is unaffected
+      // and an upgrade from v8 creates the tables. No data to back-fill.
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS projects (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          icon TEXT NOT NULL DEFAULT 'star',
+          color TEXT NOT NULL DEFAULT '#6C5CE7',
+          description TEXT NOT NULL DEFAULT '',
+          goal TEXT NOT NULL DEFAULT '',
+          status TEXT NOT NULL DEFAULT 'active',
+          topics TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          last_activity_at TEXT
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS project_links (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          content_type TEXT NOT NULL,
+          content_id TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (project_id) REFERENCES projects(id)
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS project_activities (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          payload TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (project_id) REFERENCES projects(id)
+        )
+      ''');
     }
   }
 

@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/i18n/app_localizations.dart';
 import '../features/profile/data/profile_repository.dart';
 import '../features/chat/data/chat_repository.dart';
+import '../features/project_space/data/project_repository.dart';
 
 final profileRepoProvider = Provider((ref) => ProfileRepository());
 final chatRepoProvider = Provider((ref) => ChatRepository());
+final projectRepoProvider = Provider((ref) => ProjectRepository());
 
 /// Global theme mode state. Initialized in main() from the persisted
 /// `theme` user setting (via ProviderScope.overrides) so the very first

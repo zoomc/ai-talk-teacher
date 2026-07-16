@@ -21,6 +21,8 @@ import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/onboarding/presentation/screens/placement_screen.dart';
 import '../../features/profile/data/profile_repository.dart';
+import '../../features/project_space/presentation/screens/projects_screen.dart';
+import '../../features/project_space/presentation/screens/project_detail_screen.dart';
 
 class AppRouter {
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -101,11 +103,25 @@ class AppRouter {
                 _fadeTransitionPage(context, const ReviewScreen()),
           ),
           GoRoute(
+            path: '/projects',
+            pageBuilder: (context, state) =>
+                _fadeTransitionPage(context, const ProjectsScreen()),
+          ),
+          GoRoute(
             path: '/settings',
             pageBuilder: (context, state) =>
                 _fadeTransitionPage(context, const SettingsScreen()),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/project/:projectId',
+        pageBuilder: (context, state) => _slideTransitionPage(
+          context,
+          ProjectDetailScreen(
+            projectId: state.pathParameters['projectId']!,
+          ),
+        ),
       ),
       GoRoute(
         path: '/chat/:sessionId',
@@ -269,6 +285,11 @@ class MainShell extends StatelessWidget {
             label: AppLocalizations.of(context).t('nav.review'),
           ),
           NavigationDestination(
+            icon: const Icon(Icons.folder_outlined),
+            selectedIcon: const Icon(Icons.folder),
+            label: AppLocalizations.of(context).t('nav.projects'),
+          ),
+          NavigationDestination(
             icon: const Icon(Icons.settings_outlined),
             selectedIcon: const Icon(Icons.settings),
             label: AppLocalizations.of(context).t('nav.settings'),
@@ -283,7 +304,8 @@ class MainShell extends StatelessWidget {
     if (location == '/') return 0;
     if (location.startsWith('/scenarios')) return 1;
     if (location.startsWith('/review')) return 2;
-    if (location.startsWith('/settings')) return 3;
+    if (location.startsWith('/projects')) return 3;
+    if (location.startsWith('/settings')) return 4;
     return 0;
   }
 
@@ -299,6 +321,9 @@ class MainShell extends StatelessWidget {
         context.go('/review');
         break;
       case 3:
+        context.go('/projects');
+        break;
+      case 4:
         context.go('/settings');
         break;
     }
@@ -332,6 +357,11 @@ class _SideNavRail extends StatelessWidget {
       icon: Icons.refresh_outlined,
       activeIcon: Icons.refresh,
       label: 'Review',
+    ),
+    _NavItem(
+      icon: Icons.folder_outlined,
+      activeIcon: Icons.folder,
+      label: 'Projects',
     ),
     _NavItem(
       icon: Icons.settings_outlined,
