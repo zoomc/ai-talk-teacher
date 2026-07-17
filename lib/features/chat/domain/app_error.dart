@@ -134,9 +134,10 @@ class AppError {
   /// appears in a SnackBar or log. Matches common sk-/Bearer patterns.
   static String redact(String text) {
     // sk- followed by 10+ word chars.
-    var out = text.replaceAll(RegExp(r'sk-[A-Za-z0-9-_]{10,}'), 'sk-****');
+    var out = text.replaceAll(RegExp(r'sk-[A-Za-z0-9_-]{10,}'), 'sk-****');
     // Bearer <token>
-    out = out.replaceAll(RegExp(r'(?i)bearer\s+[A-Za-z0-9-_]{10,}'), 'Bearer ****');
+    out = out.replaceAll(
+        RegExp(r'bearer\s+[A-Za-z0-9_-]{10,}', caseSensitive: false), 'Bearer ****');
     // dg- / generic 32+ hex keys
     out = out.replaceAll(RegExp(r'[A-Za-z]+-[A-Za-z0-9]{28,}'), '****');
     return out;

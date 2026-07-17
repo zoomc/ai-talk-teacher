@@ -494,7 +494,7 @@ class TtsService {
   Future<List<VoiceOption>> _fetchAzureVoices() async {
     final region = profile.region;
     final tokenUri = Uri.parse(
-      'https://${region}.api.cognitive.microsoft.com/sts/v1.0/issueToken',
+      'https://$region.api.cognitive.microsoft.com/sts/v1.0/issueToken',
     );
     final tokenResp = await http
         .post(tokenUri, headers: {'Ocp-Apim-Subscription-Key': profile.apiKey})

@@ -92,7 +92,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   void _applyTtsDefaults() {
-    final def = TtsProviderCatalog.byId(_ttsProviderId);
     // TTS base URL is read straight from the catalog at save time, but we
     // keep the controller in sync so the "reuse STT" button can overwrite
     // it cleanly.
@@ -627,7 +626,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
           const SizedBox(height: AppSpacing.xs),
           DropdownButtonFormField<String>(
-            value: providerId,
+            initialValue: providerId,
             dropdownColor:
                 isLight ? AppColors.lightBgSecondary : AppColors.bgTertiary,
             style: TextStyle(color: fieldColor),

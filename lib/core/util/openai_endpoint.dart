@@ -8,6 +8,7 @@
 /// These helpers tolerate base URLs typed by users that may or may not include
 /// a version segment, and ensure exactly one slash between the base and the
 /// resource path.
+library;
 
 /// Normalizes an OpenAI-compatible base URL.
 ///

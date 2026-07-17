@@ -229,14 +229,14 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   /// for a short conversational reply.
   String _buildSystemPrompt({required bool isFinalTurn}) {
     final base = '''
-You are SpeakFlow's English placement tutor. Your job is to assess the \
+You are SpeakFlow's English placement tutor. Your job is to assess the 
 learner's spoken English across 5 short turns.
 
 Conversation rules:
 - Keep each reply to 1–3 sentences.
 - Be warm and encouraging.
-- Adjust difficulty naturally to probe the learner's level: start easy, then \
-introduce slightly more complex vocabulary or grammar if the learner seems \
+- Adjust difficulty naturally to probe the learner's level: start easy, then 
+introduce slightly more complex vocabulary or grammar if the learner seems 
 strong.
 - Stay in English; do not translate.''';
 
@@ -246,7 +246,7 @@ strong.
 
     return '''$base
 
-This is the FINAL turn. After your natural-language reply, emit a STRICT JSON \
+This is the FINAL turn. After your natural-language reply, emit a STRICT JSON 
 verdict inside a ```placement``` fence with EXACTLY this shape:
 
 ```placement
@@ -266,8 +266,8 @@ verdict inside a ```placement``` fence with EXACTLY this shape:
 }
 ```
 
-Score each dimension 0–100 based on what you observed. The `path` must contain \
-exactly 4 weeks, each with 2–3 concrete tasks tailored to the learner's \
+Score each dimension 0–100 based on what you observed. The `path` must contain 
+exactly 4 weeks, each with 2–3 concrete tasks tailored to the learner's 
 weakest dimensions. Return ONLY the JSON inside the fence.''';
   }
 

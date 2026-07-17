@@ -30,7 +30,7 @@ class ProjectIconCatalog {
     'groups': Icons.groups,
   };
 
-  static const List<String> allNames = _map.keys.toList(growable: false);
+  static final List<String> allNames = _map.keys.toList(growable: false);
 
   static IconData forName(String? name) {
     if (name == null) return Icons.star;

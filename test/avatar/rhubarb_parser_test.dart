@@ -86,9 +86,9 @@ void main() {
   "metadata": {"duration": 1.0},
   "mouthCues": [
     { "start": 0.0, "end": 0.2, "value": "X" },
-    { "start": 0.2 },                       // missing value
-    { "end": 0.4, "value": "A" },           // missing start
-    { "start": "bad", "value": "A" },       // bad start type
+    { "start": 0.2 },
+    { "end": 0.4, "value": "A" },
+    { "start": "bad", "value": "A" },
     { "start": 0.4, "end": 0.6, "value": "B" }
   ]
 }

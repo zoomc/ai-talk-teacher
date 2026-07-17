@@ -14,7 +14,6 @@ import '../../../../core/util/responsive.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
-import '../../../../features/home/presentation/home_providers.dart';
 import '../../data/session_continuity_service.dart';
 import '../../domain/chat_models.dart';
 
@@ -45,8 +44,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   Future<void> _loadSessions() async {
-    final repo = ref.read(chatRepoProvider);
-    final continuity = await _getContinuityService(ref);
+    final continuity = _getContinuityService(ref);
     final enriched = await continuity.getEnrichedSessionHistory();
     if (mounted) {
       setState(() {

@@ -7,7 +7,6 @@ import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/util/responsive.dart';
 import '../../../../shared/providers.dart';
-import '../../../../shared/widgets/glass_widgets.dart';
 import '../../domain/project_models.dart';
 import '../widgets/project_card.dart';
 import '../widgets/project_form_dialog.dart';

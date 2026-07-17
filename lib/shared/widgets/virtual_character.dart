@@ -1484,11 +1484,6 @@ class _CharacterPainter extends CustomPainter {
         ..addOval(Rect.fromCenter(center: center, width: hw * 2, height: hh * 2));
     }
 
-    Path makeArc(double hw, double hh, bool upper) {
-      final rect = Rect.fromCenter(center: center, width: hw * 2, height: hh * 2);
-      return Path()..addArc(rect, upper ? math.pi : 0, math.pi);
-    }
-
     switch (viseme) {
       case Viseme.closed:
         canvas.drawPath(

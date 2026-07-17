@@ -7,7 +7,6 @@
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../features/chat/data/chat_repository.dart';
 import '../../features/chat/domain/chat_models.dart';
 import '../../features/chat/domain/phoneme_score.dart';
 import '../../shared/providers.dart';
