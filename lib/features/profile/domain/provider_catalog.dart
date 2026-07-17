@@ -14,6 +14,7 @@
 /// `/chat/completions`, `/models`, `/audio/transcriptions`, `/audio/speech`.
 /// A normalizer in each service tolerates base URLs with or without the version
 /// segment, so users who type `https://api.deepseek.com` still work.
+library;
 
 /// How a provider is invoked.
 enum ProviderKind {

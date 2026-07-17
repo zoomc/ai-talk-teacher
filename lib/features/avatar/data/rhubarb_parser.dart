@@ -64,10 +64,23 @@ VisemeTimeline parseRhubarbJson(String json, {String? audioHash}) {
       final startRaw = entry['start'];
       final endRaw = entry['end'];
       final valueRaw = entry['value'];
-      if (startRaw is! num) continue;
+      // A cue without a viseme value carries no information → skip.
       if (valueRaw is! String) continue;
+      double start;
+      if (startRaw is num) {
+        start = startRaw.toDouble();
+      } else if (startRaw == null) {
+        // Missing start → fall back to the previous cue's end so we don't
+        // emit a cue that starts before (or exactly on) the prior one.
+        // Rhubarb always includes `start`, so this only happens for partial
+        // / hand-edited JSON; keeping the cue is safer than dropping speech.
+        start = lastEnd;
+      } else {
+        // Present but the wrong type (e.g. a string) → unrecoverable, skip.
+        continue;
+      }
       cues.add(VisemeCue(
-        start: startRaw.toDouble(),
+        start: start,
         viseme: RhubarbViseme.fromCode(valueRaw),
       ));
       if (endRaw is num) {

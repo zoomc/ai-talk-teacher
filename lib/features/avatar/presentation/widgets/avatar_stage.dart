@@ -26,6 +26,7 @@
 library;
 
 import 'dart:async';
+import 'package:flutter/scheduler.dart';
 
 import 'package:flutter/material.dart';
 
@@ -201,23 +202,23 @@ class AvatarStageState extends State<AvatarStage>
   }
 
   @override
-  void didUpdateWidget(covariant AvatarStage old) {
-    super.didUpdateWidget(old);
-    if (old.emotion != widget.emotion) {
+  void didUpdateWidget(covariant AvatarStage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.emotion != widget.emotion) {
       // Stamp the transition at the current elapsed time so the easing
       // window starts now.
       final t = _elapsed.inMicroseconds / 1e6;
       _emotion.setEmotion(widget.emotion, nowSeconds: t);
     }
-    if (old.amplitudeStream != widget.amplitudeStream) {
+    if (oldWidget.amplitudeStream != widget.amplitudeStream) {
       _subscribeAmplitude();
     }
-    if (old.phase != widget.phase) {
+    if (oldWidget.phase != widget.phase) {
       if (widget.phase == AvatarPhase.speaking) {
         // Speaking just started — reset the viseme clock so the timeline
         // samples from t=0.
         _speakingStartedAt = _elapsed;
-      } else if (old.phase == AvatarPhase.speaking) {
+      } else if (oldWidget.phase == AvatarPhase.speaking) {
         // Speaking ended — clear the timeline + amplitude.
         _speakingStartedAt = null;
         _latestAmplitude = 0.0;
@@ -241,7 +242,7 @@ class AvatarStageState extends State<AvatarStage>
   }
 
   void _recompute() {
-    final phase = AvatarPhase.toVoicePhase(widget.phase);
+    final phase = widget.phase.toVoicePhase();
     final idleFrame = _idle.sample(
       _elapsed,
       phase: phase,
@@ -431,7 +432,7 @@ class AvatarStageState extends State<AvatarStage>
                 'assets/images/tutor-hero-v1.png',
                 fit: BoxFit.cover,
                 alignment: const Alignment(0, -0.22),
-                errorBuilder: (_, __, ___) => _renderImageFallback(),
+                errorBuilder: (_, _, _) => _renderImageFallback(),
               ),
             ),
           ),

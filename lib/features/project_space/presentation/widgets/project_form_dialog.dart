@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/i18n/app_localizations.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/providers.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../domain/project_icon_catalog.dart';
@@ -108,7 +107,7 @@ class _ProjectFormDialogState extends ConsumerState<ProjectFormDialog> {
               if (isEdit) ...[
                 const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<ProjectStatus>(
-                  value: _status,
+                  initialValue: _status,
                   decoration: InputDecoration(
                     labelText: l.t('projects.dialog.status_label'),
                   ),

@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/util/responsive.dart';
 import '../../features/chat/data/tts_playback_service.dart';
 import '../../features/chat/domain/chat_models.dart';
 import 'chat_bubble.dart';

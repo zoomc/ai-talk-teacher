@@ -1,4 +1,3 @@
-import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/database/database_helper.dart';
@@ -151,7 +150,7 @@ class ProjectRepository {
     final existing = await db.query(
       'project_links',
       where: 'project_id = ? AND content_type = ? AND content_id = ?',
-      whereArgs: [projectId, contentType.name, contentId],
+      whereArgs: [projectId, contentType.toStorage, contentId],
       limit: 1,
     );
     if (existing.isNotEmpty) return ProjectLink.fromMap(existing.first);
@@ -172,7 +171,7 @@ class ProjectRepository {
     await _recordActivity(
       projectId,
       ProjectActivityType.linkAdded,
-      {'content_type': contentType.name, 'content_id': contentId},
+      {'content_type': contentType.toStorage, 'content_id': contentId},
     );
     return link;
   }
@@ -191,7 +190,7 @@ class ProjectRepository {
     await _recordActivity(
       link.projectId,
       ProjectActivityType.linkRemoved,
-      {'content_type': link.contentType.name, 'content_id': link.contentId},
+      {'content_type': link.contentType.toStorage, 'content_id': link.contentId},
     );
   }
 
@@ -220,7 +219,7 @@ class ProjectRepository {
       WHERE l.content_type = ? AND l.content_id = ?
       ORDER BY p.updated_at DESC
       ''',
-      [contentType.name, contentId],
+      [contentType.toStorage, contentId],
     );
     return maps.map(Project.fromMap).toList();
   }

@@ -11,11 +11,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/util/responsive.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../features/chat/domain/phoneme_score.dart';
-import '../../../../features/chat/data/chat_repository.dart';
-import '../../../../shared/providers.dart';
 import '../../domain/progress_models.dart';
 import '../home_providers.dart';
 
@@ -476,7 +473,7 @@ class _PronunciationTrendChart extends ConsumerWidget {
             child: reportsAsync.when(
               loading: () =>
                   const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-              error: (_, __) =>
+              error: (_, _) =>
                   Center(child: Text(l.t('common.error_loading'))),
               data: (reports) {
                 if (reports.length < 2) {

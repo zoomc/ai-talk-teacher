@@ -13,7 +13,7 @@
 /// layer ticks a `Ticker` and merges the result with the idle frame.
 library;
 
-import 'dart:math' as math';
+import 'dart:math' as math;
 
 import '../../../features/avatar/domain/live2d_model.dart';
 import '../../../features/chat/domain/tutor_emotion.dart';
@@ -163,7 +163,7 @@ double _applyEasing(double t, EmotionEasing easing) {
       return c < 0.5 ? 2 * c * c : 1 - math.pow(-2 * c + 2, 2) / 2;
     case EmotionEasing.easeOutCubic:
       final c = t.clamp(0.0, 1.0);
-      return 1 - math.pow(1 - c, 3);
+      return 1.0 - math.pow(1 - c, 3);
   }
 }
 

@@ -6,7 +6,6 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
-import '../../../../shared/providers.dart';
 import '../../../../features/home/presentation/home_providers.dart';
 import '../../../../features/home/presentation/widgets/calendar_heatmap.dart';
 import '../../../../features/home/presentation/widgets/weekly_trend_chart.dart';
@@ -232,7 +231,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                   height: 80,
                   child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
                 ),
-                error: (_, __) => Text(l.t('common.error_loading'),
+                error: (_, _) => Text(l.t('common.error_loading'),
                     style: TextStyle(color: AppColors.error)),
                 data: (logs) => CalendarHeatmap(logs: logs),
               ),
@@ -252,7 +251,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                   height: 120,
                   child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
                 ),
-                error: (_, __) => Text(l.t('common.error_loading'),
+                error: (_, _) => Text(l.t('common.error_loading'),
                     style: TextStyle(color: AppColors.error)),
                 data: (stats) => WeeklyTrendChart(stats: stats),
               ),
@@ -272,7 +271,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                   height: 40,
                   child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
                 ),
-                error: (_, __) => Text(l.t('common.error_loading'),
+                error: (_, _) => Text(l.t('common.error_loading'),
                     style: TextStyle(color: AppColors.error)),
                 data: (areas) {
                   if (areas.isEmpty) {

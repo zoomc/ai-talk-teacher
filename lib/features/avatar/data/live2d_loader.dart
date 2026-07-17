@@ -44,8 +44,8 @@ class Live2DLoader {
   /// Web when the manifest hasn't loaded yet (handled defensively).
   Future<bool> hasAnyModel() async {
     try {
-      final manifest = await AssetManifest.load();
-      final entries = manifest.listAssetKeys();
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      final entries = manifest.listAssets();
       for (final entry in entries) {
         if (entry.startsWith('$kLive2DAssetDir/') &&
             entry.endsWith('.model3.json')) {
@@ -78,8 +78,8 @@ class Live2DLoader {
     String modelSubdir = kDefaultLive2DModelSubdir,
   }) async {
     try {
-      final manifest = await AssetManifest.load();
-      final entries = manifest.listAssetKeys();
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      final entries = manifest.listAssets();
       String? manifestPath;
       for (final entry in entries) {
         if (entry.startsWith('$kLive2DAssetDir/$modelSubdir/') &&

@@ -10,7 +10,6 @@ import '../../core/constants/app_constants.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/services/connectivity_check.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/util/responsive.dart';
 
 /// Input mode for [ChatInputBar]. Voice is the default.
 enum InputMode { voice, text }

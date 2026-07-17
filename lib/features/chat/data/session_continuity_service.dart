@@ -5,13 +5,9 @@
 /// `session_snapshots` and `session_metadata` tables.
 library;
 
-import 'package:uuid/uuid.dart';
-
 import '../../../core/database/database_helper.dart';
 import '../domain/chat_models.dart';
 import 'chat_repository.dart';
-
-const _uuid = Uuid();
 
 class SessionContinuityService {
   final ChatRepository _repo;
@@ -60,11 +56,8 @@ class SessionContinuityService {
   /// Update session metadata incrementally. Call after each message turn
   /// to keep duration / message count / correction count in sync.
   Future<void> updateSessionMeta(String sessionId) async {
-    final db = await DatabaseHelper.database;
-
     final messages = await _repo.getMessages(sessionId, limit: 1000);
     final corrections = await _repo.getCorrectionsForSession(sessionId);
-    final session = await _repo.getSession(sessionId);
 
     // Calculate approximate duration from first to last message
     int durationSeconds = 0;

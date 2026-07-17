@@ -1,5 +1,23 @@
 import 'dart:convert';
 
+// Convert a Dart enum `name` (camelCase) into the snake_case string persisted
+// in SQLite columns, e.g. `chatSession` → `chat_session`.
+String _camelToSnake(String name) => name.replaceAllMapped(
+      RegExp(r'[A-Z]'),
+      (m) => '_${m[0]!.toLowerCase()}',
+    );
+
+// Inverse of [_camelToSnake]: `chat_session` → `chatSession`, used to resolve a
+// stored column back to an enum value via [Enum.byName].
+String _snakeToCamel(String s) {
+  final parts = s.split('_');
+  final head = parts.first;
+  final tail = parts.skip(1).map(
+    (p) => p.isEmpty ? p : p[0].toUpperCase() + p.substring(1),
+  );
+  return [head, ...tail].join();
+}
+
 /// Lifecycle state of a project. Stored as TEXT in SQLite; parsed via [name].
 enum ProjectStatus {
   active,
@@ -24,6 +42,18 @@ enum ProjectActivityType {
   statusChanged,
   linkAdded,
   linkRemoved,
+}
+
+extension ProjectContentTypeX on ProjectContentType {
+  String get toStorage => _camelToSnake(name);
+  static ProjectContentType fromStorage(String s) =>
+      ProjectContentType.values.byName(_snakeToCamel(s.replaceAll('-', '_')));
+}
+
+extension ProjectActivityTypeX on ProjectActivityType {
+  String get toStorage => _camelToSnake(name);
+  static ProjectActivityType fromStorage(String s) =>
+      ProjectActivityType.values.byName(_snakeToCamel(s.replaceAll('-', '_')));
 }
 
 class Project {
@@ -131,9 +161,8 @@ class ProjectLink {
   factory ProjectLink.fromMap(Map<String, dynamic> m) => ProjectLink(
         id: m['id'] as String,
         projectId: m['project_id'] as String,
-        contentType: ProjectContentType.values.byName(
-          (m['content_type'] as String? ?? 'chat_session')
-              .replaceAll('-', '_'),
+        contentType: ProjectContentTypeX.fromStorage(
+          (m['content_type'] as String? ?? 'chat_session'),
         ),
         contentId: m['content_id'] as String,
         createdAt: DateTime.parse(m['created_at'] as String),
@@ -142,7 +171,7 @@ class ProjectLink {
   Map<String, dynamic> toMap() => {
         'id': id,
         'project_id': projectId,
-        'content_type': contentType.name,
+        'content_type': contentType.toStorage,
         'content_id': contentId,
         'created_at': createdAt.toIso8601String(),
       };
@@ -166,9 +195,8 @@ class ProjectActivity {
   factory ProjectActivity.fromMap(Map<String, dynamic> m) => ProjectActivity(
         id: m['id'] as String,
         projectId: m['project_id'] as String,
-        type: ProjectActivityType.values.byName(
-          (m['type'] as String? ?? 'project_created')
-              .replaceAll('-', '_'),
+        type: ProjectActivityTypeX.fromStorage(
+          (m['type'] as String? ?? 'project_created'),
         ),
         payload: m['payload'] == null || (m['payload'] as String).isEmpty
             ? const {}
@@ -180,7 +208,7 @@ class ProjectActivity {
   Map<String, dynamic> toMap() => {
         'id': id,
         'project_id': projectId,
-        'type': type.name,
+        'type': type.toStorage,
         'payload': jsonEncode(payload),
         'created_at': createdAt.toIso8601String(),
       };

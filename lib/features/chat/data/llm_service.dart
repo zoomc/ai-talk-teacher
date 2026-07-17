@@ -292,13 +292,13 @@ class LlmService {
             .map((c) => '- "${c.original}" → "${c.corrected}" (${c.type.name})')
             .join('\n');
 
-    final systemPrompt = '''You are an English speaking coach. The student just \
-finished a conversation. Produce a concise post-class summary as STRICT JSON with \
+    final systemPrompt = '''You are an English speaking coach. The student just 
+finished a conversation. Produce a concise post-class summary as STRICT JSON with 
 exactly these keys:
 - "highlights": 1-2 short sentences on what the student did well.
-- "improvements": an array of EXACTLY 3 concrete, prioritised improvement points \
+- "improvements": an array of EXACTLY 3 concrete, prioritised improvement points 
 (one short sentence each, most important first).
-- "next_sentence": ONE ready-to-use English sentence the student can try in their \
+- "next_sentence": ONE ready-to-use English sentence the student can try in their 
 next conversation, tailored to the weaknesses above.
 Return ONLY the JSON object, no markdown fence, no commentary.''';
 

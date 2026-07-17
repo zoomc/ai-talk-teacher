@@ -265,7 +265,7 @@ class _ActivityTab extends ConsumerWidget {
         return ListView.separated(
           padding: const EdgeInsets.all(AppSpacing.lg),
           itemCount: acts.length,
-          separatorBuilder: (_, __) => const Divider(height: AppSpacing.lg),
+          separatorBuilder: (_, _) => const Divider(height: AppSpacing.lg),
           itemBuilder: (ctx, i) => ActivityTile(activity: acts[i]),
         );
       },
@@ -289,7 +289,7 @@ class _SettingsTab extends ConsumerWidget {
             style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: AppSpacing.xs),
         DropdownButtonFormField<ProjectStatus>(
-          value: project.status,
+          initialValue: project.status,
           items: ProjectStatus.values
               .map((s) => DropdownMenuItem(
                     value: s,

@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:speakflow/features/project_space/data/project_repository.dart';
@@ -5,6 +8,19 @@ import 'package:speakflow/features/project_space/domain/project_models.dart';
 
 void main() {
   setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    // path_provider has no platform implementation under `flutter test` on the
+    // host, so stub getApplicationDocumentsDirectory to a throwaway temp dir.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (call) async {
+        if (call.method == 'getApplicationDocumentsDirectory') {
+          return Directory.systemTemp.createTempSync('speakflow_test').path;
+        }
+        return null;
+      },
+    );
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   });

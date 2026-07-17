@@ -20,7 +20,7 @@ import 'dart:math' as math;
 import 'live2d_model.dart';
 import '../../chat/domain/tutor_emotion.dart'
     show TutorEmotion;
-import '../../shared/voice_phase.dart' show VoicePhase;
+import '../../../shared/voice_phase.dart' show VoicePhase;
 
 /// A single frame of idle parameters, ready to be merged into the avatar's
 /// parameter set. Values are always in the canonical Cubism range.

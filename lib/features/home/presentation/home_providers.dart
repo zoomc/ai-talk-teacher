@@ -10,7 +10,6 @@ import '../../chat/domain/chat_models.dart';
 import '../../chat/domain/daily_plan.dart';
 import '../../chat/domain/teacher_persona.dart';
 import '../../onboarding/domain/placement_result.dart';
-import '../../profile/data/profile_repository.dart';
 import '../data/progress_service.dart';
 import '../data/skill_mastery_service.dart';
 import '../data/streak_service.dart';

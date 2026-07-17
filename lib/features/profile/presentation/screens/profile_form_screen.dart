@@ -270,7 +270,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         Text('Provider', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.xs),
         DropdownButtonFormField<String>(
-          value: _providerId,
+          initialValue: _providerId,
           dropdownColor:
               Theme.of(context).brightness == Brightness.light
                   ? AppColors.lightBgTertiary
@@ -515,7 +515,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         Text('TTS Speed', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.xs),
         DropdownButtonFormField<double>(
-          value: _selectedSpeed,
+          initialValue: _selectedSpeed,
           dropdownColor:
               Theme.of(context).brightness == Brightness.light
                   ? AppColors.lightBgTertiary
@@ -585,7 +585,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     final current = _voiceIdController.text;
     final valid = voices.contains(current);
     return DropdownButtonFormField<String>(
-      value: valid ? current : (voices.isNotEmpty ? voices.first : null),
+      initialValue: valid ? current : (voices.isNotEmpty ? voices.first : null),
       dropdownColor:
           Theme.of(context).brightness == Brightness.light
               ? AppColors.lightBgTertiary

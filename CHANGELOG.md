@@ -27,6 +27,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **P1**: Session options bottom sheet migrated from raw Material to
   `GlassBottomSheet` for glassmorphism design consistency
 
+### Code quality & bug fixes — 2026-07-18 (post-merge review)
+
+#### Fixed
+- **P0 build-breaking compile errors** (main did not compile after the
+  Phase-5 merge — 46 analyze errors):
+  - `chat_screen.dart`: added the missing `CharacterState` (34 references)
+    and `ChatRepository` imports.
+  - `emotion_controller.dart`: fixed a stray-quote syntax error in
+    `import 'dart:math' as math` and a `num`→`double` return cast.
+  - `idle_animation.dart`: corrected the relative import depth for
+    `shared/voice_phase.dart` (the wrong path cascaded into a switch
+    exhaustiveness error).
+  - `avatar_stage.dart`: added the `dart:async`/`scheduler` import for
+    `Ticker`; changed the static `AvatarPhase.toVoicePhase(...)` call to the
+    instance method `widget.phase.toVoicePhase()`; renamed the
+    `didUpdateWidget` parameter `old` → `oldWidget`.
+  - `live2d_loader.dart`: migrated off the removed Flutter 3.44
+    `AssetManifest.load()` / `listAssetKeys()` to
+    `AssetManifest.loadFromAssetBundle(rootBundle)` / `listAssets()`.
+  - `project_icon_catalog.dart`: replaced `const` + `toList()` with
+    `static final` (const context cannot invoke an instance method).
+- **P1 data round-trip bug**: `ProjectContentType` / `ProjectActivityType`
+  were written as camelCase via `.name` but read back expecting snake_case,
+  so links/activities could not round-trip. Unified on snake_case storage
+  via `toStorage` / `fromStorage` extensions and fixed the
+  `getProjectsForContent` raw query to use the same format (resolves
+  `project_models_test` and `project_repository_test` assertions).
+- **P1 Rhubarb parser robustness**: cues missing a `start` are now kept and
+  fall back to the previous cue's end (instead of being dropped); only cues
+  missing a `value`, or with a non-numeric `start`, are skipped. The
+  `skips cues with missing fields` test fixture contained invalid `//`
+  comments inside the JSON string (not legal JSON) — removed so the parser
+  can actually decode it.
+- **P1 test infra**: `project_repository_test` now calls
+  `TestWidgetsFlutterBinding.ensureInitialized()` and stubs the
+  `path_provider` method channel, because `getApplicationDocumentsDirectory`
+  has no platform implementation under `flutter test` on the host — this
+  lets the 6 repository tests run instead of erroring on missing bindings.
+
+#### Improved
+- Ran `dart fix` (77 automated fixes across 22 files) and removed dead code
+  (unused `uuid`/`db`/`session`/`makeArc`/`chatRepoProvider`/
+  `TtsProviderCatalog` symbols and imports).
+- Fixed an invalid regex in `AppError.redact()`: `(?i)` inline flags are not
+  supported by Dart `RegExp` and would throw at runtime — switched to
+  `caseSensitive: false`.
+
+> Remaining static-analysis items (14 `info`-level, **0 errors / 0 warnings**):
+> 10× `use_build_context_synchronously`, 3× `deprecated_member_use`,
+> 1× `avoid_web_libraries_in_flutter`. These are pre-existing and left
+> untouched to avoid behavioural regressions (the `dart:html` usage is the
+> intentional web build path).
+
 ## [Unreleased]
 
 ### Phase 5 — Pronunciation scoring, progress dashboard & session continuity — 2026-07-17
