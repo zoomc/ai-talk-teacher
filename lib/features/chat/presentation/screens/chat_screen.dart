@@ -109,6 +109,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _loadTtsSpeed();
     _checkVoiceConfigured();
     _setupGuestTrialIfNeeded();
+    // Phase 5 — on init, check for a session snapshot (crash recovery).
+    // The conversation messages are already persisted in SQLite, so the
+    // snapshot confirms the session was cleanly saved last time. If the
+    // snapshot exists, we log recovery and clear it so a second crash
+    // during this session doesn't replay the recovery path.
+    _checkSnapshotRecovery();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (Responsive.isWide(context)) {
@@ -152,6 +158,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         setState(() => _voiceConfigured = stt != null && tts != null);
       }
     } catch (_) {}
+  }
+
+  /// Phase 5 — check whether the session has a recoverable snapshot from
+  /// a previous incomplete session (crash / background-kill). If found,
+  /// log recovery and clear the snapshot so a second crash doesn't replay
+  /// the recovery path. The messages themselves are already persisted in
+  /// SQLite — the snapshot just confirms where we left off.
+  Future<void> _checkSnapshotRecovery() async {
+    try {
+      final repo = ref.read(chatRepoProvider);
+      final hasSnapshot = await _hasSessionSnapshot(repo, widget.sessionId);
+      if (!hasSnapshot) return;
+      debugPrint('Crash recovery: recovered snapshot for session ${widget.sessionId}');
+      // Clear the snapshot so a subsequent crash during this session
+      // starts fresh instead of re-playing recovery.
+      await repo.deleteSessionSnapshot(widget.sessionId);
+    } catch (_) {
+      // Best-effort — snapshot recovery must never block chat entry.
+    }
+  }
+
+  /// Convenience: check if a session has a recoverable snapshot.
+  Future<bool> _hasSessionSnapshot(ChatRepository repo, String sessionId) async {
+    final snapshot = await repo.getSessionSnapshot(sessionId);
+    return snapshot != null;
   }
 
   @override

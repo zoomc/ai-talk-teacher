@@ -1,4 +1,4 @@
-import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
+import 'package:sqflite/sqflite.dart' show ConflictAlgorithm, Transaction;
 
 import '../../../core/database/database_helper.dart';
 import '../domain/chat_models.dart';
@@ -337,26 +337,30 @@ class ChatRepository {
 
   Future<void> updateCorrection(Correction correction) async {
     final db = await DatabaseHelper.database;
-    await db.update(
-      'corrections',
-      correction.toMap(),
-      where: 'id = ?',
-      whereArgs: [correction.id],
-    );
-    // S5/S6 — keep the review_queue in sync with the correction's new
-    // next_review_at so the dashboard's "to review" list reflects the
-    // latest SM-2 schedule. Corrections with no next_review_at are due
-    // now; clearing the queue slot would hide them, so we keep them due.
-    // S5/S6 v7 — also mirror the SM-2 state (interval / repetitions / EF)
-    // so the dashboard can order today's tasks by progression.
-    final dueAt = correction.nextReviewAt ?? DateTime.now();
-    await syncReviewQueue(
-      correctionId: correction.id,
-      dueAt: dueAt,
-      intervalDays: correction.intervalDays,
-      repetitions: correction.reviewCount,
-      easeFactor: correction.easinessFactor,
-    );
+    // Wrap the correction update + review queue sync in a transaction so
+    // a crash between the two never desyncs the queue from the table.
+    await db.transaction((txn) async {
+      await txn.update(
+        'corrections',
+        correction.toMap(),
+        where: 'id = ?',
+        whereArgs: [correction.id],
+      );
+      // S5/S6 — keep the review_queue in sync with the correction's new
+      // next_review_at so the dashboard's "to review" list reflects the
+      // latest SM-2 schedule. Corrections with no next_review_at are due
+      // now; clearing the queue slot would hide them, so we keep them due.
+      // S5/S6 v7 — also mirror the SM-2 state (interval / repetitions / EF)
+      // so the dashboard can order today's tasks by progression.
+      final dueAt = correction.nextReviewAt ?? DateTime.now();
+      await _syncReviewQueueTx(txn,
+        correctionId: correction.id,
+        dueAt: dueAt,
+        intervalDays: correction.intervalDays,
+        repetitions: correction.reviewCount,
+        easeFactor: correction.easinessFactor,
+      );
+    });
   }
 
   Future<int> getCorrectionCount() async {
@@ -499,6 +503,30 @@ class ChatRepository {
     // correction doesn't create duplicate queue rows.
     final id = '${correctionId}_rq';
     await db.insert('review_queue', {
+      'id': id,
+      'correction_id': correctionId,
+      'due_at': dueAt.toIso8601String(),
+      'interval_days': intervalDays,
+      'repetitions': repetitions,
+      'ease_factor': easeFactor,
+      'created_at': now,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Transactional variant of [syncReviewQueue] — inserts/replaces a review
+  /// queue slot inside an existing transaction so the caller's correction
+  /// update + queue sync are atomic. Mirrors the same SQL as [syncReviewQueue].
+  Future<void> _syncReviewQueueTx(
+    Transaction txn, {
+    required String correctionId,
+    required DateTime dueAt,
+    int intervalDays = 0,
+    int repetitions = 0,
+    double easeFactor = 2.5,
+  }) async {
+    final now = DateTime.now().toIso8601String();
+    final id = '${correctionId}_rq';
+    await txn.insert('review_queue', {
       'id': id,
       'correction_id': correctionId,
       'due_at': dueAt.toIso8601String(),

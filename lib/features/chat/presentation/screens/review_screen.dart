@@ -10,6 +10,7 @@ import '../../../../shared/providers.dart';
 import '../../data/tts_playback_service.dart';
 import '../../data/tts_service.dart';
 import '../../domain/chat_models.dart';
+import '../../domain/app_error.dart';
 import '../../../home/presentation/home_providers.dart';
 import '../../../review/data/sm2_service.dart';
 import '../../../project_space/domain/project_models.dart';
@@ -327,8 +328,15 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _ratingInFlight.remove(correction.id));
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save rating: ${_safeError(e)}')),
+          SnackBar(
+            content: Text(
+              l.tArg('common.error_with_detail', {
+                'detail': AppError.redact(e.toString()),
+              }),
+            ),
+          ),
         );
       }
     }
@@ -347,12 +355,6 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       default:
         return 'Rated';
     }
-  }
-
-  String _safeError(Object e) {
-    final s = e.toString();
-    final i = s.indexOf(': ');
-    return i >= 0 ? s.substring(i + 2) : s;
   }
 }
 

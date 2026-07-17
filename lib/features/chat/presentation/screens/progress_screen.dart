@@ -17,16 +17,31 @@ final statsProvider = FutureProvider<LearningStats>((ref) async {
   return LearningStatsService().getStats();
 });
 
-class ProgressScreen extends ConsumerWidget {
+class ProgressScreen extends ConsumerStatefulWidget {
   const ProgressScreen({super.key});
 
   @override
+  ConsumerState<ProgressScreen> createState() => _ProgressScreenState();
+}
+
+class _ProgressScreenState extends ConsumerState<ProgressScreen> {
+  bool _initialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      // Refresh stats on first entry so the user sees latest data.
+      // Do NOT call invalidate in build() — that causes an infinite rebuild
+      // loop (invalidating triggers re-fetch, which triggers rebuild,
+      // which re-invalidates). One-shot at init is sufficient.
+      ref.invalidate(statsProvider);
+    }
+  }
+
+  @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Refresh stats on every entry — the user might have just finished
-    // a review session on ReviewScreen, and showing stale counts would
-    // make it look like their work didn't register. Stats are cheap to
-    // recompute.
-    ref.invalidate(statsProvider);
     final statsAsync = ref.watch(statsProvider);
     final l = AppLocalizations.of(context);
 
@@ -59,7 +74,12 @@ class ProgressScreen extends ConsumerWidget {
               child: statsAsync.when(
                 data: (stats) => _buildContent(context, ref, stats),
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Error: $e')),
+                error: (e, _) => Center(
+                  child: Text(
+                    'Error loading stats',
+                    style: TextStyle(color: AppColors.error),
+                  ),
+                ),
               ),
             ),
           ),
