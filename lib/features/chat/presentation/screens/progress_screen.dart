@@ -41,7 +41,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final statsAsync = ref.watch(statsProvider);
     final l = AppLocalizations.of(context);
 
@@ -72,7 +72,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                 maxWidth: Responsive.contentMaxWidth(context),
               ),
               child: statsAsync.when(
-                data: (stats) => _buildContent(context, ref, stats),
+                data: (stats) => _buildContent(context, stats),
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(
                   child: Text(
@@ -88,7 +88,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, LearningStats stats) {
+  Widget _buildContent(BuildContext context, LearningStats stats) {
     final l = AppLocalizations.of(context);
     final isLight = Theme.of(context).brightness == Brightness.light;
     final heatmapAsync = ref.watch(heatmapDataProvider);
