@@ -180,12 +180,9 @@ class DailyPlanService {
   /// "recent mistakes" drill task. Uses a raw query so we don't pull full
   /// Correction rows just to count them.
   Future<int> _getRecentErrorCount(ChatRepository repo) async {
-    // We can't access DatabaseHelper from here without a circular import,
-    // so reuse the existing getAllCorrections path and filter in Dart.
-    // The list is bounded by the user's total correction count (typically
-    // < 200) so this is cheap enough for a dashboard refresh.
-    final all = await repo.getAllCorrections();
-    final cutoff = DateTime.now().subtract(const Duration(days: 3));
-    return all.where((c) => c.lastSeenAt.isAfter(cutoff)).length;
+    // Use a SQL COUNT with a WHERE clause so we never load the full
+    // corrections table just to filter by date in Dart. The previous
+    // getAllCorrections() path loaded every row into memory.
+    return repo.getRecentCorrectionCount(days: 3);
   }
 }

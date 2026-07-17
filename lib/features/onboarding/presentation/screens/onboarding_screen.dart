@@ -9,6 +9,7 @@ import '../../../../core/util/responsive.dart';
 import '../../../../shared/providers.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../profile/domain/profile_models.dart';
+import '../../../profile/domain/guest_profiles.dart';
 import '../../../profile/domain/provider_catalog.dart';
 import '../../../profile/domain/services/connection_tester.dart';
 
@@ -232,6 +233,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     });
     try {
       await profileRepo.ensureGuestProfiles();
+      // Capture the user's active profile ids before activating guest
+      // profiles so they can be restored when the trial ends.
+      final preGuestIds = await profileRepo.captureActiveNonGuestProfiles();
+      GuestProfileConfig.lastNonGuestProfileIds = preGuestIds;
       await profileRepo.activateGuestProfiles();
       final session = await chatRepo.createSession(
         topic: _l.t('guest.trial_topic'),

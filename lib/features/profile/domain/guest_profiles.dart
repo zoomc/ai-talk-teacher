@@ -31,6 +31,11 @@ class GuestProfileConfig {
   static const String sttProfileId = '__guest_stt__';
   static const String ttsProfileId = '__guest_tts__';
 
+  /// Snapshot of the user's active profile IDs captured when the guest trial
+  /// starts. Persisted so `restoreNonGuestProfiles` can reactivate them when
+  /// the trial ends. Null when no guest trial is in progress.
+  static ({String? llmId, String? sttId, String? ttsId})? lastNonGuestProfileIds;
+
   /// Maximum conversation length for a guest trial, in minutes. Enforced by
   /// the chat screen: when a guest session exceeds this it is gently ended
   /// and the user is routed to the post-class summary + onboarding.

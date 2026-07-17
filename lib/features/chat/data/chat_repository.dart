@@ -381,6 +381,19 @@ class ChatRepository {
     return (result.first['count'] as int?) ?? 0;
   }
 
+  /// Count corrections flagged in the last [days] days, using a SQL COUNT
+  /// instead of loading all rows into Dart. Powers the daily plan's "recent
+  /// mistakes" drill task without pulling the full corrections table.
+  Future<int> getRecentCorrectionCount({int days = 3}) async {
+    final db = await DatabaseHelper.database;
+    final cutoff = DateTime.now().subtract(Duration(days: days)).toIso8601String();
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM corrections WHERE last_seen_at >= ?',
+      [cutoff],
+    );
+    return (result.first['count'] as int?) ?? 0;
+  }
+
   Future<Map<String, ({int count, DateTime lastPracticedAt})>>
   getScenarioStats() async {
     final db = await DatabaseHelper.database;

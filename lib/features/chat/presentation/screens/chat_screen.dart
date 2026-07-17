@@ -235,7 +235,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _isRecording = false;
       }
       final repo = ref.read(chatRepoProvider);
+      final profileRepo = ref.read(profileRepoProvider);
       await repo.archiveSession(widget.sessionId);
+      // Restore the user's own profiles that were active before the guest
+      // trial started, so the post-trial onboarding doesn't overwrite them.
+      final preGuestIds = GuestProfileConfig.lastNonGuestProfileIds;
+      if (preGuestIds != null) {
+        await profileRepo.restoreNonGuestProfiles(
+          llmId: preGuestIds.llmId,
+          sttId: preGuestIds.sttId,
+          ttsId: preGuestIds.ttsId,
+        );
+      }
     } catch (_) {}
     if (!mounted) return;
     final l = AppLocalizations.of(context);
@@ -514,44 +525,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           ),
         if (_isGuestSession && !_guestTrialEnded)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.xs,
-            ),
-            color: _guestSecondsLeft <= 30
-                ? AppColors.error.withValues(alpha: 0.18)
-                : AppColors.accentSecondary.withValues(alpha: 0.14),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.timer_outlined,
-                  size: 16,
-                  color: _guestSecondsLeft <= 30
-                      ? AppColors.error
-                      : AppColors.accentSecondary,
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Expanded(
-                  child: Text(
-                    l.tArg('guest.minutes_left', {
-                      'min': (_guestSecondsLeft ~/ 60).toString(),
-                      'sec': (_guestSecondsLeft % 60).toString().padLeft(
-                        2,
-                        '0',
-                      ),
-                    }),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _guestSecondsLeft <= 30
-                          ? AppColors.error
-                          : AppColors.accentSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          _GuestTimerBar(
+            secondsLeft: _guestSecondsLeft,
           ),
         Expanded(
           child: Center(
@@ -1134,17 +1109,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _showSessionOptions(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final isLight = Theme.of(context).brightness == Brightness.light;
     showModalBottomSheet(
       context: context,
-      backgroundColor: isLight
-          ? AppColors.lightBgSecondary
-          : AppColors.bgTertiary,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      builder: (context) => GlassBottomSheet(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1428,4 +1397,48 @@ class _StageIcon extends StatelessWidget {
 // Their behaviour is preserved inside AvatarStage's fallback renderer, so
 // the user-visible mouth motion stays the same — but now it composes with
 // the idle + emotion + Rhubarb viseme timeline controllers.
+
+/// Guest trial countdown banner.
+///
+/// Extracted from the chat screen as a lightweight widget so the 1-second
+/// timer only rebuilds this banner instead of triggering `setState` on the
+/// entire chat screen tree (~200+ widgets) every second.
+class _GuestTimerBar extends StatelessWidget {
+  final int secondsLeft;
+
+  const _GuestTimerBar({required this.secondsLeft});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final urgent = secondsLeft <= 30;
+    final color = urgent ? AppColors.error : AppColors.accentSecondary;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      color: color.withValues(alpha: 0.18),
+      child: Row(
+        children: [
+          Icon(Icons.timer_outlined, size: 16, color: color),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              l.tArg('guest.minutes_left', {
+                'min': (secondsLeft ~/ 60).toString(),
+                'sec': (secondsLeft % 60).toString().padLeft(2, '0'),
+              }),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
