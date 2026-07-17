@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Code quality & bug fixes — 2026-07-17
+
+#### Fixed
+- **P0 critical**: Infinite rebuild loop in ProgressScreen — moved
+  `ref.invalidate(statsProvider)` out of `build()` into one-shot
+  `didChangeDependencies` (was causing 2+ fetches per render)
+- **P0 critical**: Raw exception text leaked to UI now redacted via
+  `AppError.redact()` in ProgressScreen error state and review rating SnackBar
+- **P0 critical**: Correction update + review_queue sync wrapped in SQLite
+  transaction to prevent queue desync on crash between the two operations
+- **P0 critical**: Session snapshot recovery wired into ChatScreen initState
+  so crash recovery infrastructure actually reads and clears snapshots
+- **P1**: Guest countdown timer extracted into dedicated `_GuestTimerBar`
+  widget — 1-second periodic rebuilds only the banner, not the full screen
+- **P1**: `DailyPlanService` replaced `getAllCorrections()` with SQL COUNT
+  query — no longer loads every correction row into memory just to count
+- **P1**: Guest trial captures and restores non-guest API profiles on trial end
+- **P1**: Session options bottom sheet migrated from raw Material to
+  `GlassBottomSheet` for glassmorphism design consistency
+
+## [Unreleased]
+
 ### Phase 5 — Pronunciation scoring, progress dashboard & session continuity — 2026-07-17
 
 #### Pronunciation scoring (phoneme-level)
