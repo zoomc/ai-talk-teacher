@@ -29,6 +29,7 @@ import 'dart:async';
 import 'package:flutter/scheduler.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../../avatar/data/live2d_loader.dart';
 import '../../../avatar/data/viseme_timeline_player.dart';
