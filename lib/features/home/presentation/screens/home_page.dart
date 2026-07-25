@@ -258,25 +258,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     await Future.delayed(const Duration(milliseconds: 100));
   }
 
-  /// "开始对话" — create a new free-talk session and record today's
-  /// practice. The streak is bumped before navigation so the dashboard
-  /// shows the new streak when the user returns. Streak failures are
-  /// swallowed so a SQLite hiccup never blocks the user from chatting.
+  /// "开始对话" — create a new free-talk session. Streak credit is earned
+  /// by actual practice (sending messages, rating corrections, finishing
+  /// pronunciation drills), not by merely opening a session.
   Future<void> _startConversation(BuildContext context) async {
     final repo = ref.read(chatRepoProvider);
     final session = await repo.createSession(topic: 'Free Talk');
-    // Record practice: starting a conversation counts as a completed day.
-    try {
-      await ref.read(streakServiceProvider).recordPractice(
-            durationSeconds: 0,
-            completed: true,
-          );
-      ref.invalidate(currentStreakProvider);
-      ref.invalidate(streakHistoryProvider);
-      ref.invalidate(todayPracticeLogProvider);
-    } catch (_) {
-      // Streak recording is best-effort — don't block the chat session.
-    }
     if (context.mounted) {
       context.push('/chat/${session.id}');
     }
@@ -289,44 +276,24 @@ class _HomePageState extends ConsumerState<HomePage> {
     context.push('/review');
   }
 
-  /// "发音练习" — push the sentence-practice screen and record practice.
-  /// Streak failures are swallowed so they don't block navigation.
+  /// "发音练习" — push the sentence-practice screen. Streak credit is
+  /// recorded by the practice surface when the user actually finishes a
+  /// drill, not when the entry button is tapped.
   Future<void> _openPronunciation(BuildContext context) async {
-    try {
-      await ref.read(streakServiceProvider).recordPractice(
-            durationSeconds: 0,
-            completed: true,
-          );
-      ref.invalidate(currentStreakProvider);
-      ref.invalidate(streakHistoryProvider);
-    } catch (_) {
-      // Streak recording is best-effort.
-    }
     if (context.mounted) {
       context.push('/practice');
     }
   }
 
-  /// S5/S6 v7 — start a conversation with a recommended scenario. Mirrors
-  /// [ScenariosScreen._startScenario] but records today's practice so the
-  /// streak is bumped when the user engages with a goal recommendation.
+  /// S5/S6 v7 — start a conversation with a recommended scenario. Streak
+  /// credit is earned through actual practice in the chat, not by opening
+  /// the scenario session.
   Future<void> _startScenario(BuildContext context, Scenario scenario) async {
     final repo = ref.read(chatRepoProvider);
     final session = await repo.createSession(
       topic: scenario.name,
       scenarioId: scenario.id,
     );
-    try {
-      await ref.read(streakServiceProvider).recordPractice(
-            durationSeconds: 0,
-            completed: true,
-          );
-      ref.invalidate(currentStreakProvider);
-      ref.invalidate(streakHistoryProvider);
-      ref.invalidate(todayPracticeLogProvider);
-    } catch (_) {
-      // Streak recording is best-effort.
-    }
     if (context.mounted) {
       context.push('/chat/${session.id}');
     }
@@ -339,6 +306,11 @@ class _HomePageState extends ConsumerState<HomePage> {
         break;
       case DailyPlanAction.openReview:
         context.push('/review');
+        break;
+      case DailyPlanAction.openRecentErrors:
+        // BL-003: pass the recent-errors filter so ReviewScreen shows the
+        // same 3-day window that produced the badge.
+        context.push('/review?filter=recent');
         break;
       case DailyPlanAction.openPractice:
         _openPronunciation(context);

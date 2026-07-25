@@ -131,10 +131,76 @@ class ProjectRepository {
   Future<void> deleteProject(String id) async {
     final db = await DatabaseHelper.database;
     // sqflite ships with FK enforcement off; delete children explicitly
-    // (mirrors ChatRepository.deleteSession).
-    await db.delete('project_activities', where: 'project_id = ?', whereArgs: [id]);
-    await db.delete('project_links', where: 'project_id = ?', whereArgs: [id]);
-    await db.delete('projects', where: 'id = ?', whereArgs: [id]);
+    // (mirrors ChatRepository.deleteSession). Wrap in a transaction so a
+    // failure mid-delete doesn't leave orphaned links/activities.
+    await db.transaction((txn) async {
+      await txn.delete('project_activities', where: 'project_id = ?', whereArgs: [id]);
+      await txn.delete('project_links', where: 'project_id = ?', whereArgs: [id]);
+      await txn.delete('projects', where: 'id = ?', whereArgs: [id]);
+    });
+  }
+
+  /// BL-067: atomically create a project and link it to [contentId]. If any
+  /// step fails the transaction rolls back, so the caller never ends up with
+  /// an orphaned project that has no linked content.
+  Future<Project> createProjectAndLink({
+    required String name,
+    required String icon,
+    required String color,
+    String description = '',
+    String goal = '',
+    List<String> topics = const [],
+    ProjectStatus status = ProjectStatus.active,
+    required ProjectContentType contentType,
+    required String contentId,
+  }) async {
+    final db = await DatabaseHelper.database;
+    late final Project project;
+    await db.transaction((txn) async {
+      final now = DateTime.now();
+      project = Project(
+        id: const Uuid().v4(),
+        name: name,
+        icon: icon,
+        color: color,
+        description: description,
+        goal: goal,
+        status: status,
+        topics: topics,
+        createdAt: now,
+        updatedAt: now,
+        lastActivityAt: now,
+      );
+      await txn.insert('projects', project.toMap());
+      final link = ProjectLink(
+        id: const Uuid().v4(),
+        projectId: project.id,
+        contentType: contentType,
+        contentId: contentId,
+        createdAt: now,
+      );
+      await txn.insert('project_links', link.toMap());
+      final activity = ProjectActivity(
+        id: const Uuid().v4(),
+        projectId: project.id,
+        type: ProjectActivityType.projectCreated,
+        payload: {'name': name},
+        createdAt: now,
+      );
+      await txn.insert('project_activities', activity.toMap());
+      final linkActivity = ProjectActivity(
+        id: const Uuid().v4(),
+        projectId: project.id,
+        type: ProjectActivityType.linkAdded,
+        payload: {
+          'content_type': contentType.toStorage,
+          'content_id': contentId,
+        },
+        createdAt: now,
+      );
+      await txn.insert('project_activities', linkActivity.toMap());
+    });
+    return project;
   }
 
   // ========== Links ==========

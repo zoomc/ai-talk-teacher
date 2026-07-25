@@ -64,12 +64,10 @@ export interface ChatSessionRow {
   topic: string | null;
   scenario_id: string | null;
   status: string;
-  tutor_id: string | null;
   level_tag: string | null;
   is_guest: number;
   created_at: string;
   updated_at: string;
-  archived_at: string | null;
 }
 
 export interface MessageRow {
@@ -77,6 +75,7 @@ export interface MessageRow {
   session_id: string;
   role: string;
   content: string;
+  audio_path: string | null;
   created_at: string;
 }
 
@@ -87,40 +86,43 @@ export interface CorrectionRow {
   original: string;
   corrected: string;
   type: string;
-  severity: string;
   explanation: string | null;
-  skill: string;
+  skill: string | null;
+  severity?: string;
   review_count: number;
   easiness_factor: number;
   interval_days: number;
-  next_review_at: string;
+  next_review_at: string | null;
   occurrence_count: number;
   last_seen_at: string;
   importance: number;
   is_favorite: number;
+  favorite_at?: string | null;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface ReviewQueueRow {
   id: string;
   correction_id: string;
+  due_at: string;
   interval_days: number;
   repetitions: number;
   ease_factor: number;
-  due_at: string;
-  last_reviewed_at: string | null;
+  last_reviewed_at?: string | null;
+  created_at?: string;
 }
 
 export interface ScenarioRow {
   id: string;
-  title: string;
+  name: string;
   description: string;
-  category: string;
+  icon: string;
   difficulty: string;
+  category: string;
+  system_prompt: string;
   goal: string | null;
-  tags: string;
-  created_at: string;
+  tags: string | null;
 }
 
 export interface ProjectRow {

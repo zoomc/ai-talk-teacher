@@ -16,7 +16,7 @@ import * as bridge from '../../lib/e2e-bridge';
 import { setLlmResponse, setSttTranscript, setTtsAudio, mockNetworkError, mockNetworkTimeout, resetOverrides } from '../../lib/mock';
 import { FIXTURES, LLM_MOCKS, STT_MOCKS, TTS_MOCKS } from '../../fixtures/fixtures';
 import type { LlmProfileRow, SttProfileRow, TtsProfileRow, MessageRow } from '../../fixtures/fixtures';
-import { settle } from '../../helpers';
+import { settle, enableAccessibility, sendChatMessage } from '../../helpers';
 
 const SESSION_ID = 'm11-emotion-session';
 
@@ -25,24 +25,11 @@ const SESSION_ROW = {
   topic: 'Emotion markers test',
   scenario_id: null,
   status: 'active',
-  tutor_id: 'tutor-friendly',
   level_tag: 'B1',
   is_guest: 0,
   created_at: '2026-07-25T10:00:00.000Z',
   updated_at: '2026-07-25T10:00:00.000Z',
-  archived_at: null,
 };
-
-/** Type a message into the chat input and submit it (Enter + send button fallback). */
-async function sendAndWait(page: Page, text: string): Promise<void> {
-  const input = page.getByRole('textbox').first();
-  await input.click({ timeout: 5000 }).catch(() => {});
-  await page.keyboard.type(text, { delay: 5 });
-  await page.keyboard.press('Enter');
-  // Fallback: some chat input bars only send on an explicit send tap.
-  await page.getByRole('button', { name: /send|发送/i }).click({ timeout: 1500 }).catch(() => {});
-  await settle(page, 2500);
-}
 
 async function bodyText(page: Page): Promise<string> {
   return page.locator('body').innerText().catch(() => '');
@@ -66,7 +53,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('HP-1: [emotion:happy] marker is stripped and reply text is shown in bubble', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hello', "[emotion:happy] That's great!");
-    await sendAndWait(page, 'hello');
+    await sendChatMessage(page, 'hello');
     await expectText(page, "That's great!");
     const body = await bodyText(page);
     expect(body).not.toContain('[emotion:');
@@ -76,7 +63,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('HP-2: emotion transition uses 250ms easeOutCubic (avatar canvas stays visible)', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hi', '[emotion:happy] Yay!');
-    await sendAndWait(page, 'hi');
+    await sendChatMessage(page, 'hi');
     const canvas = page.locator('canvas').first();
     await expect(canvas).toBeVisible({ timeout: 15000 });
     // Wait beyond the 250ms transition window; canvas must remain stable.
@@ -88,11 +75,11 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('HP-3: neutral → happy → neutral cycle renders without errors', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'first', '[emotion:happy] Wonderful!');
-    await sendAndWait(page, 'first');
+    await sendChatMessage(page, 'first');
     await expectText(page, 'Wonderful!');
 
     await bridge.setMockLlmResponse(page, 'second', '[emotion:neutral] Okay.');
-    await sendAndWait(page, 'second');
+    await sendChatMessage(page, 'second');
     await expectText(page, 'Okay.');
 
     await expectNoException(page);
@@ -109,7 +96,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('HP-5: thinking state during LLM streaming (canvas persists, no errors)', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'ponder', '[emotion:thinking] Hmm, let me consider.');
-    await sendAndWait(page, 'ponder');
+    await sendChatMessage(page, 'ponder');
     await expectText(page, 'Hmm, let me consider');
     const canvas = page.locator('canvas').first();
     await expect(canvas).toBeVisible({ timeout: 15000 });
@@ -121,7 +108,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('BR-6: (emotion:happy) paren form parses and is stripped', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'paren', '(emotion:happy) Nice work!');
-    await sendAndWait(page, 'paren');
+    await sendChatMessage(page, 'paren');
     await expectText(page, 'Nice work!');
     const body = await bodyText(page);
     expect(body).not.toContain('(emotion:');
@@ -130,7 +117,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('BR-7: [Emotion:Happy] case-insensitive marker is stripped', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'case', '[Emotion:Happy] Well done!');
-    await sendAndWait(page, 'case');
+    await sendChatMessage(page, 'case');
     await expectText(page, 'Well done!');
     const body = await bodyText(page);
     expect(body.toLowerCase()).not.toContain('[emotion:');
@@ -139,7 +126,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('BR-8: [ emotion : happy ] whitespace-tolerant marker is stripped', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'ws', '[ emotion : happy ] Awesome!');
-    await sendAndWait(page, 'ws');
+    await sendChatMessage(page, 'ws');
     await expectText(page, 'Awesome!');
     const body = await bodyText(page);
     expect(body).not.toContain('[ emotion');
@@ -148,7 +135,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('BR-9: multiple markers in one reply — first wins, all stripped', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'multi', '[emotion:happy] First [emotion:thinking] Second part.');
-    await sendAndWait(page, 'multi');
+    await sendChatMessage(page, 'multi');
     await expectText(page, 'First');
     await expectText(page, 'Second part');
     const body = await bodyText(page);
@@ -158,7 +145,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('BR-10: stripEmotionMarkers collapses double spaces left by removal', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'spaces', '[emotion:happy]  Double  spaces  here.');
-    await sendAndWait(page, 'spaces');
+    await sendChatMessage(page, 'spaces');
     await expectText(page, 'Double');
     await expectText(page, 'spaces here');
     const body = await bodyText(page);
@@ -170,7 +157,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
     // Text contains "great" (keyword → happy) AND explicit [emotion:thinking].
     // Marker wins. Either way the marker is stripped from the displayed reply.
     await bridge.setMockLlmResponse(page, 'pref', '[emotion:thinking] That is great!');
-    await sendAndWait(page, 'pref');
+    await sendChatMessage(page, 'pref');
     await expectText(page, 'That is great!');
     const body = await bodyText(page);
     expect(body).not.toContain('[emotion:');
@@ -179,7 +166,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('BR-12: keyword fallback — "great" without marker renders normally', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'kw', "That's great, keep it up!");
-    await sendAndWait(page, 'kw');
+    await sendChatMessage(page, 'kw');
     await expectText(page, 'great');
     const body = await bodyText(page);
     expect(body).not.toContain('[emotion:');
@@ -190,7 +177,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
     // Keyword reply "Great job!" → happy; TTS amplitude cannot downgrade it.
     await bridge.setMockLlmResponse(page, 'amp', 'Great job!');
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await sendAndWait(page, 'amp');
+    await sendChatMessage(page, 'amp');
     await expectText(page, 'Great job!');
     await expectNoException(page);
   });
@@ -198,11 +185,11 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
   test('BR-14: easing curves (linear / easeInOutQuad / easeOutCubic) do not throw', async ({ page }) => {
     // Switching emotions across turns exercises every easing code path.
     await bridge.setMockLlmResponse(page, 'ease1', '[emotion:happy] A');
-    await sendAndWait(page, 'ease1');
+    await sendChatMessage(page, 'ease1');
     await bridge.setMockLlmResponse(page, 'ease2', '[emotion:confused] B');
-    await sendAndWait(page, 'ease2');
+    await sendChatMessage(page, 'ease2');
     await bridge.setMockLlmResponse(page, 'ease3', '[emotion:focused] C');
-    await sendAndWait(page, 'ease3');
+    await sendChatMessage(page, 'ease3');
     await expectNoException(page);
   });
 
@@ -218,16 +205,16 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
     ];
     for (const [n, m] of cases) {
       await bridge.setMockLlmResponse(page, n, m);
-      await sendAndWait(page, n);
+      await sendChatMessage(page, n);
     }
     await expectNoException(page);
   });
 
   test('BR-16: pose lerping blends parameters across consecutive emotions', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'lerp1', '[emotion:happy] Smile');
-    await sendAndWait(page, 'lerp1');
+    await sendChatMessage(page, 'lerp1');
     await bridge.setMockLlmResponse(page, 'lerp2', '[emotion:confused] Puzzled');
-    await sendAndWait(page, 'lerp2');
+    await sendChatMessage(page, 'lerp2');
     const canvas = page.locator('canvas').first();
     await expect(canvas).toBeVisible({ timeout: 15000 });
     await expectNoException(page);
@@ -235,9 +222,9 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('BR-17: markers stripped before DB save (snapshot has no [emotion:)', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'save', '[emotion:happy] Persisted reply.');
-    await sendAndWait(page, 'save');
-    const snap = await bridge.getSnapshot<{ messages?: MessageRow[] }>(page);
-    const assistantMsgs = (snap.messages ?? []).filter((m) => m.role === 'assistant');
+    await sendChatMessage(page, 'save');
+    const snap = await bridge.getSnapshot<{ chat_messages?: MessageRow[] }>(page);
+    const assistantMsgs = (snap.chat_messages ?? []).filter((m) => m.role === 'assistant');
     expect(assistantMsgs.length).toBeGreaterThan(0);
     for (const m of assistantMsgs) {
       expect(m.content).not.toContain('[emotion:');
@@ -248,7 +235,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
   test('BR-18: markers stripped before TTS (no spoken markers in display)', async ({ page }) => {
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
     await bridge.setMockLlmResponse(page, 'tts', '[emotion:encouraging] Keep going!');
-    await sendAndWait(page, 'tts');
+    await sendChatMessage(page, 'tts');
     await expectText(page, 'Keep going!');
     const body = await bodyText(page);
     expect(body).not.toContain('[emotion:');
@@ -257,7 +244,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('BR-19: waiting emotion biases smile baseline lower (attentive, not happy)', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'wait', '[emotion:waiting] Take your time.');
-    await sendAndWait(page, 'wait');
+    await sendChatMessage(page, 'wait');
     await expectText(page, 'Take your time');
     const canvas = page.locator('canvas').first();
     await expect(canvas).toBeVisible({ timeout: 15000 });
@@ -268,7 +255,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('EX-20: unknown emotion id [emotion:foo] is ignored; keyword fallback applies', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'unknown', '[emotion:foo] great response');
-    await sendAndWait(page, 'unknown');
+    await sendChatMessage(page, 'unknown');
     // "great" keyword → happy. Unknown marker is stripped regardless.
     await expectText(page, 'great response');
     const body = await bodyText(page);
@@ -278,7 +265,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('EX-21: malformed marker [emotion:happy (no close bracket) is plain text', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'malformed', '[emotion:happy plain text here');
-    await sendAndWait(page, 'malformed');
+    await sendChatMessage(page, 'malformed');
     // No closing bracket → not a marker → shown as plain text (no exception).
     const body = await bodyText(page);
     expect(body).toContain('plain text here');
@@ -287,7 +274,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
 
   test('EX-22: empty marker [emotion:] is ignored', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'empty', '[emotion:] Hello there');
-    await sendAndWait(page, 'empty');
+    await sendChatMessage(page, 'empty');
     await expectText(page, 'Hello there');
     const body = await bodyText(page);
     // No valid marker (id is empty) should be visible.
@@ -303,7 +290,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
       '```',
     ].join('\n');
     await bridge.setMockLlmResponse(page, 'jsonblock', reply);
-    await sendAndWait(page, 'jsonblock');
+    await sendChatMessage(page, 'jsonblock');
     await expectText(page, 'Main reply text');
     await expectNoException(page);
   });

@@ -1,10 +1,15 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
 import '../../../../shared/providers.dart';
+import '../../data/profile_repository.dart';
 import '../../domain/profile_models.dart';
 import '../../domain/provider_catalog.dart';
 import '../../../chat/data/llm_service.dart';
@@ -36,6 +41,14 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   final _languageController = TextEditingController(text: 'en-US');
   final _regionController = TextEditingController();
 
+  final _nameFocus = FocusNode();
+  final _urlFocus = FocusNode();
+  final _modelFocus = FocusNode();
+  final _voiceFocus = FocusNode();
+  final _languageFocus = FocusNode();
+  final _regionFocus = FocusNode();
+  final _keyFocus = FocusNode();
+
   String _providerId = '';
   double _selectedSpeed = 1.0;
   bool _isLoading = false;
@@ -44,6 +57,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   bool _isTesting = false;
   // True when editing and the user can leave the key field blank to keep it.
   bool _hasExistingKey = false;
+  bool _obscureKey = true;
 
   @override
   void initState() {
@@ -65,6 +79,13 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     _voiceIdController.dispose();
     _languageController.dispose();
     _regionController.dispose();
+    _nameFocus.dispose();
+    _urlFocus.dispose();
+    _modelFocus.dispose();
+    _voiceFocus.dispose();
+    _languageFocus.dispose();
+    _regionFocus.dispose();
+    _keyFocus.dispose();
     super.dispose();
   }
 
@@ -94,16 +115,16 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     }
   }
 
-  String get _title {
+  String _title(AppLocalizations l) {
     switch (widget.type) {
       case 'llm':
-        return 'AI Dialogue Profile';
+        return l.t('profile.llm_title');
       case 'stt':
-        return 'STT Profile';
+        return l.t('profile.stt_title');
       case 'tts':
-        return 'TTS Profile';
+        return l.t('profile.tts_title');
       default:
-        return 'Profile';
+        return l.t('profile.profile_name');
     }
   }
 
@@ -193,7 +214,16 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
           icon: const Icon(Icons.arrow_back_ios_new),
           onPressed: () => context.pop(),
         ),
-        title: Text(widget.profileId == null ? 'New $_title' : 'Edit $_title'),
+        title: Builder(
+          builder: (context) {
+            final l = AppLocalizations.of(context);
+            return Text(
+              widget.profileId == null
+                  ? l.tArg('profile.new_title', {'title': _title(l)})
+                  : l.tArg('profile.edit_title', {'title': _title(l)}),
+            );
+          },
+        ),
       ),
       body: _isLoadingExisting
           ? const Center(child: CircularProgressIndicator())
@@ -248,29 +278,31 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   // ── Field builders ───────────────────────────────────────────────────────
 
   Widget _buildNameField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Profile Name', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: AppSpacing.xs),
-        TextFormField(
-          controller: _nameController,
-          style: const TextStyle(color: AppColors.textPrimary),
-          decoration: const InputDecoration(hintText: 'e.g., DeepSeek Main'),
-          validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-        ),
-      ],
+    final l = AppLocalizations.of(context);
+    return TextFormField(
+      controller: _nameController,
+      focusNode: _nameFocus,
+      textInputAction: TextInputAction.next,
+      onFieldSubmitted: (_) => _urlFocus.requestFocus(),
+      style: const TextStyle(color: AppColors.textPrimary),
+      decoration: InputDecoration(
+        labelText: l.t('profile.profile_name'),
+        hintText: l.t('profile.name_hint'),
+      ),
+      validator: (v) {
+        if (v == null || v.isEmpty) return l.t('profile.name_required');
+        return null;
+      },
     );
   }
 
   Widget _buildProviderPicker() {
+    final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Provider', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: AppSpacing.xs),
         DropdownButtonFormField<String>(
-          initialValue: _providerId,
+          value: _providerId,
           dropdownColor:
               Theme.of(context).brightness == Brightness.light
                   ? AppColors.lightBgTertiary
@@ -279,7 +311,10 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
               color: Theme.of(context).brightness == Brightness.light
                   ? AppColors.lightTextPrimary
                   : AppColors.textPrimary),
-          decoration: const InputDecoration(hintText: 'Select provider'),
+          decoration: InputDecoration(
+            labelText: l.t('profile.provider'),
+            hintText: l.t('profile.select_provider'),
+          ),
           items: _buildProviderDropdownItems(),
           onChanged: (v) {
             if (v == null) return;
@@ -287,12 +322,17 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
               _providerId = v;
               _applyProviderDefaults(overwriteAll: true);
             });
+            // BL-098: warn when the user picks an experimental provider that
+            // needs a custom relay adapter.
+            if (_providerDef.experimental && mounted) {
+              _snack(l.t('profile.experimental_provider'));
+            }
           },
         ),
         if (_providerDef.docsUrl.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Docs: ${_providerDef.docsUrl}',
+            l.tArg('profile.docs_prefix', {'url': _providerDef.docsUrl}),
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: AppColors.accentSecondary),
@@ -303,6 +343,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   }
 
   List<DropdownMenuItem<String>> _buildProviderDropdownItems() {
+    final l = AppLocalizations.of(context);
     final List<ProviderDef> defs;
     switch (widget.type) {
       case 'llm':
@@ -331,38 +372,46 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     for (final region in order) {
       final list = byRegion[region];
       if (list == null || list.isEmpty) continue;
+      // UX-031: use a non-selectable header with a divider so it is visually
+      // distinct from real provider options.
       items.add(
         DropdownMenuItem<String>(
           enabled: false,
           value: '_header_${region.name}',
-          child: Text(
-            _regionLabel(region),
-            style: TextStyle(
-              color: AppColors.accentSecondary,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
+          child: IgnorePointer(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l.t('provider_region.${region.name}'),
+                  style: TextStyle(
+                    color: AppColors.accentSecondary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+                const Divider(height: 8),
+              ],
             ),
           ),
         ),
       );
       for (final d in list) {
         items.add(
-          DropdownMenuItem<String>(value: d.id, child: Text(d.displayName)),
+          DropdownMenuItem<String>(
+            value: d.id,
+            child: Text(
+              d.experimental ? '${d.displayName} ⚠️' : d.displayName,
+              style: d.experimental
+                  ? const TextStyle(color: AppColors.warning)
+                  : null,
+            ),
+          ),
         );
       }
     }
     return items;
-  }
-
-  String _regionLabel(ProviderRegion r) {
-    switch (r) {
-      case ProviderRegion.cn:
-        return '— China (国内) —';
-      case ProviderRegion.global:
-        return '— Global (国外) —';
-      case ProviderRegion.local:
-        return '— Local / Self-hosted —';
-    }
   }
 
   Widget _buildNote(String note) {
@@ -408,29 +457,44 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   }
 
   Widget _buildLlmFields() {
+    final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _labelField(
-          'API Base URL',
+          'profile.base_url',
           _urlController,
-          'https://api.deepseek.com/v1',
+          hintText: l.t('profile.custom_url_hint'),
           required: true,
+          focusNode: _urlFocus,
+          textInputAction: TextInputAction.next,
+          onSubmitted: () => _modelFocus.requestFocus(),
+          keyboardType: TextInputType.url,
+          autocorrect: false,
+          requiredKey: 'profile.base_url_required',
         ),
         const SizedBox(height: AppSpacing.lg),
         _labelField(
-          'Model',
+          'profile.model',
           _modelController,
-          'deepseek-v4-flash',
+          hintText: 'deepseek-v4-flash',
           required: true,
+          focusNode: _modelFocus,
+          textInputAction: TextInputAction.next,
+          onSubmitted: () => _keyFocus.requestFocus(),
+          requiredKey: 'profile.required',
         ),
         const SizedBox(height: AppSpacing.sm),
-        _fetchButton(label: 'Fetch available models', onPressed: _fetchModels),
+        _fetchButton(
+          labelKey: 'profile.fetch_models',
+          onPressed: _fetchModels,
+        ),
       ],
     );
   }
 
   Widget _buildSttFields() {
+    final l = AppLocalizations.of(context);
     final def = _providerDef;
     final showModel =
         def.kind == ProviderKind.openaiCompatible || _providerId == 'deepgram';
@@ -439,24 +503,54 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _labelField(
-          'API Base URL',
+          'profile.base_url',
           _urlController,
-          '自定义中转或本地端点可在此填写',
+          hintText: l.t('profile.custom_url_hint'),
           required: true,
+          focusNode: _urlFocus,
+          textInputAction: TextInputAction.next,
+          onSubmitted: () => _modelFocus.requestFocus(),
+          keyboardType: TextInputType.url,
+          autocorrect: false,
+          requiredKey: 'profile.base_url_required',
         ),
         const SizedBox(height: AppSpacing.lg),
         if (showModel) ...[
-          _labelField('Model', _modelController, 'whisper-1'),
+          _labelField(
+            'profile.model',
+            _modelController,
+            hintText: 'whisper-1',
+            focusNode: _modelFocus,
+            textInputAction: TextInputAction.next,
+            onSubmitted: () => _languageFocus.requestFocus(),
+          ),
           const SizedBox(height: AppSpacing.lg),
         ],
-        _labelField('Language (BCP-47)', _languageController, 'en-US'),
+        _labelField(
+          'profile.language_bcp47',
+          _languageController,
+          hintText: 'en-US',
+          focusNode: _languageFocus,
+          textInputAction: TextInputAction.next,
+          onSubmitted: () {
+            if (showRegion) {
+              _regionFocus.requestFocus();
+            } else {
+              _keyFocus.requestFocus();
+            }
+          },
+        ),
         const SizedBox(height: AppSpacing.lg),
         if (showRegion) ...[
           _labelField(
-            'Azure Region',
+            'profile.azure_region',
             _regionController,
-            'eastus',
+            hintText: 'eastus',
             required: true,
+            focusNode: _regionFocus,
+            textInputAction: TextInputAction.next,
+            onSubmitted: () => _keyFocus.requestFocus(),
+            requiredKey: 'profile.required',
           ),
           const SizedBox(height: AppSpacing.lg),
         ],
@@ -465,6 +559,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   }
 
   Widget _buildTtsFields() {
+    final l = AppLocalizations.of(context);
     final def = _providerDef;
     final showRegion = _providerId == 'azure_tts';
     final canFetchVoices =
@@ -477,22 +572,44 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         _buildReuseSttButton(),
         const SizedBox(height: AppSpacing.lg),
         _labelField(
-          'API Base URL',
+          'profile.base_url',
           _urlController,
-          '自定义中转或本地端点可在此填写',
+          hintText: l.t('profile.custom_url_hint'),
           required: true,
+          focusNode: _urlFocus,
+          textInputAction: TextInputAction.next,
+          onSubmitted: () => _modelFocus.requestFocus(),
+          keyboardType: TextInputType.url,
+          autocorrect: false,
+          requiredKey: 'profile.base_url_required',
         ),
         const SizedBox(height: AppSpacing.lg),
-        _labelField('Model', _modelController, def.defaultModel ?? ''),
+        _labelField(
+          'profile.model',
+          _modelController,
+          hintText: def.defaultModel ?? '',
+          focusNode: _modelFocus,
+          textInputAction: TextInputAction.next,
+          onSubmitted: () => _voiceFocus.requestFocus(),
+        ),
         const SizedBox(height: AppSpacing.lg),
         // Voice field + fetch button (or static dropdown for openai-compatible).
-        Text('Voice', style: Theme.of(context).textTheme.titleMedium),
+        Text(l.t('profile.voice'), style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.xs),
         if (def.voices.isNotEmpty && def.kind == ProviderKind.openaiCompatible)
           _staticVoiceDropdown(def.voices)
         else
           TextFormField(
             controller: _voiceIdController,
+            focusNode: _voiceFocus,
+            textInputAction: TextInputAction.next,
+            onFieldSubmitted: (_) {
+              if (showRegion) {
+                _regionFocus.requestFocus();
+              } else {
+                _keyFocus.requestFocus();
+              }
+            },
             style: const TextStyle(color: AppColors.textPrimary),
             decoration: InputDecoration(
               hintText: def.defaultVoice ?? 'voice id',
@@ -500,22 +617,29 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
           ),
         if (canFetchVoices) ...[
           const SizedBox(height: AppSpacing.sm),
-          _fetchButton(label: 'Fetch voice list', onPressed: _fetchVoices),
+          _fetchButton(
+            labelKey: 'profile.fetch_voices',
+            onPressed: _fetchVoices,
+          ),
         ],
         const SizedBox(height: AppSpacing.lg),
         if (showRegion) ...[
           _labelField(
-            'Azure Region',
+            'profile.azure_region',
             _regionController,
-            'eastus',
+            hintText: 'eastus',
             required: true,
+            focusNode: _regionFocus,
+            textInputAction: TextInputAction.next,
+            onSubmitted: () => _keyFocus.requestFocus(),
+            requiredKey: 'profile.required',
           ),
           const SizedBox(height: AppSpacing.lg),
         ],
-        Text('TTS Speed', style: Theme.of(context).textTheme.titleMedium),
+        Text(l.t('profile.tts_speed'), style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.xs),
         DropdownButtonFormField<double>(
-          initialValue: _selectedSpeed,
+          value: _selectedSpeed,
           dropdownColor:
               Theme.of(context).brightness == Brightness.light
                   ? AppColors.lightBgTertiary
@@ -524,12 +648,15 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
               color: Theme.of(context).brightness == Brightness.light
                   ? AppColors.lightTextPrimary
                   : AppColors.textPrimary),
-          decoration: const InputDecoration(hintText: 'Select TTS speed'),
-          items: const [
-            DropdownMenuItem(value: 0.75, child: Text('0.75x (Slower)')),
-            DropdownMenuItem(value: 1.0, child: Text('1.0x (Normal)')),
-            DropdownMenuItem(value: 1.25, child: Text('1.25x (Faster)')),
-            DropdownMenuItem(value: 1.5, child: Text('1.5x (Fastest)')),
+          decoration: InputDecoration(
+            labelText: l.t('profile.tts_speed'),
+            hintText: l.t('profile.select_provider'),
+          ),
+          items: [
+            DropdownMenuItem(value: 0.75, child: Text(l.t('profile.speed_slower'))),
+            DropdownMenuItem(value: 1.0, child: Text(l.t('profile.speed_normal'))),
+            DropdownMenuItem(value: 1.25, child: Text(l.t('profile.speed_faster'))),
+            DropdownMenuItem(value: 1.5, child: Text(l.t('profile.speed_fastest'))),
           ],
           onChanged: (v) => setState(() => _selectedSpeed = v ?? 1.0),
         ),
@@ -538,23 +665,28 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   }
 
   Widget _buildReuseSttButton() {
+    final l = AppLocalizations.of(context);
     return Align(
       alignment: Alignment.centerLeft,
       child: TextButton.icon(
+        style: TextButton.styleFrom(
+          minimumSize: const Size.fromHeight(44),
+        ),
         onPressed: _reuseSttConfig,
         icon: const Icon(Icons.copy, size: 18),
-        label: const Text('与 STT 使用相同的供应商和 Key'),
+        label: Text(l.t('profile.reuse_stt')),
       ),
     );
   }
 
   Future<void> _reuseSttConfig() async {
+    final l = AppLocalizations.of(context);
     final repo = ref.read(profileRepoProvider);
     try {
       final all = await repo.getAllSttProfiles();
       final stt = all.where((p) => p.isActive).firstOrNull;
       if (stt == null) {
-        if (mounted) _snack('没有活跃的 STT 配置可复制');
+        if (mounted) _snack(l.t('profile.reuse_stt_none'));
         return;
       }
       const sttToTts = {
@@ -574,9 +706,9 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         _keyController.text = stt.apiKey;
         _applyProviderDefaults(overwriteAll: false);
       });
-      if (mounted) _snack('已从 STT 配置复制');
+      if (mounted) _snack(l.t('profile.reuse_stt_copied'));
     } catch (e) {
-      if (mounted) _snack('复制失败: ${_safeError(e)}');
+      if (mounted) _snack(l.tArg('profile.reuse_stt_failed', {'error': _safeError(e)}));
     }
   }
 
@@ -605,97 +737,120 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   }
 
   Widget _labelField(
-    String label,
-    TextEditingController controller,
-    String hint, {
+    String labelKey,
+    TextEditingController controller, {
+    String? hintText,
     bool required = false,
+    FocusNode? focusNode,
+    TextInputAction? textInputAction,
+    VoidCallback? onSubmitted,
+    TextInputType? keyboardType,
+    bool autocorrect = true,
+    String? requiredKey,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: AppSpacing.xs),
-        TextFormField(
-          controller: controller,
-          style: const TextStyle(color: AppColors.textPrimary),
-          decoration: InputDecoration(hintText: hint),
-          validator: (v) {
-            if (!required) return null;
-            return (v == null || v.isEmpty) ? 'Required' : null;
-          },
-        ),
-      ],
+    final l = AppLocalizations.of(context);
+    return TextFormField(
+      controller: controller,
+      focusNode: focusNode,
+      textInputAction: textInputAction,
+      onFieldSubmitted: (_) => onSubmitted?.call(),
+      keyboardType: keyboardType,
+      autocorrect: autocorrect,
+      style: const TextStyle(color: AppColors.textPrimary),
+      decoration: InputDecoration(
+        labelText: l.t(labelKey),
+        hintText: hintText,
+      ),
+      validator: (v) {
+        if (!required) return null;
+        if (v == null || v.isEmpty) {
+          return requiredKey == null ? l.t('profile.required') : l.t(requiredKey);
+        }
+        return null;
+      },
     );
   }
 
   Widget _buildApiKeyField() {
+    final l = AppLocalizations.of(context);
     final def = _providerDef;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          def.apiKeyRequired
-              ? 'API Key'
-              : 'API Key (optional for this provider)',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        TextFormField(
-          controller: _keyController,
-          style: const TextStyle(color: AppColors.textPrimary),
-          obscureText: true,
-          decoration: InputDecoration(
-            hintText: _hasExistingKey
-                ? 'Enter new key to replace existing'
-                : 'sk-...',
+    return TextFormField(
+      controller: _keyController,
+      focusNode: _keyFocus,
+      textInputAction: TextInputAction.done,
+      onFieldSubmitted: (_) => _saveProfile(),
+      style: const TextStyle(color: AppColors.textPrimary),
+      obscureText: _obscureKey,
+      decoration: InputDecoration(
+        labelText: def.apiKeyRequired
+            ? l.t('profile.api_key')
+            : l.t('profile.api_key_optional'),
+        hintText: _hasExistingKey
+            ? l.t('profile.replace_key_hint')
+            : l.t('profile.api_key_hint'),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscureKey ? Icons.visibility_outlined : Icons.visibility_off_outlined,
           ),
-          validator: (v) {
-            if (!def.apiKeyRequired) return null;
-            if (_hasExistingKey) return null; // keep existing in edit mode
-            return (v == null || v.isEmpty) ? 'Required' : null;
-          },
+          tooltip: _obscureKey ? l.t('profile.show_key') : l.t('profile.hide_key'),
+          onPressed: () => setState(() => _obscureKey = !_obscureKey),
         ),
-      ],
+      ),
+      validator: (v) {
+        if (!def.apiKeyRequired) return null;
+        if (_hasExistingKey) return null; // keep existing in edit mode
+        if (v == null || v.isEmpty) return l.t('profile.api_key_required');
+        return null;
+      },
     );
   }
 
   Widget _buildTestButton() {
+    final l = AppLocalizations.of(context);
     return SizedBox(
       width: double.infinity,
+      height: 44,
       child: OutlinedButton.icon(
         onPressed: _isTesting ? null : _testConnection,
         icon: _isTesting
             ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
               )
             : const Icon(Icons.network_check, size: 18),
-        label: Text(_isTesting ? 'Testing...' : 'Test Connection'),
+        label: Text(_isTesting ? l.t('profile.testing') : l.t('service.test_connection')),
       ),
     );
   }
 
   Widget _buildSaveCancel() {
+    final l = AppLocalizations.of(context);
     return Row(
       children: [
         Expanded(
-          child: OutlinedButton(
-            onPressed: () => context.pop(),
-            child: const Text('Cancel'),
+          child: SizedBox(
+            height: 48,
+            child: OutlinedButton(
+              onPressed: () => context.pop(),
+              child: Text(l.t('profile.cancel')),
+            ),
           ),
         ),
         const SizedBox(width: AppSpacing.md),
         Expanded(
-          child: ElevatedButton(
-            onPressed: _isLoading ? null : _saveProfile,
-            child: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Save'),
+          child: SizedBox(
+            height: 48,
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _saveProfile,
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(l.t('profile.save')),
+            ),
           ),
         ),
       ],
@@ -703,29 +858,34 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   }
 
   Widget _fetchButton({
-    required String label,
+    required String labelKey,
     required VoidCallback onPressed,
   }) {
-    return TextButton.icon(
-      onPressed: _isFetching ? null : onPressed,
-      icon: _isFetching
-          ? const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.refresh, size: 16),
-      label: Text(label),
+    final l = AppLocalizations.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: TextButton.icon(
+        onPressed: _isFetching ? null : onPressed,
+        icon: _isFetching
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.refresh, size: 18),
+        label: Text(l.t(labelKey)),
+      ),
     );
   }
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
   Future<void> _fetchModels() async {
+    final l = AppLocalizations.of(context);
     final baseUrl = _urlController.text.trim();
     final apiKey = _keyController.text.trim();
     if (baseUrl.isEmpty || (apiKey.isEmpty && _providerDef.apiKeyRequired)) {
-      _snack('Please fill Base URL and API Key first');
+      _snack(l.t('profile.fill_base_url_and_key'));
       return;
     }
     setState(() => _isFetching = true);
@@ -742,11 +902,11 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
       final models = await LlmService(tempProfile).fetchModels();
       if (!mounted) return;
       if (models.isEmpty) {
-        _snack('No models returned. Your provider may not list models.');
+        _snack(l.t('profile.no_models'));
         return;
       }
       final selected = await _pickFromList(
-        title: 'Available Models',
+        title: l.t('profile.available_models'),
         items: models,
         current: _modelController.text.trim(),
       );
@@ -754,16 +914,17 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         setState(() => _modelController.text = selected);
       }
     } catch (e) {
-      if (mounted) _snack('Failed to fetch models: ${_safeError(e)}');
+      if (mounted) _snack(l.tArg('profile.fetch_models_failed', {'error': _safeError(e)}));
     } finally {
       if (mounted) setState(() => _isFetching = false);
     }
   }
 
   Future<void> _fetchVoices() async {
+    final l = AppLocalizations.of(context);
     final apiKey = _keyController.text.trim();
     if (apiKey.isEmpty && _providerDef.apiKeyRequired) {
-      _snack('Please fill the API Key first');
+      _snack(l.t('profile.fill_api_key'));
       return;
     }
     setState(() => _isFetching = true);
@@ -772,11 +933,11 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
       final voices = await TtsService(tempProfile).fetchVoices();
       if (!mounted) return;
       if (voices.isEmpty) {
-        _snack('No voices returned. You can still enter a voice id manually.');
+        _snack(l.t('profile.no_voices'));
         return;
       }
       final selected = await _pickFromList(
-        title: 'Available Voices',
+        title: l.t('profile.available_voices'),
         items: voices.map((v) => v.name).toList(),
         current: _voiceIdController.text.trim(),
       );
@@ -790,7 +951,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         });
       }
     } catch (e) {
-      if (mounted) _snack('Failed to fetch voices: ${_safeError(e)}');
+      if (mounted) _snack(l.tArg('profile.fetch_voices_failed', {'error': _safeError(e)}));
     } finally {
       if (mounted) setState(() => _isFetching = false);
     }
@@ -947,60 +1108,67 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     setState(() => _isLoading = true);
     final repo = ref.read(profileRepoProvider);
     try {
+      // Trim user input to avoid leading/trailing spaces or pasted newlines
+      // breaking subsequent API calls (BL-084).
+      final name = _nameController.text.trim();
+      final baseUrl = _urlController.text.trim();
+      final model = _modelController.text.trim();
+      final voiceId = _voiceIdController.text.trim();
+      final language = _languageController.text.trim();
+      final region = _regionController.text.trim();
+
       // In edit mode with a blank key field, keep the existing key.
-      String apiKey = _keyController.text;
+      String apiKey = _keyController.text.trim();
       if (apiKey.isEmpty && _hasExistingKey && widget.profileId != null) {
         apiKey = await _existingKey();
       }
-      final regionJson = _regionController.text.isEmpty
+
+      // Build extraConfig with proper JSON escaping (BL-089).
+      final regionJson = region.isEmpty
           ? null
-          : '{"region":"${_regionController.text.trim()}"}';
+          : jsonEncode({'region': region});
 
       switch (widget.type) {
         case 'llm':
-          await repo.saveLlmProfile(
-            LlmProfile(
-              id: widget.profileId,
-              name: _nameController.text,
-              providerId: _providerId,
-              baseUrl: _urlController.text.trim(),
-              apiKey: apiKey,
-              model: _modelController.text.trim(),
-            ),
+          final profile = LlmProfile(
+            id: widget.profileId,
+            name: name,
+            providerId: _providerId,
+            baseUrl: baseUrl,
+            apiKey: apiKey,
+            model: model,
           );
+          await repo.saveLlmProfile(profile);
+          await _maybeActivateOnFirstSave(repo, profile.id);
           break;
         case 'stt':
-          await repo.saveSttProfile(
-            SttProfile(
-              id: widget.profileId,
-              name: _nameController.text,
-              providerId: _providerId,
-              baseUrl: _urlController.text.trim(),
-              apiKey: apiKey,
-              model: _modelController.text.trim(),
-              language: _languageController.text.trim().isEmpty
-                  ? 'en-US'
-                  : _languageController.text.trim(),
-              extraConfig: regionJson,
-            ),
+          final profile = SttProfile(
+            id: widget.profileId,
+            name: name,
+            providerId: _providerId,
+            baseUrl: baseUrl,
+            apiKey: apiKey,
+            model: model,
+            language: language.isEmpty ? 'en-US' : language,
+            extraConfig: regionJson,
           );
+          await repo.saveSttProfile(profile);
+          await _maybeActivateOnFirstSave(repo, profile.id);
           break;
         case 'tts':
-          await repo.saveTtsProfile(
-            TtsProfile(
-              id: widget.profileId,
-              name: _nameController.text,
-              providerId: _providerId,
-              baseUrl: _urlController.text.trim(),
-              apiKey: apiKey,
-              model: _modelController.text.trim(),
-              voiceId: _voiceIdController.text.trim().isEmpty
-                  ? _providerDef.defaultVoice
-                  : _voiceIdController.text.trim(),
-              speed: _selectedSpeed,
-              extraConfig: regionJson,
-            ),
+          final profile = TtsProfile(
+            id: widget.profileId,
+            name: name,
+            providerId: _providerId,
+            baseUrl: baseUrl,
+            apiKey: apiKey,
+            model: model,
+            voiceId: voiceId.isEmpty ? _providerDef.defaultVoice : voiceId,
+            speed: _selectedSpeed,
+            extraConfig: regionJson,
           );
+          await repo.saveTtsProfile(profile);
+          await _maybeActivateOnFirstSave(repo, profile.id);
           break;
       }
       if (mounted) {
@@ -1011,6 +1179,25 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
       if (mounted) _snack('Error: ${_safeError(e)}');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// If this is the first profile of its type, automatically activate it
+  /// so the user isn't left with no active service (BL-085).
+  Future<void> _maybeActivateOnFirstSave(ProfileRepository repo, String id) async {
+    switch (widget.type) {
+      case 'llm':
+        final active = await repo.getActiveLlmProfile();
+        if (active == null) await repo.setActiveLlmProfile(id);
+        break;
+      case 'stt':
+        final active = await repo.getActiveSttProfile();
+        if (active == null) await repo.setActiveSttProfile(id);
+        break;
+      case 'tts':
+        final active = await repo.getActiveTtsProfile();
+        if (active == null) await repo.setActiveTtsProfile(id);
+        break;
     }
   }
 

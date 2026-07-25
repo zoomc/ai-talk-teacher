@@ -31,6 +31,7 @@ import {
   resetOverrides,
 } from '../../lib/mock';
 import { FIXTURES, LLM_MOCKS, STT_MOCKS, TTS_MOCKS } from '../../fixtures/fixtures';
+import { sendChatMessage } from '../../helpers';
 
 const CHAT_ROUTE = '/chat/m07-continuous-session';
 
@@ -68,16 +69,6 @@ async function toggleContinuousChip(page: import('@playwright/test').Page): Prom
   return false;
 }
 
-/** Helper: send a text message via the chat input bar (best-effort). */
-async function sendText(page: import('@playwright/test').Page, text: string): Promise<void> {
-  const input = page.getByRole('textbox').first();
-  if (await input.isVisible({ timeout: 4000 }).catch(() => false)) {
-    await input.fill(text);
-    await page.getByRole('button', { name: /send/i }).first().click().catch(() => {});
-    await page.waitForTimeout(1500);
-  }
-}
-
 interface DbSnapshot {
   chat_sessions?: Array<{ id: string; topic: string | null }>;
   messages?: Array<{ id: string; session_id: string; role: string; content: string }>;
@@ -111,7 +102,7 @@ test.describe('M07 — Chat: Continuous Mode & Barge-in', () => {
     await bridge.setMockSttResult(page, STT_MOCKS.short);
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await toggleContinuousChip(page);
-    await sendText(page, 'hello');
+    await sendChatMessage(page, 'hello');
     // Wait past the 500ms rearm window; silent TTS mock completes immediately.
     await page.waitForTimeout(3000);
     const mic = page.getByRole('button', { name: /mic|record|microphone/i }).first();
@@ -149,7 +140,7 @@ test.describe('M07 — Chat: Continuous Mode & Barge-in', () => {
   test('HP-5: barge-in — tap mic during TTS → TTS stops + mic starts recording', async ({ page }) => {
     await bridge.setMockSttResult(page, STT_MOCKS.short);
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.long);
-    await sendText(page, 'hello');
+    await sendChatMessage(page, 'hello');
     // While TTS (silent mock) would be playing, tap mic to barge in.
     await page.waitForTimeout(800);
     await pressAndHoldMic(page, 1000);
@@ -165,7 +156,7 @@ test.describe('M07 — Chat: Continuous Mode & Barge-in', () => {
     await bridge.setMockSttResult(page, STT_MOCKS.short);
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await toggleContinuousChip(page);
-    await sendText(page, 'hello');
+    await sendChatMessage(page, 'hello');
     await page.waitForTimeout(2500);
     // Chip remains visible (state unchanged) and no crash.
     const chip = page.getByText(/continuous|auto/i).first();
@@ -200,7 +191,7 @@ test.describe('M07 — Chat: Continuous Mode & Barge-in', () => {
   test('BR-9: toggle chip during TTS playback → does not stop current TTS', async ({ page }) => {
     await bridge.setMockSttResult(page, STT_MOCKS.short);
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.long);
-    await sendText(page, 'hello');
+    await sendChatMessage(page, 'hello');
     await page.waitForTimeout(600);
     await toggleContinuousChip(page);
     await page.waitForTimeout(2000);
@@ -265,7 +256,7 @@ test.describe('M07 — Chat: Continuous Mode & Barge-in', () => {
     await bridge.setMockLlmResponse(page, 'turn', LLM_MOCKS.greeting);
     await toggleContinuousChip(page);
     for (let i = 0; i < 10; i++) {
-      await sendText(page, `turn ${i}`);
+      await sendChatMessage(page, `turn ${i}`);
       await page.waitForTimeout(500);
     }
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
@@ -290,7 +281,7 @@ test.describe('M07 — Chat: Continuous Mode & Barge-in', () => {
 
   test('BR-16: E3 decoupling — _isLoading clears on save; _playingMessageId tracks TTS separately', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'decouple', LLM_MOCKS.long);
-    await sendText(page, 'decouple');
+    await sendChatMessage(page, 'decouple');
     // Input reusable immediately after save (loading decoupled from TTS playback).
     const input = page.getByRole('textbox').first();
     await expect(input).toBeVisible({ timeout: 5000 });
@@ -307,7 +298,7 @@ test.describe('M07 — Chat: Continuous Mode & Barge-in', () => {
     await pressAndHoldMic(page, 1000);
     await page.waitForTimeout(2500);
     // Loop should survive the TTS failure and accept a next text turn.
-    await sendText(page, 'next turn');
+    await sendChatMessage(page, 'next turn');
     await page.waitForTimeout(1500);
     await expectNoException(page);
   });
@@ -318,7 +309,7 @@ test.describe('M07 — Chat: Continuous Mode & Barge-in', () => {
     await toggleContinuousChip(page);
     await pressAndHoldMic(page, 800);
     await page.waitForTimeout(1500);
-    await sendText(page, 'text during loop');
+    await sendChatMessage(page, 'text during loop');
     await page.waitForTimeout(2000);
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     expect((snap.messages ?? []).length).toBeGreaterThanOrEqual(0);

@@ -54,6 +54,10 @@ class ChatBubble extends StatelessWidget {
   final bool ttsFailed;
   final VoidCallback? onRetryTts;
 
+  /// Only the latest AI message shows the inline Listen button by default
+  /// so the history stays clean (VA-064, VA-153).
+  final bool showTtsButton;
+
   const ChatBubble({
     super.key,
     required this.message,
@@ -67,6 +71,7 @@ class ChatBubble extends StatelessWidget {
     this.phonemeScores,
     this.ttsFailed = false,
     this.onRetryTts,
+    this.showTtsButton = true,
   });
 
   @override
@@ -90,30 +95,37 @@ class ChatBubble extends StatelessWidget {
         builder: (context, constraints) {
           final maxWidth =
               constraints.maxWidth * Responsive.bubbleMaxWidthFraction(context);
+          final bubbleRadius = BorderRadius.only(
+            topLeft: const Radius.circular(AppRadius.lg),
+            topRight: const Radius.circular(AppRadius.lg),
+            bottomLeft: Radius.circular(isUser ? AppRadius.xs : AppRadius.lg),
+            bottomRight: Radius.circular(isUser ? AppRadius.lg : AppRadius.xs),
+          );
           return Align(
             alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(
-              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              constraints: BoxConstraints(maxWidth: maxWidth),
-            decoration: BoxDecoration(
+            child: Material(
               color: bubbleColor,
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(AppRadius.lg),
-                topRight: const Radius.circular(AppRadius.lg),
-                bottomLeft:
-                    Radius.circular(isUser ? AppRadius.lg : AppRadius.xs),
-                bottomRight:
-                    Radius.circular(isUser ? AppRadius.xs : AppRadius.lg),
-              ),
-              border: Border.all(color: accent.withValues(alpha: 0.2)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+              borderRadius: bubbleRadius,
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () {},
+                borderRadius: bubbleRadius,
+                hoverColor: accent.withValues(alpha: isLight ? 0.08 : 0.12),
+                splashColor: accent.withValues(alpha: isLight ? 0.12 : 0.18),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                  constraints: BoxConstraints(maxWidth: maxWidth, minWidth: 64),
+                  decoration: BoxDecoration(
+                    borderRadius: bubbleRadius,
+                    border: Border.all(color: accent.withValues(alpha: 0.25)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                 if (isUser && isVoiceTranscript) ...[
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -154,7 +166,9 @@ class ChatBubble extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
+                        color: isLight
+                            ? AppColors.lightTextSecondary
+                            : AppColors.textSecondary,
                       ),
                     ),
                   ),
@@ -170,7 +184,7 @@ class ChatBubble extends StatelessWidget {
                         ttsPlaybackService: ttsPlaybackService,
                       )),
                 ],
-                if (!isUser && onPlayTts != null && !isStreaming) ...[
+                if (!isUser && onPlayTts != null && !isStreaming && showTtsButton) ...[
                   const SizedBox(height: AppSpacing.xs),
                   if (ttsFailed && onRetryTts != null)
                     _TtsRetryButton(onRetry: onRetryTts!)
@@ -178,12 +192,15 @@ class ChatBubble extends StatelessWidget {
                     _TtsPlayButton(
                       isPlaying: isPlaying,
                       onTap: onPlayTts,
+                      color: accent,
                     ),
                 ],
               ],
             ),
           ),
-        );
+        ),
+      ),
+    );
         },
       ),
     );
@@ -206,13 +223,13 @@ class _StreamingText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!isStreaming) {
-      return Text(text, style: style);
+      return Text(text, style: style, softWrap: true);
     }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Flexible(child: Text(text, style: style)),
+        Flexible(child: Text(text, style: style, softWrap: true)),
         const _BlinkingCursor(),
       ],
     );
@@ -291,7 +308,7 @@ class _PhonemeTaggedText extends StatelessWidget {
           return Text(word, style: style);
         }
         final band = wordScores.first.band;
-        final color = _bandColor(band);
+        final color = _bandColor(context, band);
         return GestureDetector(
           onTap: () => _showPhonemeDetail(context, i, word, wordScores),
           child: Tooltip(
@@ -312,14 +329,15 @@ class _PhonemeTaggedText extends StatelessWidget {
     );
   }
 
-  Color _bandColor(PhonemeScoreBand band) {
+  Color _bandColor(BuildContext context, PhonemeScoreBand band) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     switch (band) {
       case PhonemeScoreBand.good:
-        return AppColors.success;
+        return isLight ? AppColors.lightSuccess : AppColors.success;
       case PhonemeScoreBand.fair:
-        return AppColors.warning;
+        return isLight ? AppColors.lightWarning : AppColors.warning;
       case PhonemeScoreBand.poor:
-        return AppColors.error;
+        return isLight ? AppColors.lightError : AppColors.error;
     }
   }
 
@@ -370,6 +388,8 @@ class _PhonemeDetailSheet extends ConsumerWidget {
             Text(
               '"$word"',
               style: Theme.of(context).textTheme.headlineSmall,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: AppSpacing.sm),
             // Overall score badge.
@@ -418,11 +438,15 @@ class _OverallScoreBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     final band = PhonemeScoreBand.fromScore(score);
     final color = switch (band) {
-      PhonemeScoreBand.good => AppColors.success,
-      PhonemeScoreBand.fair => AppColors.warning,
-      PhonemeScoreBand.poor => AppColors.error,
+      PhonemeScoreBand.good =>
+        isLight ? AppColors.lightSuccess : AppColors.success,
+      PhonemeScoreBand.fair =>
+        isLight ? AppColors.lightWarning : AppColors.warning,
+      PhonemeScoreBand.poor =>
+        isLight ? AppColors.lightError : AppColors.error,
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
@@ -455,11 +479,15 @@ class _PhonemeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     final band = score.band;
     final color = switch (band) {
-      PhonemeScoreBand.good => AppColors.success,
-      PhonemeScoreBand.fair => AppColors.warning,
-      PhonemeScoreBand.poor => AppColors.error,
+      PhonemeScoreBand.good =>
+        isLight ? AppColors.lightSuccess : AppColors.success,
+      PhonemeScoreBand.fair =>
+        isLight ? AppColors.lightWarning : AppColors.warning,
+      PhonemeScoreBand.poor =>
+        isLight ? AppColors.lightError : AppColors.error,
     };
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
@@ -507,8 +535,13 @@ class _PhonemeRow extends StatelessWidget {
 class _TtsPlayButton extends StatelessWidget {
   final bool isPlaying;
   final VoidCallback? onTap;
+  final Color color;
 
-  const _TtsPlayButton({required this.isPlaying, this.onTap});
+  const _TtsPlayButton({
+    required this.isPlaying,
+    this.onTap,
+    this.color = AppColors.accentSecondary,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -530,20 +563,24 @@ class _TtsPlayButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 4),
           child: Row(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Icon(
                 isPlaying ? Icons.stop_circle : Icons.play_circle,
-                color: AppColors.accentSecondary,
-                size: 20,
+                color: color,
+                size: 18,
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               Text(
                 isPlaying ? l.t('chat.stop') : l.t('chat.listen'),
-                style: const TextStyle(
-                  color: AppColors.accentSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.0,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -585,6 +622,8 @@ class _TtsRetryButton extends StatelessWidget {
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -699,16 +738,19 @@ class _CorrectionInlineState extends ConsumerState<CorrectionInline> {
 
   Correction get _correction => widget.correction;
 
-  Color _typeColor(CorrectionType type) {
+  Color _typeColor(BuildContext context, CorrectionType type) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     switch (type) {
       case CorrectionType.grammar:
-        return AppColors.error;
+        return isLight ? AppColors.lightError : AppColors.error;
       case CorrectionType.vocabulary:
-        return AppColors.warning;
+        return isLight ? AppColors.lightWarning : AppColors.warning;
       case CorrectionType.pronunciation:
-        return AppColors.accentSecondary;
+        return isLight
+            ? AppColors.lightAccentSecondary
+            : AppColors.accentSecondary;
       case CorrectionType.fluency:
-        return AppColors.info;
+        return isLight ? AppColors.lightInfo : AppColors.info;
     }
   }
 
@@ -725,10 +767,11 @@ class _CorrectionInlineState extends ConsumerState<CorrectionInline> {
     }
   }
 
-  Color _importanceColor(int importance) {
-    if (importance >= 80) return AppColors.error;
-    if (importance >= 50) return AppColors.warning;
-    return AppColors.textMuted;
+  Color _importanceColor(BuildContext context, int importance) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    if (importance >= 80) return isLight ? AppColors.lightError : AppColors.error;
+    if (importance >= 50) return isLight ? AppColors.lightWarning : AppColors.warning;
+    return isLight ? AppColors.lightTextMuted : AppColors.textMuted;
   }
 
   Future<void> _playDemo() async {
@@ -784,8 +827,9 @@ class _CorrectionInlineState extends ConsumerState<CorrectionInline> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final typeColor = _typeColor(_correction.type);
-    final impColor = _importanceColor(_correction.importance);
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final typeColor = _typeColor(context, _correction.type);
+    final impColor = _importanceColor(context, _correction.importance);
     return Container(
       margin: const EdgeInsets.only(top: AppSpacing.xs),
       padding: const EdgeInsets.symmetric(
@@ -796,9 +840,9 @@ class _CorrectionInlineState extends ConsumerState<CorrectionInline> {
         color: Theme.of(context).brightness == Brightness.light
             ? AppColors.lightBubbleCorrection
             : AppColors.bubbleCorrection,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(
-          color: AppColors.success.withValues(alpha: 0.3),
+          color: typeColor.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -877,13 +921,17 @@ class _CorrectionInlineState extends ConsumerState<CorrectionInline> {
           const SizedBox(height: AppSpacing.xxs),
           Row(
             children: [
-              const Icon(Icons.close, color: AppColors.error, size: 14),
+              Icon(
+                Icons.close,
+                color: isLight ? AppColors.lightError : AppColors.error,
+                size: 14,
+              ),
               const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Text(
                   _correction.original,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.error,
+                        color: isLight ? AppColors.lightError : AppColors.error,
                         decoration: TextDecoration.lineThrough,
                       ),
                 ),
@@ -892,13 +940,18 @@ class _CorrectionInlineState extends ConsumerState<CorrectionInline> {
           ),
           Row(
             children: [
-              const Icon(Icons.check, color: AppColors.success, size: 14),
+              Icon(
+                Icons.check,
+                color: isLight ? AppColors.lightSuccess : AppColors.success,
+                size: 14,
+              ),
               const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Text(
                   _correction.corrected,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.success,
+                        color:
+                            isLight ? AppColors.lightSuccess : AppColors.success,
                         fontWeight: FontWeight.w500,
                       ),
                 ),
@@ -910,10 +963,11 @@ class _CorrectionInlineState extends ConsumerState<CorrectionInline> {
             const SizedBox(height: AppSpacing.xxs),
             Text(
               _correction.explanation!,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: AppColors.textSecondary),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: isLight
+                        ? AppColors.lightTextSecondary
+                        : AppColors.textSecondary,
+                  ),
             ),
           ],
         ],
@@ -941,9 +995,17 @@ class _IconAction extends StatelessWidget {
       child: InkResponse(
         onTap: onPressed,
         radius: 18,
-        child: Padding(
-          padding: const EdgeInsets.all(2),
-          child: icon,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minWidth: Responsive.minTapTarget,
+            minHeight: Responsive.minTapTarget,
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: icon,
+            ),
+          ),
         ),
       ),
     );

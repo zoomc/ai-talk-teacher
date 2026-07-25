@@ -8,6 +8,11 @@ class Sm2Service {
     // quality: 0-5 (0=complete blackout, 5=perfect)
     assert(quality >= 0 && quality <= 5);
 
+    // Cache a single reference time so all scheduling decisions use the
+    // same baseline. This prevents cross-day drift in edge cases and makes
+    // the function easier to test.
+    final now = DateTime.now();
+
     // Get current values
     double ef = correction.easinessFactor;
     final reviewCount = correction.reviewCount + 1;
@@ -18,6 +23,13 @@ class Sm2Service {
     ef = ef + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
     if (ef < 1.3) ef = 1.3;
 
+    // BL-011: align "next review" to the start of the target day so a card
+    // rated at 23:50 becomes due "tomorrow morning" rather than 23:50 next day.
+    DateTime nextReviewAt(int days) {
+      final target = now.add(Duration(days: days));
+      return DateTime(target.year, target.month, target.day);
+    }
+
     // Calculate interval
     if (quality < 3) {
       // Failed: reset to 1 day, keep EF reduction
@@ -26,7 +38,8 @@ class Sm2Service {
         reviewCount: 0, // reset review count on failure
         easinessFactor: ef,
         intervalDays: newInterval,
-        nextReviewAt: DateTime.now().add(Duration(days: newInterval)),
+        nextReviewAt: nextReviewAt(newInterval),
+        lastSeenAt: now,
         clearNextReviewAt: false,
       );
     }
@@ -44,7 +57,8 @@ class Sm2Service {
       reviewCount: reviewCount,
       easinessFactor: ef,
       intervalDays: newInterval,
-      nextReviewAt: DateTime.now().add(Duration(days: newInterval)),
+      nextReviewAt: nextReviewAt(newInterval),
+      lastSeenAt: now,
       clearNextReviewAt: false,
     );
   }

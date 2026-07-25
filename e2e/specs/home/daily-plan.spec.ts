@@ -25,36 +25,37 @@ import { settle } from '../../helpers';
 interface DailyPlanSnapshot {
   corrections?: Array<{ id: string; created_at: string; type: string }>;
   review_queue?: Array<{ id: string; correction_id: string; due_at: string }>;
-  settings?: Array<{ key: string; value: string }>;
+  user_settings?: Array<{ key: string; value: string }>;
   chat_sessions?: Array<{ id: string; created_at: string }>;
 }
 
 /** A correction created within the last 3 days (triggers P2). */
 const RECENT_CORRECTION = {
   id: 'cor-m20-1', session_id: 'sess-m20', message_id: null,
-  original: 'I goes', corrected: 'I go', type: 'grammar', severity: 'medium',
+  original: 'I goes', corrected: 'I go', type: 'grammar',
   explanation: 'Subject-verb agreement.', skill: 'grammar',
   review_count: 0, easiness_factor: 2.5, interval_days: 1,
   next_review_at: '2026-07-26T00:00:00.000Z', occurrence_count: 1,
   last_seen_at: '2026-07-24T10:00:00.000Z', importance: 3, is_favorite: 0,
-  created_at: '2026-07-24T10:00:00.000Z', updated_at: '2026-07-24T10:00:00.000Z',
+  favorite_at: null, created_at: '2026-07-24T10:00:00.000Z',
 };
 
 /** A review_queue row whose due_at is in the past (triggers P1). */
 const DUE_REVIEW = {
-  id: 'rq-m20-1', correction_id: 'cor-m20-1', interval_days: 1, repetitions: 1,
-  ease_factor: 2.5, due_at: '2026-07-24T00:00:00.000Z', last_reviewed_at: null,
+  id: 'rq-m20-1', correction_id: 'cor-m20-1', due_at: '2026-07-24T00:00:00.000Z',
+  interval_days: 1, repetitions: 1, ease_factor: 2.5,
+  created_at: '2026-07-24T10:00:00.000Z',
 };
 
 /** An old correction (created 10 days ago) — should NOT trigger P2. */
 const OLD_CORRECTION = {
   id: 'cor-m20-old', session_id: 'sess-m20', message_id: null,
-  original: 'He are', corrected: 'He is', type: 'grammar', severity: 'low',
+  original: 'He are', corrected: 'He is', type: 'grammar',
   explanation: null, skill: 'grammar',
   review_count: 0, easiness_factor: 2.5, interval_days: 1,
   next_review_at: '2026-07-26T00:00:00.000Z', occurrence_count: 1,
   last_seen_at: '2026-07-15T10:00:00.000Z', importance: 1, is_favorite: 0,
-  created_at: '2026-07-15T10:00:00.000Z', updated_at: '2026-07-15T10:00:00.000Z',
+  favorite_at: null, created_at: '2026-07-15T10:00:00.000Z',
 };
 
 test.describe('M20 — Home: Today\'s Tasks (Daily Plan)', () => {

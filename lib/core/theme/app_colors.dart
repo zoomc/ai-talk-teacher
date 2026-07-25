@@ -7,13 +7,14 @@ class AppColors {
   static const Color bgPrimary = Color(0xFF0A0E1A);
   static const Color bgSecondary = Color(0xFF111827);
   static const Color bgTertiary = Color(0xFF1A2035);
-  static const Color bgSurface = Color(0x0FFFFFFF); // white 6%
 
-  // Glass — dark
-  static const Color glassBg = Color(0x0FFFFFFF); // white 6%
+  // Surface / Glass — unified token (both were 0x0FFFFFFF).
+  static const Color bgSurface = Color(0x0FFFFFFF); // white 6%
+  static const Color glassBg = bgSurface; // semantic alias
   static const Color glassBgHover = Color(0x1AFFFFFF); // white 10%
   static const Color glassBgActive = Color(0x24FFFFFF); // white 14% (pressed)
-  static const Color glassBorder = Color(0x14FFFFFF); // white 8%
+  static const Color glassBorder = Color(0x28FFFFFF); // white 16% — raised
+  // from 8% so input borders remain visible on dark surfaces.
   static const Color glassShadow = Color(0x4D000000); // black 30% depth
   static const Color glassSpecular = Color(0x40FFFFFF); // white 25% rim
   static const double glassBlur = 20;
@@ -37,9 +38,17 @@ class AppColors {
 
   // Text
   static const Color textPrimary = Color(0xFFF0F0F0);
-  static const Color textSecondary = Color(0xFF8892A4);
-  static const Color textMuted = Color(0xFF7A8494); // improved contrast ~4.5:1
+  static const Color textSecondary = Color(0xFF94A0B8);
+  static const Color textMuted = Color(0xFF98A2B3); // lightened for better WCAG AA
   static const Color textOnAccent = Color(0xFFFFFFFF);
+  static const Color textDisabled = Color(0xFF5C6470);
+  static const Color textPlaceholder = Color(0xFF6B7280);
+
+  // Disabled / outline / shadow — semantic tokens for ColorScheme completeness.
+  static const Color disabled = Color(0xFF4B5563);
+  static const Color outline = Color(0xFF374151);
+  static const Color outlineVariant = Color(0xFF2A303C);
+  static const Color shadow = Color(0xBF000000); // black 75%
 
   // Glow effects
   static const Color glowPurple = Color(0x4D6C5CE7); // purple 30%
@@ -89,9 +98,17 @@ class AppColors {
 
   // Light text
   static const Color lightTextPrimary = Color(0xFF1A1A2E); // ~15.7:1 on bg
-  static const Color lightTextSecondary = Color(0xFF6B7280); // ~4.5:1 on bg (AA)
-  static const Color lightTextMuted = Color(0xFF9CA3AF); // weaker than secondary
+  static const Color lightTextSecondary = Color(0xFF4B5563); // stronger than before
+  static const Color lightTextMuted = Color(0xFF6B7280); // ~4.6:1 on bg (AA)
   static const Color lightTextOnAccent = Color(0xFFFFFFFF);
+  static const Color lightTextDisabled = Color(0xFF9CA3AF);
+  static const Color lightTextPlaceholder = Color(0xFF9CA3AF);
+
+  // Light disabled / outline / shadow.
+  static const Color lightDisabled = Color(0xFFE5E7EB);
+  static const Color lightOutline = Color(0xFFD1D5DB);
+  static const Color lightOutlineVariant = Color(0xFFE5E7EB);
+  static const Color lightShadow = Color(0x1F000000); // black 12%
 
   // Light glow (reduced opacity for bright surfaces)
   static const Color lightGlowPurple = Color(0x266C5CE7); // purple 15%
@@ -117,11 +134,20 @@ class AppColors {
   static const Color lightError = Color(0xFFDC2626);
   static const Color lightInfo = Color(0xFF2563EB);
 
-  // Chat bubble colors
-  static const Color bubbleAi = Color(0x1A6C5CE7); // purple 10%
-  static const Color bubbleUser = Color(0x1A00D2FF); // cyan 10%
+  // Chat bubble colors — raised opacity so user/AI messages stand out
+  // against the page background (VA-019, VA-142).
+  static const Color bubbleAi = Color(0x336C5CE7); // purple 20%
+  static const Color bubbleUser = Color(0x3300D2FF); // cyan 20%
   static const Color bubbleCorrection = Color(0x1A00E676); // green 10%
+  static const Color onBubbleAi = textPrimary;
+  static const Color onBubbleUser = textPrimary;
+  static const Color onBubbleCorrection = textPrimary;
+
+  // Light mode bubbles use softer container tones for better readability.
   static const Color lightBubbleAi = Color(0x406C5CE7); // purple 25%
   static const Color lightBubbleUser = Color(0x4000D2FF); // cyan 25%
-  static const Color lightBubbleCorrection = Color(0x4000E676); // green 25%
+  static const Color lightBubbleCorrection = Color(0x2600E676); // green 15%
+  static const Color lightOnBubbleAi = lightTextPrimary;
+  static const Color lightOnBubbleUser = lightTextPrimary;
+  static const Color lightOnBubbleCorrection = lightTextPrimary;
 }

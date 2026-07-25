@@ -14,7 +14,7 @@
  * Services: VersionService, InstallPromptService, ConnectivityService
  */
 import { test, expect } from '@playwright/test';
-import { setupE2EApp, navigate } from '../../lib/setup';
+import { setupE2EApp, navigate, MOBILE_VIEWPORT } from '../../lib/setup';
 import { capture } from '../../lib/screenshots';
 import {
   expectVisible,
@@ -407,5 +407,24 @@ test.describe('M30 — App Banners, Version & Connectivity', () => {
     await expectVisible(page, 'canvas');
     await expectNoException(page);
     await capture(page, 'm30-ex5-router-state-safe');
+  });
+
+  // ---------------- Mobile viewport coverage (gap 29) ----------------
+
+  test('BR-13: 375×812 viewport — update banner text fits within two lines', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.route('**/version.json', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ version: '99.99.99' }),
+      });
+    });
+    await navigate(page, '/');
+    await settle(page, 2000);
+
+    await expectVisible(page, 'canvas');
+    await expectNoException(page);
+    await capture(page, 'm30-br13-banner-mobile-375');
   });
 });

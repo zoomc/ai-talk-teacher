@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -100,8 +101,13 @@ class AppRouter {
           ),
           GoRoute(
             path: '/review',
-            pageBuilder: (context, state) =>
-                _fadeTransitionPage(context, const ReviewScreen()),
+            pageBuilder: (context, state) {
+              final filter = state.uri.queryParameters['filter'];
+              return _fadeTransitionPage(
+                context,
+                ReviewScreen(filter: filter),
+              );
+            },
           ),
           GoRoute(
             path: '/projects',
@@ -201,7 +207,7 @@ class AppRouter {
 /// doesn't feel like it "pops", while detail screens slide in from the
 /// right (iOS-style push).
 Page<T> _fadeTransitionPage<T>(BuildContext context, Widget child) {
-  if (MediaQuery.of(context).accessibleNavigation) {
+  if (MediaQuery.disableAnimationsOf(context)) {
     return NoTransitionPage<T>(child: child);
   }
   return CustomTransitionPage<T>(
@@ -218,7 +224,7 @@ Page<T> _fadeTransitionPage<T>(BuildContext context, Widget child) {
 }
 
 Page<T> _slideTransitionPage<T>(BuildContext context, Widget child) {
-  if (MediaQuery.of(context).accessibleNavigation) {
+  if (MediaQuery.disableAnimationsOf(context)) {
     return NoTransitionPage<T>(child: child);
   }
   return CustomTransitionPage<T>(
@@ -258,12 +264,15 @@ class MainShell extends StatelessWidget {
             ),
             Container(width: 1, color: AppColors.glassBorder),
             Expanded(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: Responsive.contentMaxWidth(context),
+              child: SafeArea(
+                top: true,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: Responsive.contentMaxWidth(context),
+                    ),
+                    child: child,
                   ),
-                  child: child,
                 ),
               ),
             ),
@@ -311,10 +320,12 @@ class MainShell extends StatelessWidget {
 
   int _calculateSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
-    if (location == '/') return 0;
+    if (location == '/' || location.startsWith('/chat/')) return 0;
     if (location.startsWith('/scenarios')) return 1;
     if (location.startsWith('/review')) return 2;
-    if (location.startsWith('/projects')) return 3;
+    if (location.startsWith('/projects') || location.startsWith('/project/')) {
+      return 3;
+    }
     if (location.startsWith('/settings')) return 4;
     return 0;
   }
@@ -352,48 +363,64 @@ class _SideNavRail extends StatelessWidget {
     required this.extended,
   });
 
-  static const _items = <_NavItem>[
-    _NavItem(
-      icon: Icons.chat_bubble_outline,
-      activeIcon: Icons.chat_bubble,
-      label: 'Practice',
-    ),
-    _NavItem(
-      icon: Icons.grid_view_outlined,
-      activeIcon: Icons.grid_view,
-      label: 'Scenarios',
-    ),
-    _NavItem(
-      icon: Icons.refresh_outlined,
-      activeIcon: Icons.refresh,
-      label: 'Review',
-    ),
-    _NavItem(
-      icon: Icons.folder_outlined,
-      activeIcon: Icons.folder,
-      label: 'Projects',
-    ),
-    _NavItem(
-      icon: Icons.settings_outlined,
-      activeIcon: Icons.settings,
-      label: 'Settings',
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final items = <_NavItem>[
+      _NavItem(
+        icon: Icons.chat_bubble_outline,
+        activeIcon: Icons.chat_bubble,
+        label: l.t('nav.practice'),
+      ),
+      _NavItem(
+        icon: Icons.grid_view_outlined,
+        activeIcon: Icons.grid_view,
+        label: l.t('nav.scenarios'),
+      ),
+      _NavItem(
+        icon: Icons.refresh_outlined,
+        activeIcon: Icons.refresh,
+        label: l.t('nav.review'),
+      ),
+      _NavItem(
+        icon: Icons.folder_outlined,
+        activeIcon: Icons.folder,
+        label: l.t('nav.projects'),
+      ),
+      _NavItem(
+        icon: Icons.settings_outlined,
+        activeIcon: Icons.settings,
+        label: l.t('nav.settings'),
+      ),
+    ];
+    final isLight = Theme.of(context).brightness == Brightness.light;
+
     return SafeArea(
       // top:true because the tablet/desktop MainShell has no AppBar —
       // without the top inset the brand mark sits under the status bar /
       // browser chrome / iPad Split-View top inset. bottom:true keeps
       // the last nav item clear of the home indicator.
-      child: Container(
-        color: Theme.of(context).brightness == Brightness.light
-            ? AppColors.lightBgSecondary
-            : AppColors.bgSecondary,
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-        width: extended ? 200 : 72,
-        child: Column(
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: AppColors.glassBlur, sigmaY: AppColors.glassBlur),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            decoration: BoxDecoration(
+              // Liquid-glass rail so the page gradient shows through
+              // while keeping labels readable (UX-048).
+              color: isLight
+                  ? AppColors.lightGlassBg
+                  : AppColors.glassBg,
+              border: Border(
+                right: BorderSide(
+                  color: isLight ? AppColors.lightGlassBorder : AppColors.glassBorder,
+                ),
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            width: extended ? 200 : 72,
+            child: Column(
           children: [
             // Brand mark at the top of the rail.
             Padding(
@@ -413,29 +440,40 @@ class _SideNavRail extends StatelessWidget {
                   ),
                   if (extended) ...[
                     const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      'SpeakFlow',
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Flexible(
+                      child: Text(
+                        'SpeakFlow',
+                        style: Theme.of(context).textTheme.titleMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ],
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            ...List.generate(_items.length, (i) {
-              final item = _items[i];
-              final selected = i == selectedIndex;
-              return _SideNavItem(
-                item: item,
-                selected: selected,
-                extended: extended,
-                onTap: () => onItemTapped(i),
-              );
-            }),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: List.generate(items.length, (i) {
+                    final item = items[i];
+                    final selected = i == selectedIndex;
+                    return _SideNavItem(
+                      item: item,
+                      selected: selected,
+                      extended: extended,
+                      onTap: () => onItemTapped(i),
+                    );
+                  }),
+                ),
+              ),
+            ),
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
 
@@ -479,29 +517,38 @@ class _SideNavItem extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppRadius.md),
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              vertical: AppSpacing.sm + 2,
-              horizontal: extended ? AppSpacing.md : AppSpacing.sm,
-            ),
-            child: Row(
-              mainAxisAlignment: extended
-                  ? MainAxisAlignment.start
-                  : MainAxisAlignment.center,
-              children: [
-                Icon(
-                  selected ? item.activeIcon : item.icon,
-                  color: color,
-                  size: 22,
-                ),
-                if (extended) ...[
-                  const SizedBox(width: AppSpacing.md),
-                  Text(
-                    item.label,
-                    style: TextStyle(color: color, fontWeight: FontWeight.w500),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 44),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                vertical: AppSpacing.sm,
+                horizontal: extended ? AppSpacing.md : AppSpacing.sm,
+              ),
+              child: Row(
+                mainAxisAlignment: extended
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    selected ? item.activeIcon : item.icon,
+                    color: color,
+                    size: 22,
                   ),
+                  if (extended) ...[
+                    const SizedBox(width: AppSpacing.md),
+                    Flexible(
+                      child: Text(
+                        item.label,
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

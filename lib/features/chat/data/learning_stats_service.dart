@@ -98,7 +98,6 @@ class LearningStatsService {
       FROM chat_messages
       WHERE created_at >= DATE('now', '-7 days')
       GROUP BY DATE(created_at)
-      ORDER BY date ASC
     ''');
 
     final dailyCorrResults = await db.rawQuery('''
@@ -108,18 +107,26 @@ class LearningStatsService {
       GROUP BY DATE(last_seen_at)
     ''');
 
+    final msgByDate = <String, int>{};
+    for (final row in dailyMsgResults) {
+      msgByDate[row['date'] as String] = (row['count'] as int?) ?? 0;
+    }
     final corrByDate = <String, int>{};
     for (final row in dailyCorrResults) {
       corrByDate[row['date'] as String] = (row['count'] as int?) ?? 0;
     }
 
+    // BL-038: take the union of message dates and correction dates so days
+    // with only corrections still appear in the 7-day activity chart.
+    final allDates = <String>{...msgByDate.keys, ...corrByDate.keys};
+    final sortedDates = allDates.toList()..sort();
+
     final dailyActivity = <DailyActivity>[];
-    for (final row in dailyMsgResults) {
-      final dateStr = row['date'] as String;
+    for (final dateStr in sortedDates) {
       dailyActivity.add(
         DailyActivity(
           date: DateTime.parse(dateStr),
-          messages: (row['count'] as int?) ?? 0,
+          messages: msgByDate[dateStr] ?? 0,
           corrections: corrByDate[dateStr] ?? 0,
         ),
       );

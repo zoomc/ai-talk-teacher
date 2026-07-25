@@ -13,7 +13,7 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { setupE2EApp, navigate, DESKTOP_VIEWPORT, MOBILE_VIEWPORT } from '../../lib/setup';
-import { capture, captureFullPage } from '../../lib/screenshots';
+import { capture, captureFullPage, captureDesktopAndMobile } from '../../lib/screenshots';
 import {
   expectVisible,
   expectText,
@@ -34,7 +34,7 @@ import {
 } from '../../lib/mock';
 import { FIXTURES, LLM_MOCKS, STT_MOCKS, TTS_MOCKS } from '../../fixtures/fixtures';
 import type { ChatSessionRow } from '../../fixtures/fixtures';
-import { settle } from '../../helpers';
+import { settle, sendChatMessage } from '../../helpers';
 
 const SESSION_ID = 'm10-idle-session';
 
@@ -43,12 +43,10 @@ const SESSION_ROW: ChatSessionRow = {
   topic: 'Idle animation test',
   scenario_id: null,
   status: 'active',
-  tutor_id: 'tutor-friendly',
   level_tag: 'B1',
   is_guest: 0,
   created_at: '2026-07-25T10:00:00.000Z',
   updated_at: '2026-07-25T10:00:00.000Z',
-  archived_at: null,
 };
 
 /** Resolve a `canvas` bounding-box; returns { w, h } or zeros if missing. */
@@ -195,12 +193,7 @@ test.describe('M10 — Avatar: Idle Animation', () => {
   test('BR-12: thinking phase (LLM streaming) → slower blinks — no errors', async ({ page }) => {
     // Send a message so the avatar enters the thinking phase during streaming.
     await bridge.setMockLlmResponse(page, 'think', LLM_MOCKS.greeting);
-    const input = page.getByRole('textbox').first();
-    await input.click({ timeout: 5000 }).catch(() => {});
-    await page.keyboard.type('think', { delay: 5 });
-    await page.keyboard.press('Enter');
-    await page.getByRole('button', { name: /send|发送/i }).click({ timeout: 1500 }).catch(() => {});
-    await settle(page, 2500);
+    await sendChatMessage(page, 'think');
     await expectAvatarRendered(page);
     await expectNoException(page);
   });
@@ -209,12 +202,7 @@ test.describe('M10 — Avatar: Idle Animation', () => {
     // TTS playback drives the speaking phase; visemes own the mouth.
     await bridge.setMockLlmResponse(page, 'speak', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    const input = page.getByRole('textbox').first();
-    await input.click({ timeout: 5000 }).catch(() => {});
-    await page.keyboard.type('speak', { delay: 5 });
-    await page.keyboard.press('Enter');
-    await page.getByRole('button', { name: /send|发送/i }).click({ timeout: 1500 }).catch(() => {});
-    await settle(page, 2500);
+    await sendChatMessage(page, 'speak');
     await expectAvatarRendered(page);
     await expectNoException(page);
   });
@@ -251,12 +239,7 @@ test.describe('M10 — Avatar: Idle Animation', () => {
     // speaking (TTS) composition.
     await bridge.setMockLlmResponse(page, 'compose', '[emotion:happy] Composed reply.');
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    const input = page.getByRole('textbox').first();
-    await input.click({ timeout: 5000 }).catch(() => {});
-    await page.keyboard.type('compose', { delay: 5 });
-    await page.keyboard.press('Enter');
-    await page.getByRole('button', { name: /send|发送/i }).click({ timeout: 1500 }).catch(() => {});
-    await settle(page, 2500);
+    await sendChatMessage(page, 'compose');
     await expectAvatarRendered(page);
     await expectNoException(page);
   });
@@ -264,12 +247,7 @@ test.describe('M10 — Avatar: Idle Animation', () => {
   test('BR-18: merge order idle → emotion → viseme — final reply renders in bubble', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'merge', '[emotion:encouraging] Merged order reply.');
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    const input = page.getByRole('textbox').first();
-    await input.click({ timeout: 5000 }).catch(() => {});
-    await page.keyboard.type('merge', { delay: 5 });
-    await page.keyboard.press('Enter');
-    await page.getByRole('button', { name: /send|发送/i }).click({ timeout: 1500 }).catch(() => {});
-    await settle(page, 2500);
+    await sendChatMessage(page, 'merge');
     await expectText(page, 'Merged order reply');
     await expectAvatarRendered(page);
     await expectNoException(page);
@@ -325,6 +303,49 @@ test.describe('M10 — Avatar: Idle Animation', () => {
     // Snapshot remains readable (controller did not throw into Dart zone).
     const snap = await bridge.getSnapshot<{ chat_sessions?: ChatSessionRow[] }>(page);
     expect(Array.isArray(snap.chat_sessions)).toBe(true);
+    await expectNoException(page);
+  });
+
+  // ── Mobile viewport coverage (gaps 9, 116) ─────────────────────────────
+
+  test('HP-26: mobile viewport — avatar canvas renders and is not clipped', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await navigate(page, `/chat/${SESSION_ID}`);
+    await settle(page, 2000);
+
+    await expectAvatarRendered(page);
+    const { w, h } = await canvasSize(page);
+    expect(w).toBeGreaterThan(0);
+    expect(h).toBeGreaterThan(0);
+    await expectNoException(page);
+    await capture(page, 'm10-hp26-idle-breathing-mobile');
+  });
+
+  test('HP-27: mobile viewport — canvas bottom stays above input bar', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await navigate(page, `/chat/${SESSION_ID}`);
+    await settle(page, 2000);
+
+    const canvas = page.locator('canvas').first();
+    const canvasBox = await canvas.boundingBox().catch(() => null);
+    const input = page.getByRole('textbox').first();
+    const inputBox = await input.boundingBox().catch(() => null);
+
+    if (canvasBox && inputBox) {
+      const canvasBottom = canvasBox.y + canvasBox.height;
+      expect(canvasBottom).toBeLessThanOrEqual(inputBox.y + 8);
+    }
+    await expectNoException(page);
+  });
+
+  // ── Dual-viewport comparison (gap 55) ──────────────────────────────────
+
+  test('HP-28: avatar idle renders on both desktop and mobile viewports', async ({ page }) => {
+    await navigate(page, `/chat/${SESSION_ID}`);
+    await settle(page, 1200);
+    const { desktop, mobile } = await captureDesktopAndMobile(page, 'm10-hp28-idle-breathing-dual');
+    expect(desktop.length).toBeGreaterThan(0);
+    expect(mobile.length).toBeGreaterThan(0);
     await expectNoException(page);
   });
 });

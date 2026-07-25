@@ -2,8 +2,6 @@
 //
 // All canned-response getters return null, signaling to services that
 // they should proceed with real HTTP calls.
-import 'e2e_bridge_stub.dart' show kE2E;
-
 /// E2E mock services stub. Returns nulls (no mocking) on non-web / non-E2E.
 class E2eMockServices {
   /// Whether mock mode is enabled (always false on non-web).

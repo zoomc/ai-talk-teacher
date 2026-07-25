@@ -41,6 +41,12 @@ class ProviderDef {
   final bool apiKeyRequired;
   final ProviderRegion region;
 
+  /// True when the service layer has no native adapter for this vendor and
+  /// the user must set up a custom OpenAI-compatible relay. Such providers
+  /// are still listed (for users with existing relays) but are visually
+  /// flagged so new users don't expect them to work out of the box (BL-098).
+  final bool experimental;
+
   /// Static voice list for TTS (when the vendor doesn't offer a list endpoint).
   final List<String> voices;
 
@@ -55,6 +61,7 @@ class ProviderDef {
     this.note,
     this.apiKeyRequired = true,
     this.region = ProviderRegion.global,
+    this.experimental = false,
     this.voices = const [],
   });
 }
@@ -285,8 +292,9 @@ class SttProviderCatalog {
       kind: ProviderKind.vendor,
       defaultBaseUrl: 'https://openspeech.bytedance.com',
       docsUrl: 'https://www.volcengine.com/docs/6561',
-      note: '中文识别优秀，支持方言。需自建中转适配或改用 custom OpenAI 兼容端点。',
+      note: '[Experimental] 中文识别优秀，支持方言。当前服务层未实现原生适配，需自建 OpenAI 兼容中转或改用 Custom。',
       region: ProviderRegion.cn,
+      experimental: true,
     ),
     ProviderDef(
       id: 'xfyun_stt',
@@ -294,8 +302,9 @@ class SttProviderCatalog {
       kind: ProviderKind.vendor,
       defaultBaseUrl: 'https://iat-api.xfyun.cn',
       docsUrl: 'https://www.xfyun.cn/doc/asr/voicedictationAPI.html',
-      note: '中文识别老牌厂商。需自建中转适配或改用 custom OpenAI 兼容端点。',
+      note: '[Experimental] 中文识别老牌厂商。当前服务层未实现原生适配，需自建 OpenAI 兼容中转或改用 Custom。',
       region: ProviderRegion.cn,
+      experimental: true,
     ),
     ProviderDef(
       id: 'tencent_stt',
@@ -303,8 +312,9 @@ class SttProviderCatalog {
       kind: ProviderKind.vendor,
       defaultBaseUrl: 'https://asr.tencentcloudapi.com',
       docsUrl: 'https://cloud.tencent.com/document/product/1093',
-      note: '腾讯云语音识别。需自建中转适配或改用 custom OpenAI 兼容端点。',
+      note: '[Experimental] 腾讯云语音识别。当前服务层未实现原生适配，需自建 OpenAI 兼容中转或改用 Custom。',
       region: ProviderRegion.cn,
+      experimental: true,
     ),
     ProviderDef(
       id: customId,
@@ -469,8 +479,9 @@ class TtsProviderCatalog {
         'zh_male_M392_conversation',
         'zh_female_wanxiaoqi',
       ],
-      note: '需自建中转适配或改用 custom OpenAI 兼容端点。',
+      note: '[Experimental] 当前服务层未实现原生适配，需自建 OpenAI 兼容中转或改用 Custom。',
       region: ProviderRegion.cn,
+      experimental: true,
     ),
     ProviderDef(
       id: 'xfyun_tts',
@@ -479,8 +490,9 @@ class TtsProviderCatalog {
       defaultBaseUrl: 'https://tts-api.xfyun.cn',
       defaultVoice: 'xiaoyan',
       docsUrl: 'https://www.xfyun.cn/doc/tts/online_tts/API.html',
-      note: '需自建中转适配或改用 custom OpenAI 兼容端点。',
+      note: '[Experimental] 当前服务层未实现原生适配，需自建 OpenAI 兼容中转或改用 Custom。',
       region: ProviderRegion.cn,
+      experimental: true,
     ),
     ProviderDef(
       id: 'tencent_tts',
@@ -489,8 +501,9 @@ class TtsProviderCatalog {
       defaultBaseUrl: 'https://tts.tencentcloudapi.com',
       defaultVoice: 'zh-Ria',
       docsUrl: 'https://cloud.tencent.com/document/product/1073',
-      note: '需自建中转适配或改用 custom OpenAI 兼容端点。',
+      note: '[Experimental] 当前服务层未实现原生适配，需自建 OpenAI 兼容中转或改用 Custom。',
       region: ProviderRegion.cn,
+      experimental: true,
     ),
     ProviderDef(
       id: customId,

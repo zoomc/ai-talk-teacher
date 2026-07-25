@@ -25,7 +25,13 @@ class StreakService {
   /// activity (sent a message, rated a correction, etc.) — only completed
   /// days count toward the streak.
   ///
+  /// A completed event must be backed by at least [kMinPracticeSeconds]
+  /// of practice (or an existing completed day) to prevent trivial 0-second
+  /// actions from gaming the streak.
+  ///
   /// Returns the persisted [PracticeLog] for today.
+  static const int kMinPracticeSeconds = 30;
+
   Future<PracticeLog> recordPractice({
     int durationSeconds = 0,
     bool completed = true,
@@ -38,7 +44,10 @@ class StreakService {
     // Accumulate duration across multiple sessions in the same day.
     final newDuration = (existing?.durationSeconds ?? 0) + durationSeconds;
     // Once completed, the day stays completed (we never un-complete).
-    final isCompleted = completed || (existing?.completed ?? false);
+    // A new "completed" claim is only accepted if it meets the minimum
+    // practice time threshold.
+    final isCompleted = (existing?.completed ?? false) ||
+        (completed && newDuration >= kMinPracticeSeconds);
 
     final newStreak = await _computeStreak(existing, today, isCompleted);
 

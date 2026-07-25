@@ -29,16 +29,14 @@ import { settle } from '../../helpers';
 interface DbSnapshot {
   chat_sessions?: Array<{
     id: string;
-    tutor_id: string | null;
     topic: string | null;
     status: string;
-    archived_at: string | null;
     scenario_id: string | null;
     level_tag: string | null;
   }>;
-  messages?: Array<{ id: string; session_id: string; role: string }>;
+  chat_messages?: Array<{ id: string; session_id: string; role: string }>;
   corrections?: Array<{ id: string; session_id: string }>;
-  settings?: Array<{ key: string; value: string }>;
+  user_settings?: Array<{ key: string; value: string }>;
 }
 
 /** A session with messages + corrections, used for summary tests. */
@@ -47,12 +45,10 @@ const SUMMARY_SESSION = {
   topic: 'Coffee shop conversation',
   scenario_id: 'scn-coffee',
   status: 'completed',
-  tutor_id: 'tutor-1',
   level_tag: 'A2',
   is_guest: 0,
   created_at: '2026-07-20T10:00:00.000Z',
   updated_at: '2026-07-20T10:15:00.000Z',
-  archived_at: null,
 };
 
 const SUMMARY_MESSAGES = [
@@ -69,7 +65,6 @@ const SUMMARY_CORRECTIONS = [
     original: 'I goes to school',
     corrected: 'I go to school',
     type: 'grammar',
-    severity: 'medium',
     explanation: "Subject 'I' uses base verb form.",
     skill: 'grammar',
     review_count: 0,
@@ -80,8 +75,8 @@ const SUMMARY_CORRECTIONS = [
     last_seen_at: '2026-07-20T10:00:00.000Z',
     importance: 3,
     is_favorite: 0,
+    favorite_at: null,
     created_at: '2026-07-20T10:00:00.000Z',
-    updated_at: '2026-07-20T10:00:00.000Z',
   },
 ];
 
@@ -91,12 +86,10 @@ const TUTOR_SESSION = {
   topic: 'Tutor selection test',
   scenario_id: null,
   status: 'active',
-  tutor_id: null,
   level_tag: null,
   is_guest: 0,
   created_at: '2026-07-20T10:00:00.000Z',
   updated_at: '2026-07-20T10:00:00.000Z',
-  archived_at: null,
 };
 
 /** An archived session (for archived-session summary test). */
@@ -105,12 +98,10 @@ const ARCHIVED_SESSION = {
   topic: 'Archived conversation',
   scenario_id: null,
   status: 'archived',
-  tutor_id: 'tutor-1',
   level_tag: 'B1',
   is_guest: 0,
   created_at: '2026-07-15T10:00:00.000Z',
   updated_at: '2026-07-15T10:20:00.000Z',
-  archived_at: '2026-07-16T10:00:00.000Z',
 };
 
 test.describe('M28 — Tutor Selection & Session Summary', () => {
@@ -175,7 +166,7 @@ test.describe('M28 — Tutor Selection & Session Summary', () => {
     }
 
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
-    const selected = (snap.settings ?? []).find((s) => s.key === 'selected_tutor_id');
+    const selected = (snap.user_settings ?? []).find((s) => s.key === 'selected_tutor_id');
     // Selection may or may not persist depending on widget wiring; assert the
     // snapshot is readable and the app did not crash.
     expect(typeof selected?.value === 'string' || selected === undefined).toBe(true);
@@ -249,7 +240,7 @@ test.describe('M28 — Tutor Selection & Session Summary', () => {
     await settle(page, 1500);
 
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
-    const selected = (snap.settings ?? []).find((s) => s.key === 'selected_tutor_id');
+    const selected = (snap.user_settings ?? []).find((s) => s.key === 'selected_tutor_id');
     expect(selected?.value === 'tutor-2' || selected === undefined).toBe(true);
     await expectNoException(page);
   });
@@ -376,7 +367,7 @@ test.describe('M28 — Tutor Selection & Session Summary', () => {
     await settle(page, 2000);
 
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
-    const msgCount = (snap.messages ?? []).filter((m) => m.session_id === 'sess-summary').length;
+    const msgCount = (snap.chat_messages ?? []).filter((m) => m.session_id === 'sess-summary').length;
     const corCount = (snap.corrections ?? []).filter((c) => c.session_id === 'sess-summary').length;
     expect(msgCount).toBe(3);
     expect(corCount).toBe(1);

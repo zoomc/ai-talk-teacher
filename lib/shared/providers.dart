@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/i18n/app_localizations.dart';
 import '../features/profile/data/profile_repository.dart';
+import '../features/profile/domain/profile_models.dart';
 import '../features/chat/data/chat_repository.dart';
 import '../features/project_space/data/project_repository.dart';
 
@@ -25,8 +26,27 @@ final localeProvider = StateProvider<AppLocale>((ref) => AppLocale.zh);
 
 /// Phase-1 P0 #8 — global low-bandwidth mode. When true, heavy visual
 /// effects (3D Live2D avatar, ambient ripples, etc.) are suppressed to
-/// save data + battery on metered / slow connections. Initialized in
-/// main() from the persisted `low_bandwidth` setting so the first frame
-/// already respects the user's choice; the settings screen flips this
-/// and the chat panel rebuilds to drop the avatar.
+/// save data + battery on metered / slow connections. Initialized in main()
+/// from the persisted `low_bandwidth` setting so the first frame already
+/// respects the user's choice; the settings screen flips this and the
+/// chat panel rebuilds to drop the avatar.
 final lowBandwidthProvider = StateProvider<bool>((ref) => false);
+
+/// BL-077 — active service profiles. Consumers that depend on the current
+/// LLM / STT / TTS profile can watch these providers; activating a
+/// different profile in ServiceConfigScreen invalidates them so the UI
+/// and services pick up the new active profile on the next request.
+final activeLlmProfileProvider = FutureProvider<LlmProfile?>((ref) async {
+  final repo = ref.watch(profileRepoProvider);
+  return repo.getActiveLlmProfile();
+});
+
+final activeSttProfileProvider = FutureProvider<SttProfile?>((ref) async {
+  final repo = ref.watch(profileRepoProvider);
+  return repo.getActiveSttProfile();
+});
+
+final activeTtsProfileProvider = FutureProvider<TtsProfile?>((ref) async {
+  final repo = ref.watch(profileRepoProvider);
+  return repo.getActiveTtsProfile();
+});

@@ -9,7 +9,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { setupE2EApp, setupEmptyApp, navigate, DESKTOP_VIEWPORT, MOBILE_VIEWPORT } from '../../lib/setup';
-import { capture, captureFullPage } from '../../lib/screenshots';
+import { capture, captureFullPage, captureDesktopAndMobile } from '../../lib/screenshots';
 import {
   expectVisible,
   expectText,
@@ -29,22 +29,13 @@ import {
   resetOverrides,
 } from '../../lib/mock';
 import { FIXTURES, LLM_MOCKS, STT_MOCKS, TTS_MOCKS } from '../../fixtures/fixtures';
+import { sendChatMessage } from '../../helpers';
 
 const CHAT_ROUTE = '/chat/m05-corrections-session';
 
 /** Build an LLM reply string that embeds a `corrections` JSON fence. */
 function replyWithCorrections(corrections: object[], prose = 'Good try!'): string {
   return `${prose}\n\`\`\`corrections\n${JSON.stringify(corrections)}\n\`\`\``;
-}
-
-/** Helper: send a text message via the chat input bar (best-effort). */
-async function sendText(page: import('@playwright/test').Page, text: string): Promise<void> {
-  const input = page.getByRole('textbox').first();
-  if (await input.isVisible({ timeout: 4000 }).catch(() => false)) {
-    await input.fill(text);
-    await page.getByRole('button', { name: /send/i }).first().click().catch(() => {});
-    await page.waitForTimeout(2000);
-  }
 }
 
 interface DbSnapshot {
@@ -79,7 +70,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'I goes', corrected: 'I go', type: 'grammar', severity: 'medium', explanation: "Subject 'I'.", skill: 'grammar' },
     ]);
     await bridge.setMockLlmResponse(page, 'goes', reply);
-    await sendText(page, 'I goes to school');
+    await sendChatMessage(page, 'I goes to school');
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     expect(Array.isArray(snap.corrections)).toBe(true);
     await expectNoException(page);
@@ -91,7 +82,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'a apple', corrected: 'an apple', type: 'grammar', severity: 'low', explanation: 'Vowel sound.', skill: 'grammar' },
     ]);
     await bridge.setMockLlmResponse(page, 'apple', reply);
-    await sendText(page, 'I want a apple');
+    await sendChatMessage(page, 'I want a apple');
     await expectNoException(page);
     await capture(page, 'm05-hp2-correction-fields');
   });
@@ -104,7 +95,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'um I go', corrected: 'I go', type: 'fluency', severity: 'low', explanation: 'Filler.', skill: 'fluency' },
     ]);
     await bridge.setMockLlmResponse(page, 'types', reply);
-    await sendText(page, 'types test');
+    await sendChatMessage(page, 'types test');
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     expect((snap.corrections ?? []).length).toBeGreaterThanOrEqual(0);
     await expectNoException(page);
@@ -116,7 +107,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'He don\'t', corrected: 'He doesn\'t', type: 'grammar', severity: 'high', explanation: '3rd person.', skill: 'grammar' },
     ]);
     await bridge.setMockLlmResponse(page, 'dont', reply);
-    await sendText(page, "He don't know");
+    await sendChatMessage(page, "He don't know");
     await expectNoException(page);
     await capture(page, 'm05-hp4-severity-badge');
   });
@@ -126,7 +117,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'I am agree', corrected: 'I agree', type: 'grammar', severity: 'medium', explanation: "'Agree' is a verb.", skill: 'grammar' },
     ]);
     await bridge.setMockLlmResponse(page, 'agree', reply);
-    await sendText(page, 'I am agree');
+    await sendChatMessage(page, 'I am agree');
     const card = page.getByText(/agree/i).first();
     if (await card.isVisible({ timeout: 3000 }).catch(() => false)) {
       await card.click().catch(() => {});
@@ -141,7 +132,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'recieve', corrected: 'receive', type: 'spelling', severity: 'low', explanation: 'i before e.', skill: 'vocabulary' },
     ]);
     await bridge.setMockLlmResponse(page, 'recieve', reply);
-    await sendText(page, 'I recieve the letter');
+    await sendChatMessage(page, 'I recieve the letter');
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     const saved = (snap.corrections ?? []).find((c) => c.original === 'recieve');
     expect(saved === undefined || saved.corrected === 'receive').toBe(true);
@@ -158,7 +149,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'He don\'t', corrected: 'He doesn\'t', type: 'grammar', severity: 'high', explanation: '3rd person.', skill: 'grammar' },
     ]);
     await bridge.setMockLlmResponse(page, 'multi', reply);
-    await sendText(page, 'multi errors');
+    await sendChatMessage(page, 'multi errors');
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     expect((snap.corrections ?? []).length).toBeGreaterThanOrEqual(0);
     await expectNoException(page);
@@ -169,7 +160,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'teh', corrected: 'the', type: 'spelling', severity: 'low', explanation: '', skill: 'vocabulary' },
     ]);
     await bridge.setMockLlmResponse(page, 'teh', reply);
-    await sendText(page, 'teh cat');
+    await sendChatMessage(page, 'teh cat');
     await expectNoException(page);
   });
 
@@ -180,7 +171,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: longOrig, corrected: longCorr, type: 'grammar', severity: 'medium', explanation: 'Long.', skill: 'grammar' },
     ]);
     await bridge.setMockLlmResponse(page, 'longcorr', reply);
-    await sendText(page, 'longcorr');
+    await sendChatMessage(page, 'longcorr');
     await expectNoException(page);
   });
 
@@ -189,7 +180,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'um uh I go', corrected: 'I go', type: 'fluency', severity: 'low', explanation: 'Filler words.', skill: 'fluency' },
     ]);
     await bridge.setMockLlmResponse(page, 'um', reply);
-    await sendText(page, 'um uh I go');
+    await sendChatMessage(page, 'um uh I go');
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     const fluency = (snap.corrections ?? []).find((c) => c.type === 'fluency');
     expect(fluency === undefined || fluency.type === 'fluency').toBe(true);
@@ -201,7 +192,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'I goes', corrected: 'I go', type: 'grammar', severity: 'medium', explanation: 'SVA.', skill: 'grammar/subject-verb-agreement' },
     ]);
     await bridge.setMockLlmResponse(page, 'sva', reply);
-    await sendText(page, 'sva test');
+    await sendChatMessage(page, 'sva test');
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     const sva = (snap.corrections ?? []).find((c) => c.skill === 'grammar/subject-verb-agreement');
     expect(sva === undefined || sva.skill === 'grammar/subject-verb-agreement').toBe(true);
@@ -223,7 +214,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'I goes', corrected: 'I go', type: 'grammar', severity: 'medium', explanation: 'Verb.', skill: 'grammar' },
     ]);
     await bridge.setMockLlmResponse(page, 'goes', reply);
-    await sendText(page, 'I goes');
+    await sendChatMessage(page, 'I goes');
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     const dup = (snap.corrections ?? []).find((c) => c.original === 'I goes' && c.corrected === 'I go');
     expect(dup === undefined || (dup.occurrence_count ?? 0) >= 2).toBe(true);
@@ -232,7 +223,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
 
   test('BR-13: tapping a word in user bubble → phoneme detail overlay opens', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'word', LLM_MOCKS.greeting);
-    await sendText(page, 'pronunciation test');
+    await sendChatMessage(page, 'pronunciation test');
     const word = page.getByText(/pronunciation/i).first();
     if (await word.isVisible({ timeout: 3000 }).catch(() => false)) {
       await word.click().catch(() => {});
@@ -243,7 +234,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
 
   test('BR-14: phoneme overlay shows per-phoneme scores with color bands', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'phoneme', LLM_MOCKS.greeting);
-    await sendText(page, 'phoneme');
+    await sendChatMessage(page, 'phoneme');
     const word = page.getByText(/phoneme/i).first();
     if (await word.isVisible({ timeout: 3000 }).catch(() => false)) {
       await word.click().catch(() => {});
@@ -254,7 +245,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
 
   test('BR-15: phoneme overlay A/B replay buttons (user vs AI audio)', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'replay', LLM_MOCKS.greeting);
-    await sendText(page, 'replay');
+    await sendChatMessage(page, 'replay');
     const word = page.getByText(/replay/i).first();
     if (await word.isVisible({ timeout: 3000 }).catch(() => false)) {
       await word.click().catch(() => {});
@@ -273,7 +264,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'I goes', corrected: 'I go', type: 'grammar', severity: 'medium', explanation: 'Verb.', skill: 'grammar' },
     ]);
     await bridge.setMockLlmResponse(page, 'persist', reply);
-    await sendText(page, 'persist I goes');
+    await sendChatMessage(page, 'persist I goes');
     const before = await bridge.getSnapshot<DbSnapshot>(page);
     const countBefore = (before.corrections ?? []).length;
     await page.reload();
@@ -290,7 +281,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'a apple', corrected: 'an apple', type: 'grammar', severity: 'low', explanation: 'Vowel.', skill: 'grammar' },
     ]);
     await bridge.setMockLlmResponse(page, 'strict', reply);
-    await sendText(page, 'strict a apple');
+    await sendChatMessage(page, 'strict a apple');
     await expectNoException(page);
   });
 
@@ -299,7 +290,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'I goes', corrected: 'I go', type: 'grammar', severity: 'medium', explanation: 'Verb.', skill: 'grammar' },
     ]);
     await bridge.setMockLlmResponse(page, 'star', reply);
-    await sendText(page, 'star test');
+    await sendChatMessage(page, 'star test');
     const star = page.getByRole('button', { name: /star|favorite/i }).first();
     if (await star.isVisible({ timeout: 3000 }).catch(() => false)) {
       await star.click().catch(() => {});
@@ -316,7 +307,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'I goes', corrected: 'I go', type: 'grammar', severity: 'medium', explanation: 'Verb.', skill: 'grammar' },
     ]);
     await bridge.setMockLlmResponse(page, 'press', reply);
-    await sendText(page, 'press test');
+    await sendChatMessage(page, 'press test');
     const card = page.getByText(/I go/i).first();
     if (await card.isVisible({ timeout: 3000 }).catch(() => false)) {
       await card.click({ button: 'right' }).catch(() => {});
@@ -330,7 +321,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
   test('EX-20: malformed corrections JSON in LLM reply → no correction cards render', async ({ page }) => {
     const badReply = `Reply text.\n\`\`\`corrections\n{not valid json]\n\`\`\``;
     await bridge.setMockLlmResponse(page, 'malformed', badReply);
-    await sendText(page, 'malformed');
+    await sendChatMessage(page, 'malformed');
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     expect((snap.corrections ?? []).length).toBe(0);
     await expectNoException(page);
@@ -339,7 +330,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
   test('EX-21: corrections JSON missing `original` field → that correction skipped', async ({ page }) => {
     const reply = `Reply.\n\`\`\`corrections\n[{"corrected":"I go","type":"grammar","severity":"medium"}]\n\`\`\``;
     await bridge.setMockLlmResponse(page, 'nooriginal', reply);
-    await sendText(page, 'nooriginal');
+    await sendChatMessage(page, 'nooriginal');
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     const noOrig = (snap.corrections ?? []).find((c) => !c.original);
     expect(noOrig === undefined).toBe(true);
@@ -349,7 +340,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
   test('EX-22: corrections JSON present but empty array → no cards; AI reply still renders', async ({ page }) => {
     const reply = `Looks good!\n\`\`\`corrections\n[]\n\`\`\``;
     await bridge.setMockLlmResponse(page, 'emptyarr', reply);
-    await sendText(page, 'emptyarr');
+    await sendChatMessage(page, 'emptyarr');
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     expect((snap.corrections ?? []).length).toBe(0);
     await expectNoException(page);
@@ -360,7 +351,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'foo', corrected: 'bar', type: 'unknown_type', severity: 'low', explanation: '?', skill: 'grammar' },
     ]);
     await bridge.setMockLlmResponse(page, 'unknowntype', reply);
-    await sendText(page, 'unknowntype');
+    await sendChatMessage(page, 'unknowntype');
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     const typed = (snap.corrections ?? []).find((c) => c.original === 'foo');
     expect(typed === undefined || typed.type === 'grammar' || typed.type === 'unknown_type').toBe(true);
@@ -372,7 +363,7 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       { original: 'I goes', corrected: 'I go', type: 'grammar', severity: 'medium', explanation: 'Verb.', skill: 'grammar' },
     ]);
     await bridge.setMockLlmResponse(page, 'dbfail', reply);
-    await sendText(page, 'dbfail I goes');
+    await sendChatMessage(page, 'dbfail I goes');
     // Snapshot must still be readable; no red error screen.
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     expect(typeof snap).toBe('object');
@@ -391,13 +382,68 @@ test.describe('M05 — Chat: Inline Corrections', () => {
       },
     ]);
     await bridge.setMockLlmResponse(page, 'orphan', LLM_MOCKS.greeting);
-    await sendText(page, 'orphan test');
+    await sendChatMessage(page, 'orphan test');
     // Tapping a word referencing the orphan set must not open an overlay / crash.
     const word = page.getByText(/orphan/i).first();
     if (await word.isVisible({ timeout: 3000 }).catch(() => false)) {
       await word.click().catch(() => {});
       await page.waitForTimeout(800);
     }
+    await expectNoException(page);
+  });
+
+  // ---------------- Mobile viewport coverage (gap 5) ----------------
+
+  test('HP-26: mobile viewport — correction card renders without clipping', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await navigate(page, CHAT_ROUTE);
+
+    const reply = replyWithCorrections([
+      { original: 'I goes', corrected: 'I go', type: 'grammar', severity: 'medium', explanation: "Subject 'I'.", skill: 'grammar' },
+    ]);
+    await bridge.setMockLlmResponse(page, 'goes', reply);
+    await sendChatMessage(page, 'I goes to school');
+    await page.waitForTimeout(2500);
+
+    const snap = await bridge.getSnapshot<DbSnapshot>(page);
+    expect(Array.isArray(snap.corrections)).toBe(true);
+    await expectNoException(page);
+    await capture(page, 'm05-hp26-correction-card-mobile');
+  });
+
+  test('HP-27: mobile viewport — tapping correction expands explanation', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await navigate(page, CHAT_ROUTE);
+
+    const reply = replyWithCorrections([
+      { original: 'I am agree', corrected: 'I agree', type: 'grammar', severity: 'medium', explanation: "'Agree' is a verb.", skill: 'grammar' },
+    ]);
+    await bridge.setMockLlmResponse(page, 'agree', reply);
+    await sendChatMessage(page, 'I am agree');
+    await page.waitForTimeout(2000);
+
+    const card = page.getByText(/agree/i).first();
+    if (await card.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await card.click().catch(() => {});
+      await page.waitForTimeout(800);
+    }
+    await expectNoException(page);
+    await capture(page, 'm05-hp27-explanation-expanded-mobile');
+  });
+
+  // ---------------- Dual-viewport comparison (gap 54) ----------------
+
+  test('HP-28: correction card renders on both desktop and mobile viewports', async ({ page }) => {
+    const reply = replyWithCorrections([
+      { original: 'I goes', corrected: 'I go', type: 'grammar', severity: 'medium', explanation: "Subject 'I'.", skill: 'grammar' },
+    ]);
+    await bridge.setMockLlmResponse(page, 'goes', reply);
+    await sendChatMessage(page, 'I goes to school');
+    await page.waitForTimeout(2500);
+
+    const { desktop, mobile } = await captureDesktopAndMobile(page, 'm05-hp28-correction-card-dual');
+    expect(desktop.length).toBeGreaterThan(0);
+    expect(mobile.length).toBeGreaterThan(0);
     await expectNoException(page);
   });
 });

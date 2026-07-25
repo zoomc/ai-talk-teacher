@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/providers.dart';
+import '../../../../shared/widgets/glass_widgets.dart';
 import '../../domain/project_icon_catalog.dart';
 import '../../domain/project_models.dart';
 import '../../domain/project_palette.dart';
 import '../widgets/activity_tile.dart';
 import '../widgets/project_form_dialog.dart';
+import 'projects_screen.dart';
 
 final _projectProvider =
     FutureProvider.family<Project?, String>((ref, id) async {
@@ -49,7 +52,7 @@ class ProjectDetailScreen extends ConsumerWidget {
         ),
         title: async.maybeWhen(
           data: (p) => Text(p?.name ?? ''),
-          orElse: () => const Text(''),
+          orElse: () => ShimmerBox(width: 120, height: 20, borderRadius: AppRadius.sm),
         ),
         actions: [
           async.maybeWhen(
@@ -105,7 +108,16 @@ class ProjectDetailScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Text(
+              l.tArg('projects.error_loading', {'error': '$e'}),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -142,9 +154,11 @@ class _OverviewTab extends StatelessWidget {
                 children: [
                   Text(project.name,
                       style: Theme.of(context).textTheme.headlineSmall),
-                  Text(
-                    l.t('projects.status.${project.status.name}'),
-                    style: TextStyle(color: color),
+                  const SizedBox(height: AppSpacing.xs),
+                  StatusPill(
+                    text: l.t('projects.status.${project.status.name}'),
+                    color: color,
+                    isActive: project.status == ProjectStatus.active,
                   ),
                 ],
               ),
@@ -217,12 +231,37 @@ class _LinksTab extends ConsumerWidget {
               ),
               for (final link in entry.value)
                 ListTile(
-                  leading: const Icon(Icons.link),
-                  title: Text(link.contentId),
-                  subtitle: Text(_relativeTime(link.createdAt)),
+                  leading: Icon(_iconFor(link.contentType)),
+                  title: FutureBuilder<String>(
+                    future: _resolveLinkTitle(context, ref, link),
+                    builder: (ctx, snap) => Text(
+                      snap.data ?? link.contentId,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  subtitle: Text(_relativeTime(context, l, link.createdAt)),
                   trailing: IconButton(
                     icon: const Icon(Icons.link_off, size: 20),
                     onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: Text(l.t('projects.links.confirm_remove_title')),
+                          content: Text(l.t('projects.links.confirm_remove_body')),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: Text(l.t('common.cancel')),
+                            ),
+                            FilledButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: Text(l.t('common.remove')),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmed != true) return;
                       await ref
                           .read(projectRepoProvider)
                           .removeLink(link.id);
@@ -236,16 +275,53 @@ class _LinksTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Text(
+            l.tArg('projects.error_loading', {'error': '$e'}),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.error),
+          ),
+        ),
+      ),
     );
   }
 
-  String _relativeTime(DateTime dt) {
+  String _relativeTime(BuildContext context, AppLocalizations l, DateTime dt) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inHours < 24) return 'today';
-    if (diff.inDays == 1) return 'yesterday';
-    if (diff.inDays < 7) return '${diff.inDays} days ago';
-    return '${dt.month}/${dt.day}';
+    if (diff.inHours < 24) return l.t('history.today').toLowerCase();
+    if (diff.inDays == 1) return l.t('history.yesterday').toLowerCase();
+    if (diff.inDays < 7) {
+      return l.tArg('history.days_ago', {'days': '${diff.inDays}'});
+    }
+    return DateFormat.Md(Localizations.localeOf(context).toString()).format(dt);
+  }
+
+  Future<String> _resolveLinkTitle(BuildContext context, WidgetRef ref, ProjectLink link) async {
+    final l = AppLocalizations.of(context);
+    final chatRepo = ref.read(chatRepoProvider);
+    switch (link.contentType) {
+      case ProjectContentType.chatSession:
+        final session = await chatRepo.getSession(link.contentId);
+        return session?.topic ?? link.contentId;
+      case ProjectContentType.scenario:
+        final scenario = await chatRepo.getScenario(link.contentId);
+        return scenario?.name ?? link.contentId;
+      case ProjectContentType.correction:
+        return '${l.t('projects.links.type.correction')} ${link.contentId.substring(0, link.contentId.length > 8 ? 8 : link.contentId.length)}';
+    }
+  }
+
+  IconData _iconFor(ProjectContentType type) {
+    switch (type) {
+      case ProjectContentType.chatSession:
+        return Icons.chat_bubble_outline;
+      case ProjectContentType.scenario:
+        return Icons.grid_view;
+      case ProjectContentType.correction:
+        return Icons.check_circle_outline;
+    }
   }
 }
 
@@ -265,12 +341,21 @@ class _ActivityTab extends ConsumerWidget {
         return ListView.separated(
           padding: const EdgeInsets.all(AppSpacing.lg),
           itemCount: acts.length,
-          separatorBuilder: (_, _) => const Divider(height: AppSpacing.lg),
+          separatorBuilder: (_, _) => const Divider(height: AppSpacing.md),
           itemBuilder: (ctx, i) => ActivityTile(activity: acts[i]),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Text(
+            l.tArg('projects.error_loading', {'error': '$e'}),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.error),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -320,9 +405,10 @@ class _SettingsTab extends ConsumerWidget {
           label: Text(l.t('projects.settings.edit')),
         ),
         const SizedBox(height: AppSpacing.md),
-        FilledButton.tonalIcon(
-          style: FilledButton.styleFrom(
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.error,
+            minimumSize: const Size.fromHeight(44),
           ),
           onPressed: () async {
             final confirmed = await showDialog<bool>(
@@ -336,6 +422,10 @@ class _SettingsTab extends ConsumerWidget {
                     child: Text(l.t('common.cancel')),
                   ),
                   FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.error,
+                      foregroundColor: AppColors.textOnAccent,
+                    ),
                     onPressed: () => Navigator.pop(ctx, true),
                     child: Text(l.t('common.delete')),
                   ),
@@ -344,6 +434,9 @@ class _SettingsTab extends ConsumerWidget {
             );
             if (confirmed == true && context.mounted) {
               await ref.read(projectRepoProvider).deleteProject(project.id);
+              ref.invalidate(projectsProvider);
+              ref.invalidate(_linksProvider(project.id));
+              ref.invalidate(_activitiesProvider(project.id));
               if (context.mounted) context.pop();
             }
           },

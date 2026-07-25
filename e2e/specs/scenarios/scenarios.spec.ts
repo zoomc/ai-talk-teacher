@@ -24,27 +24,27 @@ import type { ScenarioRow } from '../../fixtures/fixtures';
 interface ScenarioSnapshot {
   scenarios?: Array<{
     id: string;
-    title: string;
+    name: string;
     category: string;
     difficulty: string;
     goal: string | null;
-    tags: string;
+    tags: string | null;
   }>;
   scenario_items?: Array<{ id: string; scenario_id: string; score: number }>;
 }
 
 /** The 10 canonical scenario topics required by the spec. */
 const TEN_SCENARIOS: ScenarioRow[] = [
-  { id: 'scn-self-intro', title: 'Self Introduction', description: 'Introduce yourself.', category: 'daily', difficulty: 'A1', goal: 'daily', tags: '["daily","intro"]', created_at: '2026-07-01T10:00:00.000Z' },
-  { id: 'scn-order-coffee', title: 'Order Coffee', description: 'Order a coffee at a cafe.', category: 'daily', difficulty: 'A2', goal: 'daily', tags: '["daily","cafe"]', created_at: '2026-07-01T10:00:00.000Z' },
-  { id: 'scn-book-hotel', title: 'Book a Hotel', description: 'Reserve a hotel room.', category: 'travel', difficulty: 'A2', goal: 'travel', tags: '["travel","hotel"]', created_at: '2026-07-01T10:00:00.000Z' },
-  { id: 'scn-phone-call', title: 'Phone Call', description: 'Handle a phone call.', category: 'business', difficulty: 'B1', goal: 'interview', tags: '["business","phone"]', created_at: '2026-07-01T10:00:00.000Z' },
-  { id: 'scn-ask-directions', title: 'Ask Directions', description: 'Ask for directions.', category: 'travel', difficulty: 'A1', goal: 'travel', tags: '["travel","directions"]', created_at: '2026-07-01T10:00:00.000Z' },
-  { id: 'scn-social-icebreaker', title: 'Social Icebreaker', description: 'Break the ice socially.', category: 'daily', difficulty: 'A2', goal: 'daily', tags: '["daily","social"]', created_at: '2026-07-01T10:00:00.000Z' },
-  { id: 'scn-job-interview', title: 'Job Interview', description: 'Answer interview questions.', category: 'business', difficulty: 'B2', goal: 'interview', tags: '["business","interview"]', created_at: '2026-07-01T10:00:00.000Z' },
-  { id: 'scn-business-meeting', title: 'Business Meeting', description: 'Participate in a meeting.', category: 'business', difficulty: 'B2', goal: 'interview', tags: '["business","meeting"]', created_at: '2026-07-01T10:00:00.000Z' },
-  { id: 'scn-shopping', title: 'Shopping', description: 'Shop for goods.', category: 'daily', difficulty: 'A1', goal: 'daily', tags: '["daily","shopping"]', created_at: '2026-07-01T10:00:00.000Z' },
-  { id: 'scn-doctor', title: 'Doctor Visit', description: 'Describe symptoms to a doctor.', category: 'daily', difficulty: 'B1', goal: 'daily', tags: '["daily","doctor"]', created_at: '2026-07-01T10:00:00.000Z' },
+  { id: 'scn-self-intro', name: 'Self Introduction', description: 'Introduce yourself.', icon: '👋', difficulty: 'beginner', category: 'daily', system_prompt: 'You are a friendly English tutor. The student is practicing a self-introduction. Ask follow-up questions and correct errors naturally.', goal: 'daily', tags: '["daily","intro"]' },
+  { id: 'scn-order-coffee', name: 'Order Coffee', description: 'Order a coffee at a cafe.', icon: '☕', difficulty: 'beginner', category: 'daily', system_prompt: 'You are a friendly English tutor. The student is practicing ordering coffee at a cafe. You play the barista. Correct errors naturally.', goal: 'daily', tags: '["daily","cafe"]' },
+  { id: 'scn-book-hotel', name: 'Book a Hotel', description: 'Reserve a hotel room.', icon: '🏨', difficulty: 'intermediate', category: 'travel', system_prompt: 'You are a friendly English tutor. The student is practicing booking a hotel room. You play the front desk agent. Correct errors naturally.', goal: 'travel', tags: '["travel","hotel"]' },
+  { id: 'scn-phone-call', name: 'Phone Call', description: 'Handle a phone call.', icon: '📞', difficulty: 'intermediate', category: 'career', system_prompt: 'You are a friendly English tutor. The student is practicing professional phone calls. You play the other party. Correct errors naturally.', goal: 'interview', tags: '["career","phone"]' },
+  { id: 'scn-ask-directions', name: 'Ask Directions', description: 'Ask for directions.', icon: '🧭', difficulty: 'beginner', category: 'travel', system_prompt: 'You are a friendly English tutor. The student is practicing asking for directions. You play a friendly local. Correct errors naturally.', goal: 'travel', tags: '["travel","directions"]' },
+  { id: 'scn-social-icebreaker', name: 'Social Icebreaker', description: 'Break the ice socially.', icon: '🥂', difficulty: 'beginner', category: 'social', system_prompt: 'You are a friendly English tutor. The student is practicing social icebreakers at a party. You play a fellow guest. Correct errors naturally.', goal: 'daily', tags: '["social","icebreaker"]' },
+  { id: 'scn-job-interview', name: 'Job Interview', description: 'Answer interview questions.', icon: '💼', difficulty: 'intermediate', category: 'career', system_prompt: 'You are a friendly English tutor. The student is practicing for a job interview. You play the interviewer. Correct errors naturally.', goal: 'interview', tags: '["career","interview"]' },
+  { id: 'scn-business-meeting', name: 'Business Meeting', description: 'Participate in a meeting.', icon: '📊', difficulty: 'advanced', category: 'career', system_prompt: 'You are a friendly English tutor. The student is practicing business English in a meeting context. Correct errors naturally.', goal: 'interview', tags: '["career","business"]' },
+  { id: 'scn-shopping', name: 'Shopping', description: 'Shop for goods.', icon: '🛍️', difficulty: 'beginner', category: 'daily', system_prompt: 'You are a friendly English tutor. The student is practicing shopping scenarios. You play the store clerk. Correct errors naturally.', goal: 'daily', tags: '["daily","shopping"]' },
+  { id: 'scn-doctor', name: 'Doctor Visit', description: 'Describe symptoms to a doctor.', icon: '🏥', difficulty: 'intermediate', category: 'daily', system_prompt: 'You are a friendly English tutor. The student is practicing describing symptoms to a doctor. You play the doctor. Correct errors naturally.', goal: 'daily', tags: '["daily","doctor"]' },
 ];
 
 /** All distinct categories the filter must offer. */
@@ -331,13 +331,14 @@ test.describe('M27 — Scenarios & Sentence Practice', () => {
   test('EX-4: scenario with malformed tags JSON → tags hidden', async ({ page }) => {
     const malformed: ScenarioRow = {
       id: 'scn-bad-tags',
-      title: 'Malformed Tags Scenario',
+      name: 'Malformed Tags Scenario',
       description: 'Has broken tags.',
+      icon: '⚠️',
+      difficulty: 'beginner',
       category: 'daily',
-      difficulty: 'A2',
+      system_prompt: 'You are a friendly English tutor. Correct errors naturally.',
       goal: 'daily',
       tags: 'not-valid-json{',
-      created_at: '2026-07-01T10:00:00.000Z',
     };
     await bridge.seedScenarios(page, [malformed]);
     await navigate(page, '/scenarios');

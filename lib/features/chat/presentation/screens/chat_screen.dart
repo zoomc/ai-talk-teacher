@@ -19,7 +19,6 @@ import '../../data/stt_service.dart';
 import '../../data/tts_service.dart';
 import '../../data/recording_service.dart';
 import '../../data/tts_playback_service.dart';
-import '../../data/chat_repository.dart';
 import '../../domain/app_error.dart';
 import '../../domain/chat_models.dart';
 import '../../domain/phoneme_score.dart';
@@ -116,6 +115,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // snapshot exists, we log recovery and clear it so a second crash
     // during this session doesn't replay the recovery path.
     _checkSnapshotRecovery();
+    _ensureSessionExists();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (Responsive.isWide(context)) {
@@ -198,6 +198,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _recordingService.dispose();
     _ttsPlaybackService.dispose();
     super.dispose();
+  }
+
+  /// Ensure the session row exists before any downstream operation
+  /// (seeded corrections, messages, etc.) references it. This makes
+  /// deep-linking to `/chat/:sessionId` robust and prevents FK errors
+  /// when E2E tests seed data for a session that has not been created yet.
+  Future<void> _ensureSessionExists() async {
+    try {
+      final repo = ref.read(chatRepoProvider);
+      final existing = await repo.getSession(widget.sessionId);
+      if (existing != null) return;
+      await repo.createSession(id: widget.sessionId);
+    } catch (_) {
+      // Best-effort: the chat surface can still render without a session row.
+    }
   }
 
   Future<void> _setupGuestTrialIfNeeded() async {
@@ -481,6 +496,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Widget _chatColumn(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final warningColor = isLight ? AppColors.lightWarning : AppColors.warning;
     return Column(
       children: [
         if (!_voiceConfigured)
@@ -495,30 +512,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   vertical: AppSpacing.sm,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.15),
+                  color: warningColor.withValues(alpha: 0.15),
                   border: Border(
                     bottom: BorderSide(
-                      color: AppColors.warning.withValues(alpha: 0.3),
+                      color: warningColor.withValues(alpha: 0.3),
                       width: 0.5,
                     ),
                   ),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.mic_off, size: 18, color: AppColors.warning),
+                    Icon(Icons.mic_off, size: 18, color: warningColor),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
                         l.t('chat.voice_not_configured'),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.warning,
+                          color: warningColor,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     Icon(
                       Icons.chevron_right,
                       size: 16,
-                      color: AppColors.warning,
+                      color: warningColor,
                     ),
                   ],
                 ),
@@ -545,6 +564,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 streamingText: _streamingText,
                 ttsFailedMessageIds: _ttsFailedMessageIds,
                 onRetryTts: _retryTts,
+                onStartTap: () {
+                  _messageFocusNode.requestFocus();
+                },
               ),
             ),
           ),
@@ -716,6 +738,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       await repo.saveMessage(aiResponse);
 
       // Parse + save corrections.
+      var savedCorrectionCount = 0;
       if (correctionsJson != null) {
         final corrections = llmService.extractCorrections(
           '```corrections\n$correctionsJson\n```',
@@ -746,6 +769,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             }
           }
         }
+        savedCorrectionCount = corrections.length;
+      }
+
+      // Brief success feedback so the user notices corrections were saved.
+      if (mounted && savedCorrectionCount > 0) {
+        final feedbackL = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.check_circle,
+                    color: AppColors.success, size: 18),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  feedbackL.tArg('chat.corrections_saved', {
+                    'count': savedCorrectionCount.toString(),
+                  }),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 2),
+            backgroundColor: AppColors.bgTertiary,
+          ),
+        );
       }
 
       // P1 task 5 — update tutor emotion from the AI reply text. Uses the
@@ -1435,6 +1483,8 @@ class _GuestTimerBar extends StatelessWidget {
                 color: color,
                 fontWeight: FontWeight.w600,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

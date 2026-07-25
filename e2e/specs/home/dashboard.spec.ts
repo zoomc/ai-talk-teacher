@@ -15,7 +15,7 @@ import {
   DESKTOP_VIEWPORT,
   MOBILE_VIEWPORT,
 } from '../../lib/setup';
-import { capture, captureFullPage, captureAtViewport } from '../../lib/screenshots';
+import { capture, captureFullPage, captureAtViewport, captureDesktopAndMobile } from '../../lib/screenshots';
 import {
   expectVisible,
   expectText,
@@ -254,5 +254,48 @@ test.describe('M18 — Home: Dashboard Shell & Quick Actions', () => {
     await expectVisible(page, 'canvas');
     await expectNoException(page);
     await capture(page, 'm18-ex5-streak-graceful');
+  });
+
+  // ---------------- Mobile viewport coverage (gap 30) ----------------
+
+  test('HP-8: mobile viewport — Start Conversation navigates to /chat/:id', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await navigate(page, '/');
+    await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
+
+    const convButton = page.getByRole('button').filter({ hasText: /conversation|对话|开始/i }).first();
+    await convButton.click({ timeout: 8000 }).catch(() => {});
+    await settle(page, 2000);
+
+    const url = page.url();
+    expect(url).toContain('chat');
+    await expectNoException(page);
+    await capture(page, 'm18-hp8-start-conversation-mobile');
+  });
+
+  test('HP-9: mobile viewport — dashboard six sections render without horizontal overflow', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await navigate(page, '/');
+    await expectRoute(page, '/');
+    await expectVisible(page, 'canvas');
+
+    const canvas = page.locator('canvas').first();
+    const box = await canvas.boundingBox().catch(() => null);
+    if (box) {
+      expect(box.width).toBeLessThanOrEqual(MOBILE_VIEWPORT.width);
+    }
+
+    await expectNoException(page);
+    await capture(page, 'm18-hp9-sections-mobile');
+  });
+
+  // ---------------- Dual-viewport comparison (gap 59) ----------------
+
+  test('HP-10: dashboard renders on both desktop and mobile viewports', async ({ page }) => {
+    await navigate(page, '/');
+    const { desktop, mobile } = await captureDesktopAndMobile(page, 'm18-hp10-home-render-dual');
+    expect(desktop.length).toBeGreaterThan(0);
+    expect(mobile.length).toBeGreaterThan(0);
+    await expectNoException(page);
   });
 });

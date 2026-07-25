@@ -36,45 +36,82 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
-    final repo = ref.read(profileRepoProvider);
-    final chatRepo = ref.read(chatRepoProvider);
-    final cs = await repo.getSetting('correction_strength');
-    final ts = await repo.getSetting('tts_speed');
-    final th = await repo.getSetting('theme');
-    // S7/S8 — load content management settings in parallel with the rest.
-    final contentEnabled = await chatRepo.getContentEnabled();
-    final dailyCount = await chatRepo.getDailyScenarioRecommendationCount();
-    final personaId = await chatRepo.getActiveTeacherPersonaId();
-    if (mounted) {
-      setState(() {
-        if (cs != null) _correctionStrength = cs;
-        if (ts != null) _ttsSpeed = ts;
-        if (th != null) _theme = th;
-        _contentEnabled = contentEnabled;
-        _dailyScenarioCount = dailyCount;
-        _activePersonaId = personaId;
-        _isLoading = false;
-      });
+    try {
+      final repo = ref.read(profileRepoProvider);
+      final chatRepo = ref.read(chatRepoProvider);
+      final cs = await repo.getSetting('correction_strength');
+      final ts = await repo.getSetting('tts_speed');
+      final th = await repo.getSetting('theme');
+      // S7/S8 — load content management settings in parallel with the rest.
+      final contentEnabled = await chatRepo.getContentEnabled();
+      final dailyCount = await chatRepo.getDailyScenarioRecommendationCount();
+      final personaId = await chatRepo.getActiveTeacherPersonaId();
+      if (mounted) {
+        setState(() {
+          if (cs != null) _correctionStrength = cs;
+          if (ts != null) _ttsSpeed = ts;
+          if (th != null) _theme = th;
+          _contentEnabled = contentEnabled;
+          _dailyScenarioCount = dailyCount;
+          _activePersonaId = personaId;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load settings: $e'),
+            action: SnackBarAction(
+              label: 'Retry',
+              onPressed: _loadSettings,
+            ),
+          ),
+        );
+      }
     }
   }
 
   /// Phase-1 P0 #8 — toggle low-bandwidth mode. Updates the global
   /// provider (immediate rebuild of the chat panel) and persists the
-  /// choice so the next app launch respects it.
+  /// choice so the next app launch respects it. If persistence fails,
+  /// roll the provider back so UI and storage stay consistent.
   Future<void> _toggleLowBandwidth(bool value) async {
+    final previous = ref.read(lowBandwidthProvider);
     ref.read(lowBandwidthProvider.notifier).state = value;
-    await ref.read(profileRepoProvider).setSetting(
-          'low_bandwidth',
-          value ? 'true' : 'false',
+    try {
+      await ref.read(profileRepoProvider).setSetting(
+            'low_bandwidth',
+            value ? 'true' : 'false',
+          );
+    } catch (e) {
+      ref.read(lowBandwidthProvider.notifier).state = previous;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save low-bandwidth setting: $e')),
         );
+      }
+    }
   }
 
   /// S7/S8 — toggle structured scenario content on/off. Persists via the
   /// chat repo (which owns the content settings) and updates local state
-  /// so the toggle animates immediately.
+  /// so the toggle animates immediately. On failure, roll the local state
+  /// back to keep UI and storage consistent.
   Future<void> _toggleContentEnabled(bool value) async {
+    final previous = _contentEnabled;
     setState(() => _contentEnabled = value);
-    await ref.read(chatRepoProvider).setContentEnabled(value);
+    try {
+      await ref.read(chatRepoProvider).setContentEnabled(value);
+    } catch (e) {
+      setState(() => _contentEnabled = previous);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save content setting: $e')),
+        );
+      }
+    }
   }
 
   /// S7/S8 — human-readable label for the active persona tile subtitle.
@@ -337,7 +374,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     // instead of a chevron tile because the value flips in
                     // place; tapping the row OR the switch toggles it.
                     _SettingsToggleTile(
-                      icon: Icons.data_saver_off,
+                      icon: ref.watch(lowBandwidthProvider)
+                          ? Icons.data_saver_on
+                          : Icons.data_saver_off,
                       title: _l.t('settings.low_bandwidth'),
                       subtitle: _l.t('settings.low_bandwidth_desc'),
                       value: ref.watch(lowBandwidthProvider),
@@ -410,6 +449,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _localeDisplayName(AppLocale locale) => locale.nativeName;
 
   Future<void> _clearCache() async {
+    // UX-046: destructive action requires explicit confirmation.
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(_l.t('settings.clear_cache_confirm_title')),
+        content: Text(_l.t('settings.clear_cache_confirm_body')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(_l.t('common.cancel')),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(_l.t('settings.clear_cache')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
     try {
       await TtsPlaybackService().clearCache();
       if (mounted) {
@@ -534,12 +594,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _showAboutDialog() {
-    final isLight = Theme.of(context).brightness == Brightness.light;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor:
-            isLight ? AppColors.lightBgSecondary : AppColors.bgTertiary,
         title: Text(_l.t('app.name')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -565,14 +622,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _showCorrectionStrengthDialog() {
     String local = _correctionStrength;
-    final isLight = Theme.of(context).brightness == Brightness.light;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: isLight
-              ? AppColors.lightBgSecondary
-              : AppColors.bgTertiary,
           title: Text(_l.t('settings.correction_strength')),
           content: RadioGroup<String>(
             groupValue: local,
@@ -626,14 +679,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _showTtsSpeedDialog() {
     String local = _ttsSpeed;
-    final isLight = Theme.of(context).brightness == Brightness.light;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: isLight
-              ? AppColors.lightBgSecondary
-              : AppColors.bgTertiary,
           title: Text(_l.t('settings.tts_speed')),
           content: RadioGroup<String>(
             groupValue: local,
@@ -689,14 +738,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _showThemeDialog() {
     String local = _theme;
-    final isLight = Theme.of(context).brightness == Brightness.light;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: isLight
-              ? AppColors.lightBgSecondary
-              : AppColors.bgTertiary,
           title: Text(_l.t('settings.theme')),
           content: RadioGroup<String>(
             groupValue: local,
@@ -747,33 +792,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _showLanguageDialog() {
     AppLocale local = ref.read(localeProvider);
-    final isLight = Theme.of(context).brightness == Brightness.light;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: isLight
-              ? AppColors.lightBgSecondary
-              : AppColors.bgTertiary,
           title: Text(_l.t('settings.language')),
           content: SizedBox(
             width: double.maxFinite,
-            child: ListView(
-              shrinkWrap: true,
-              children: AppLocale.values
-                  .map(
-                    (locale) => RadioListTile<AppLocale>(
-                      title: Text(locale.nativeName),
-                      subtitle: Text(locale.englishName),
-                      value: locale,
-                      groupValue: local,
-                      onChanged: (v) {
-                        if (v != null) setDialogState(() => local = v);
-                      },
-                      activeColor: AppColors.accentPrimary,
-                    ),
-                  )
-                  .toList(),
+            child: RadioGroup<AppLocale>(
+              groupValue: local,
+              onChanged: (v) {
+                if (v != null) setDialogState(() => local = v);
+              },
+              child: ListView(
+                shrinkWrap: true,
+                children: AppLocale.values
+                    .map(
+                      (locale) => RadioListTile<AppLocale>(
+                        title: Text(locale.nativeName),
+                        subtitle: Text(locale.englishName),
+                        value: locale,
+                        activeColor: AppColors.accentPrimary,
+                      ),
+                    )
+                    .toList(),
+              ),
             ),
           ),
           actions: [
@@ -973,19 +1016,18 @@ class _SettingsToggleTile extends StatelessWidget {
     final subtitleColor = isLight
         ? AppColors.lightTextSecondary
         : AppColors.textSecondary;
-    return ListTile(
-      onTap: () => onChanged(!value),
-      leading: Icon(icon, color: AppColors.accentSecondary),
+    // UX-043: use SwitchListTile.adaptive so the row and switch share a
+    // single semantic node and avoid duplicate focus/screen-reader hits.
+    return SwitchListTile.adaptive(
+      value: value,
+      onChanged: onChanged,
+      secondary: Icon(icon, color: AppColors.accentSecondary),
       title: Text(title, style: TextStyle(color: titleColor)),
       subtitle: Text(
         subtitle,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: subtitleColor,
             ),
-      ),
-      trailing: Switch(
-        value: value,
-        onChanged: onChanged,
       ),
     );
   }

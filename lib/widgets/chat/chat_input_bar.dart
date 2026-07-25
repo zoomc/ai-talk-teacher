@@ -4,6 +4,8 @@
 /// button, continuous-mode toggle, and offline hint.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
@@ -50,6 +52,9 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
     with SingleTickerProviderStateMixin {
   InputMode _inputMode = InputMode.voice;
   bool _voicePointerDown = false;
+  DateTime? _recordingStartedAt;
+  Timer? _recordingTimer;
+  int _recordingSeconds = 0;
 
   late final AnimationController _pulseController;
   late final Animation<double> _pulseScale;
@@ -64,7 +69,10 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
     _pulseScale = Tween<double>(begin: 1.0, end: 1.08).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-    if (widget.isRecording) _pulseController.repeat(reverse: true);
+    if (widget.isRecording) {
+      _pulseController.repeat(reverse: true);
+      _startRecordingTimer();
+    }
   }
 
   @override
@@ -73,17 +81,44 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
     if (widget.isRecording != oldWidget.isRecording) {
       if (widget.isRecording) {
         _pulseController.repeat(reverse: true);
+        _startRecordingTimer();
       } else {
         _pulseController.stop();
         _pulseController.value = 0.0;
+        _stopRecordingTimer();
       }
     }
   }
 
   @override
   void dispose() {
+    _recordingTimer?.cancel();
     _pulseController.dispose();
     super.dispose();
+  }
+
+  void _startRecordingTimer() {
+    _recordingStartedAt = DateTime.now();
+    _recordingSeconds = 0;
+    _recordingTimer?.cancel();
+    _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || _recordingStartedAt == null) return;
+      setState(() {
+        _recordingSeconds = DateTime.now().difference(_recordingStartedAt!).inSeconds;
+      });
+    });
+  }
+
+  void _stopRecordingTimer() {
+    _recordingTimer?.cancel();
+    _recordingStartedAt = null;
+    if (mounted) setState(() => _recordingSeconds = 0);
+  }
+
+  String get _recordingDuration {
+    final m = _recordingSeconds ~/ 60;
+    final s = _recordingSeconds % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -119,19 +154,28 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SizedBox(
+                  SizedBox(
                     width: 14,
                     height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isLight ? AppColors.lightWarning : AppColors.warning,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Text(
                     widget.retryHint!,
                     style: TextStyle(
-                      color: AppColors.warning,
+                      color: isLight
+                          ? AppColors.lightWarning
+                          : AppColors.warning,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -153,6 +197,7 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
                   tooltip: _inputMode == InputMode.voice
                       ? l.t('chat.switch_to_text')
                       : l.t('chat.switch_to_voice'),
+                  iconSize: 26,
                   icon: Icon(
                     _inputMode == InputMode.voice
                         ? Icons.keyboard_outlined
@@ -181,7 +226,12 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
   Widget _buildVoiceInput(AppLocalizations l) {
     final isRecording = widget.isRecording;
     final isLoading = widget.isLoading;
-    final color = isRecording ? AppColors.error : AppColors.accentSecondary;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final color = isRecording
+        ? (isLight ? AppColors.lightError : AppColors.error)
+        : (isLight ? AppColors.lightAccentSecondary : AppColors.accentSecondary);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final buttonWidth = (screenWidth - AppSpacing.xl).clamp(224.0, 320.0);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
       child: Column(
@@ -226,24 +276,19 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
                     return Transform.scale(
                       scale: scale,
                       child: Container(
-                        width: 224,
-                        height: 62,
+                        width: buttonWidth,
+                        height: 64,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(AppRadius.full),
                           gradient: isRecording
                               ? LinearGradient(colors: [color, AppColors.error])
-                              : const LinearGradient(
-                                  colors: [
-                                    Color(0xFF11DDE1),
-                                    Color(0xFF6CB9FF),
-                                    Color(0xFFF038DA),
-                                  ],
-                                ),
+                              : AppColors.gradientPrimary,
                           boxShadow: [
                             BoxShadow(
                               color: color.withValues(alpha: 0.4),
                               blurRadius: isRecording ? 24 : 12,
                               spreadRadius: isRecording ? 4 : 0,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
@@ -256,14 +301,25 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
                               size: 26,
                             ),
                             const SizedBox(width: AppSpacing.sm),
-                            Text(
-                              isRecording
-                                  ? l.t('chat.stop_recording')
-                                  : l.t('chat.hold_to_talk'),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  isRecording
+                                      ? l.t('chat.stop_recording')
+                                      : l.t('chat.hold_to_talk'),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black38,
+                                        blurRadius: 6,
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -276,11 +332,32 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            isRecording
-                ? l.t('chat.stop_recording')
-                : l.t('chat.release_to_send'),
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isRecording)
+                Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.only(right: AppSpacing.xs),
+                  decoration: const BoxDecoration(
+                    color: AppColors.error,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              Text(
+                isRecording
+                    ? '${l.t('chat.recording')} $_recordingDuration'
+                    : l.t('chat.release_to_send'),
+                style: TextStyle(
+                  color: isRecording
+                      ? AppColors.error
+                      : AppColors.textSecondary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -293,7 +370,7 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
     final isLoading = widget.isLoading;
     final controller = widget.controller;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Semantics(
           button: true,
@@ -317,7 +394,8 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Container(
-            constraints: const BoxConstraints(maxHeight: 160),
+            constraints: const BoxConstraints(minHeight: 56, maxHeight: 160),
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: isLight ? AppColors.lightBgSurface : AppColors.bgTertiary,
               borderRadius: BorderRadius.circular(AppRadius.xl),
@@ -345,8 +423,8 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
                 hintText: l.t('chat.type_message'),
                 hintStyle: TextStyle(
                   color: isLight
-                      ? AppColors.lightTextMuted
-                      : AppColors.textMuted,
+                      ? AppColors.lightTextSecondary
+                      : AppColors.textSecondary,
                 ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
@@ -374,17 +452,33 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
               hint: canSend
                   ? 'Double tap to send'
                   : 'Type a message first to send',
-              child: Opacity(
-                opacity: canSend ? 1.0 : 0.4,
+              child: MouseRegion(
+                cursor: canSend
+                    ? SystemMouseCursors.click
+                    : SystemMouseCursors.forbidden,
                 child: Container(
                   width: 48,
                   height: 48,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: AppColors.gradientPrimary,
+                    color: canSend
+                        ? null
+                        : (isLight
+                            ? AppColors.lightDisabled
+                            : AppColors.disabled)
+                            .withValues(alpha: 0.5),
+                    gradient: canSend ? AppColors.gradientPrimary : null,
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white),
+                    icon: Icon(
+                      Icons.send,
+                      color: canSend
+                          ? Colors.white
+                          : (isLight
+                              ? AppColors.lightTextDisabled
+                              : AppColors.textDisabled),
+                      size: 24,
+                    ),
                     onPressed: canSend ? widget.onSend : null,
                   ),
                 ),
@@ -404,6 +498,8 @@ class _OfflineHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final color = isLight ? AppColors.lightWarning : AppColors.warning;
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.symmetric(
@@ -411,21 +507,23 @@ class _OfflineHint extends StatelessWidget {
         vertical: AppSpacing.xs + 2,
       ),
       decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
-          Icon(Icons.cloud_off_rounded, size: 16, color: AppColors.warning),
+          Icon(Icons.cloud_off_rounded, size: 16, color: color),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               l.t('chat.offline_hint'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.warning,
+                    color: color,
                     height: 1.3,
                   ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -483,8 +581,10 @@ class _RecordButtonState extends State<_RecordButton>
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        widget.isRecording ? AppColors.error : AppColors.accentSecondary;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final color = widget.isRecording
+        ? (isLight ? AppColors.lightError : AppColors.error)
+        : (isLight ? AppColors.lightAccentSecondary : AppColors.accentSecondary);
     final baseGlow = widget.isRecording ? 0.4 : 0.25;
 
     return GestureDetector(
@@ -573,9 +673,6 @@ class _ContinuousToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final active = enabled
-        ? AppColors.accentPrimary
-        : (isLight ? AppColors.lightTextMuted : AppColors.textMuted);
     return Semantics(
       toggled: enabled,
       button: true,
@@ -587,29 +684,79 @@ class _ContinuousToggle extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.full),
         onTap: () => onChanged(!enabled),
         child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Switch(
+                value: enabled,
+                onChanged: onChanged,
+                thumbColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return AppColors.accentPrimary;
+                  }
+                  return isLight
+                      ? AppColors.lightTextMuted
+                      : AppColors.textMuted;
+                }),
+                trackColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return AppColors.accentPrimary.withValues(alpha: 0.5);
+                  }
+                  return isLight
+                      ? AppColors.lightBgTertiary
+                      : AppColors.bgTertiary;
+                }),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              Text(
+                l.t('chat.continuous_mode'),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: enabled
+                          ? AppColors.accentPrimary
+                          : (isLight
+                              ? AppColors.lightTextSecondary
+                              : AppColors.textSecondary),
+                      fontWeight:
+                          enabled ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(width: AppSpacing.xxs),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xs,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: enabled
+                      ? AppColors.accentPrimary.withValues(alpha: 0.15)
+                      : (isLight
+                          ? AppColors.lightDisabled
+                          : AppColors.disabled)
+                          .withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
+                ),
+                child: Text(
+                  enabled ? 'ON' : 'OFF',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: enabled
+                            ? AppColors.accentPrimary
+                            : (isLight
+                                ? AppColors.lightTextMuted
+                                : AppColors.textMuted),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ),
+            ],
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              enabled ? Icons.graphic_eq : Icons.record_voice_over_outlined,
-              size: 16,
-              color: active,
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Text(
-              l.t('chat.continuous_mode'),
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: active,
-                    fontWeight: enabled ? FontWeight.w600 : FontWeight.normal,
-                  ),
-            ),
-          ],
-        ),
-      ),
       ),
     );
   }

@@ -276,6 +276,9 @@ class _InstallBanner extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: TextButton(
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size.fromHeight(44),
+                        ),
                         onPressed: () => Navigator.of(ctx).pop(),
                         child: const Text('Not now'),
                       ),
@@ -283,6 +286,9 @@ class _InstallBanner extends ConsumerWidget {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(44),
+                        ),
                         onPressed: () {
                           Navigator.of(ctx).pop();
                           onDismiss();
@@ -453,14 +459,19 @@ class _ActionButton extends StatelessWidget {
           child: Center(
             child: Text(
               label,
-              style: TextStyle(
-                // Pick a contrasting text color: white on dark accents
-                // (purple/cyan/green all read well at this size).
-                color: _isLight(color) ? Colors.black : Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.06,
-              ),
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    // Pick a contrasting text color: white on dark accents
+                    // (purple/cyan/green all read well at this size).
+                    color: _isLight(color) ? Colors.black : Colors.white,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.06,
+                  ) ??
+                  TextStyle(
+                    color: _isLight(color) ? Colors.black : Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.06,
+                  ),
             ),
           ),
         ),
@@ -483,17 +494,24 @@ class _DismissButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 44,
-      height: 44,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.xs),
-        onTap: onTap,
-        child: const Center(
-          child: Icon(
-            Icons.close_rounded,
-            size: 18,
-            color: AppColors.textMuted,
+    return Tooltip(
+      message: 'Dismiss',
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadius.xs),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppRadius.xs),
+            onTap: onTap,
+            child: const Center(
+              child: Icon(
+                Icons.close_rounded,
+                size: 18,
+                color: AppColors.textMuted,
+              ),
+            ),
           ),
         ),
       ),

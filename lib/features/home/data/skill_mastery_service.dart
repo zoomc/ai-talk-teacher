@@ -35,7 +35,7 @@ class SkillMasteryService {
     final referenceTime = now ?? DateTime.now();
     final corrections =
         await _repo.getRecentCorrectionsBySkill(skillId, limit: 20);
-    final score = computeScore(corrections);
+    final score = computeScore(corrections, referenceTime: referenceTime);
     final level = SkillMastery.levelFromScore(score);
     final mastery = SkillMastery(
       skillId: skillId,
@@ -50,31 +50,44 @@ class SkillMasteryService {
   /// Recompute mastery for every skill that has at least one correction.
   /// Returns the persisted rows in arbitrary order. Called after the user
   /// finishes a review session so the dashboard reflects the new state.
+  ///
+  /// BL-032: all scores are computed in memory and then persisted in a single
+  /// batch transaction, so an interruption never leaves the table half-updated.
   Future<List<SkillMastery>> recomputeAll({DateTime? now}) async {
+    final referenceTime = now ?? DateTime.now();
     final skills = await _repo.getDistinctSkillIds();
     final results = <SkillMastery>[];
     for (final s in skills) {
-      // Skip empty skill tags defensively — the repository already filters
-      // them, but a stray '' here would create a bogus mastery row.
       if (s.trim().isEmpty) continue;
-      results.add(await recompute(s, now: now));
+      final corrections =
+          await _repo.getRecentCorrectionsBySkill(s, limit: 20);
+      final score = computeScore(corrections, referenceTime: referenceTime);
+      results.add(SkillMastery(
+        skillId: s,
+        score: score,
+        level: SkillMastery.levelFromScore(score),
+        updatedAt: referenceTime,
+      ));
     }
+    await _repo.upsertSkillMasteryBatch(results);
     return results;
   }
 
   /// Pure function: compute the 0-100 mastery score from a list of
   /// corrections for one skill, using a time-decay weighted average.
   ///
-  /// Newest correction (highest `lastSeenAt`) gets the highest weight; the
-  /// decay factor (0.85) means an event 5 positions back counts ~44% as
-  /// much as the most recent one. Bounded to the latest 20 events so the
-  /// score reflects recent trajectory rather than the all-time average.
+  /// BL-031: weights are derived from the real day difference between the
+  /// reference time and each correction's `lastSeenAt`, not from list index.
+  /// An event seen today weighs 1.0; each day older multiplies by [decay].
+  /// Bounded to the latest 20 events so the score reflects recent trajectory
+  /// rather than the all-time average.
   ///
   /// Exposed for unit testing — production callers should use [recompute].
   @visibleForTesting
-  int computeScore(List<Correction> corrections) {
+  int computeScore(List<Correction> corrections, {DateTime? referenceTime}) {
     if (corrections.isEmpty) return 0;
 
+    final reference = referenceTime ?? DateTime.now();
     // Sort by lastSeenAt DESC (newest first). Copy first because the input
     // list may be unmodifiable.
     final sorted = List<Correction>.of(corrections)
@@ -83,15 +96,14 @@ class SkillMasteryService {
     // Take the latest 20 — matches the spec's "latest 20 practice events".
     final recent = sorted.length > 20 ? sorted.sublist(0, 20) : sorted;
 
-    // Time-decay weights: w_i = decay ^ i, i = 0 (newest) ... n-1 (oldest).
-    // decay < 1 → newest has the highest weight. 0.85 is the standard
-    // SuperMemo-style decay: events 5 positions back weigh ~44% as much.
+    // Time-decay weights based on actual day difference.
     const decay = 0.85;
     double weightedSum = 0;
     double weightSum = 0;
-    for (int i = 0; i < recent.length; i++) {
-      final weight = math.pow(decay, i).toDouble();
-      weightedSum += weight * _perItemScore(recent[i]);
+    for (final c in recent) {
+      final days = reference.difference(c.lastSeenAt).inDays.clamp(0, 365);
+      final weight = math.pow(decay, days).toDouble();
+      weightedSum += weight * _perItemScore(c);
       weightSum += weight;
     }
     if (weightSum == 0) return 0;
@@ -104,17 +116,14 @@ class SkillMasteryService {
 
   /// Per-correction mastery score derived from its SM-2 state.
   ///
-  /// Thresholds mirror [Sm2Service.getMasteryLevel] but return a numeric
-  /// 0-100 contribution so the weighted average produces a continuous
-  /// score. A correction that has never been reviewed (reviewCount = 0)
-  /// contributes 0 — it's an open mistake pulling the skill down. A
-  /// well-reviewed one (reviewCount >= 8) contributes 100.
+  /// BL-039: thresholds now align with [LearningStatsService]'s "mastered"
+  /// definition (review_count >= 5) so the dashboard and statistics use the
+  /// same criteria.
   int _perItemScore(Correction c) {
     if (c.reviewCount == 0) return 0; // brand-new error
     if (c.easinessFactor < 1.5) return 30; // struggling
     if (c.reviewCount < 3) return 50; // learning
     if (c.reviewCount < 5) return 70; // familiar
-    if (c.reviewCount < 8) return 90; // mastered
-    return 100; // expert
+    return 100; // mastered
   }
 }

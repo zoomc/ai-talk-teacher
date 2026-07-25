@@ -15,6 +15,7 @@ class GlassCard extends StatefulWidget {
   final Color? glowColor;
   final double blurAmount;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   /// Force the "pressed/selected" visual (e.g. for a highlighted card).
   final bool isActive;
@@ -28,6 +29,7 @@ class GlassCard extends StatefulWidget {
     this.glowColor,
     this.blurAmount = 20,
     this.onTap,
+    this.onLongPress,
     this.isActive = false,
   });
 
@@ -41,12 +43,9 @@ class _GlassCardState extends State<GlassCard> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final mq = MediaQuery.of(context);
-    // reduce-motion: skip the (expensive) backdrop blur; accessibleNavigation
-    // is a reasonable proxy for "reduce transparency" — users tend to enable
-    // both accessibility settings together.
-    final reduceMotion = mq.disableAnimations;
-    final reduceTransparency = mq.accessibleNavigation;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceTransparency = MediaQuery.highContrastOf(context);
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
 
     final bgBase = isDark ? AppColors.glassBg : AppColors.lightGlassBg;
     final bgActive =
@@ -56,99 +55,100 @@ class _GlassCardState extends State<GlassCard> {
         isDark ? AppColors.glassBorder : AppColors.lightGlassBorder;
     final shadow =
         isDark ? AppColors.glassShadow : AppColors.lightGlassShadow;
-    final specular =
-        isDark ? AppColors.glassSpecular : AppColors.lightGlassSpecular;
     final tint = isDark
         ? AppColors.glassTintGradient
         : AppColors.lightGlassTintGradient;
-    final blur = reduceMotion ? 0.0 : widget.blurAmount;
+    final blur = reduceMotion ? 0.0 : widget.blurAmount * pixelRatio.clamp(1.0, 2.0);
     final radius = BorderRadius.circular(widget.borderRadius);
+    final shadowBlur = 24 * pixelRatio.clamp(1.0, 2.0);
 
-    return GestureDetector(
-      onTapDown: widget.onTap == null
-          ? null
-          : (_) => setState(() => _pressed = true),
-      onTapUp: widget.onTap == null
-          ? null
-          : (_) {
-              setState(() => _pressed = false);
-              widget.onTap!();
-            },
-      onTapCancel:
-          widget.onTap == null ? null : () => setState(() => _pressed = false),
-      child: Container(
-        margin: widget.margin,
-        decoration: BoxDecoration(
-          borderRadius: radius,
-          boxShadow: [
-            // Depth shadow — liquid glass sits above the canvas.
+    final card = Container(
+      margin: widget.margin,
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: [
+          // Depth shadow — liquid glass sits above the canvas.
+          BoxShadow(
+            color: shadow,
+            blurRadius: shadowBlur,
+            spreadRadius: -8,
+            offset: const Offset(0, 10),
+          ),
+          if (widget.glowColor != null)
             BoxShadow(
-              color: shadow,
-              blurRadius: 24,
-              spreadRadius: -8,
-              offset: const Offset(0, 10),
+              color: widget.glowColor!.withValues(alpha: 0.3),
+              blurRadius: 20 * pixelRatio.clamp(1.0, 1.5),
+              spreadRadius: -5,
             ),
-            if (widget.glowColor != null)
-              BoxShadow(
-                color: widget.glowColor!.withValues(alpha: 0.3),
-                blurRadius: 20,
-                spreadRadius: -5,
-              ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: radius,
-          child: Stack(
-            children: [
-              // 1. Backdrop blur — skipped when reduce-transparency/motion
-              //    is on; the more opaque fill below carries the surface.
-              if (!reduceTransparency && blur > 0)
-                Positioned.fill(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-                    child: Container(color: Colors.transparent),
-                  ),
-                ),
-              // 2. Base fill + vertical brightness tint.
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Stack(
+          children: [
+            // 1. Backdrop blur — skipped when reduce-transparency/motion
+            //    is on; the more opaque fill below carries the surface.
+            if (!reduceTransparency && blur > 0)
               Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: bg,
-                    gradient: tint,
-                    borderRadius: radius,
-                  ),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                  child: Container(color: Colors.transparent),
                 ),
               ),
-              // 3. Specular rim — top-left highlight + bottom-right dim,
-              //    simulating the rounded glass edge catching light.
-              Positioned.fill(
+            // 2. Base fill + vertical brightness tint.
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: bg,
+                  gradient: tint,
+                  borderRadius: radius,
+                ),
+              ),
+            ),
+            // 3. Specular rim — drawn only as a border so it doesn't
+            //    blend with transparent child content.
+            Positioned.fill(
+              child: IgnorePointer(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     borderRadius: radius,
                     border: Border.all(color: border, width: 1),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        specular.withValues(alpha: 0.55),
-                        Colors.transparent,
-                        Colors.transparent,
-                        specular.withValues(alpha: 0.2),
-                      ],
-                      stops: const [0.0, 0.4, 0.6, 1.0],
-                    ),
                   ),
                 ),
               ),
-              // 4. Content.
-              Padding(
-                padding:
-                    widget.padding ?? const EdgeInsets.all(AppSpacing.md),
-                child: widget.child,
-              ),
-            ],
-          ),
+            ),
+            // 4. Content.
+            Padding(
+              padding:
+                  widget.padding ?? const EdgeInsets.all(AppSpacing.md),
+              child: widget.child,
+            ),
+          ],
         ),
+      ),
+    );
+
+    if (widget.onTap == null && widget.onLongPress == null) return card;
+
+    return MouseRegion(
+      cursor: widget.onTap != null || widget.onLongPress != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTapDown: widget.onTap != null
+            ? (_) => setState(() => _pressed = true)
+            : null,
+        onTapUp: widget.onTap != null
+            ? (_) {
+                setState(() => _pressed = false);
+                widget.onTap!();
+              }
+            : null,
+        onTapCancel: widget.onTap != null
+            ? () => setState(() => _pressed = false)
+            : null,
+        onLongPress: widget.onLongPress,
+        child: card,
       ),
     );
   }
@@ -169,6 +169,10 @@ class StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textStyle = Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: isActive ? color : color.withValues(alpha: 0.5),
+          fontWeight: FontWeight.w500,
+        );
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
@@ -176,7 +180,7 @@ class StatusPill extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: isActive ? 0.15 : 0.05),
-        borderRadius: BorderRadius.circular(AppRadius.full),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
         border: Border.all(
           color: color.withValues(alpha: isActive ? 0.3 : 0.1),
         ),
@@ -195,11 +199,7 @@ class StatusPill extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs),
           Text(
             text,
-            style: TextStyle(
-              color: isActive ? color : color.withValues(alpha: 0.5),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
+            style: textStyle,
           ),
         ],
       ),
@@ -278,42 +278,45 @@ class GlassDialog extends StatelessWidget {
       child: GlassCard(
         borderRadius: AppRadius.xl,
         padding: EdgeInsets.zero,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (title != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                child: DefaultTextStyle(
-                  style: Theme.of(context).textTheme.titleLarge ??
-                      const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                      ),
-                  child: title!,
-                ),
-              ),
-            if (content != null)
-              Flexible(
-                child: Padding(
-                  padding: contentPadding,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (title != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
                   child: DefaultTextStyle(
-                    style: Theme.of(context).textTheme.bodyMedium ??
-                        const TextStyle(fontSize: 15),
-                    child: content!,
+                    style: Theme.of(context).textTheme.titleLarge ??
+                        const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
+                    child: title!,
                   ),
                 ),
-              ),
-            if (actions != null && actions!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: actions!,
+              if (content != null)
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: contentPadding,
+                    child: DefaultTextStyle(
+                      style: Theme.of(context).textTheme.bodyMedium ??
+                          const TextStyle(fontSize: 15),
+                      child: content!,
+                    ),
+                  ),
                 ),
-              ),
-          ],
+              if (actions != null && actions!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: actions!,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -324,6 +327,7 @@ class GlassDialog extends StatelessWidget {
 ///   showModalBottomSheet(
 ///     context: ctx,
 ///     backgroundColor: Colors.transparent,
+///     isScrollControlled: true,
 ///     builder: (_) => GlassBottomSheet(child: ...),
 ///   )
 class GlassBottomSheet extends StatelessWidget {
@@ -345,10 +349,19 @@ class GlassBottomSheet extends StatelessWidget {
       child: GlassCard(
         borderRadius: 0,
         margin: EdgeInsets.zero,
-        padding: padding,
+        padding: EdgeInsets.zero,
         child: SafeArea(
           top: false,
-          child: child,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              top: padding.vertical / 2,
+              bottom: MediaQuery.viewInsetsOf(context).bottom +
+                  padding.vertical / 2,
+              left: padding.horizontal / 2,
+              right: padding.horizontal / 2,
+            ),
+            child: child,
+          ),
         ),
       ),
     );
@@ -366,6 +379,8 @@ class GlassBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
+    final size = MediaQuery.sizeOf(context);
+    final shortEdge = size.shortestSide;
     final a = isLight
         ? AppColors.lightAccentPrimary.withValues(alpha: 0.10)
         : AppColors.accentPrimary.withValues(alpha: 0.22);
@@ -375,6 +390,9 @@ class GlassBackground extends StatelessWidget {
     final c = isLight
         ? AppColors.lightSuccess.withValues(alpha: 0.08)
         : AppColors.success.withValues(alpha: 0.14);
+    // Scale blobs with the screen short edge so they don't dwarf small
+    // phones or look tiny on tablets.
+    final s = shortEdge * 0.65;
     return Stack(
       children: [
         Positioned.fill(
@@ -387,9 +405,9 @@ class GlassBackground extends StatelessWidget {
         ),
         // Aurora blobs — positioned to peek behind typical card areas so
         // the glass blur has colour to refract.
-        Positioned(top: -80, left: -60, child: _blob(a, 260)),
-        Positioned(top: 120, right: -80, child: _blob(b, 300)),
-        Positioned(bottom: -100, left: 40, child: _blob(c, 280)),
+        Positioned(top: -s * 0.3, left: -s * 0.25, child: _blob(a, s)),
+        Positioned(top: s * 0.45, right: -s * 0.3, child: _blob(b, s * 1.15)),
+        Positioned(bottom: -s * 0.35, left: s * 0.15, child: _blob(c, s * 1.05)),
         if (child != null) Positioned.fill(child: child!),
       ],
     );

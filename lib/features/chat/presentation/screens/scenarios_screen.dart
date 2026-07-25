@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
@@ -35,22 +36,46 @@ class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
   }
 
   Future<void> _loadStats() async {
-    final stats = await ref.read(chatRepoProvider).getScenarioStats();
-    if (mounted) {
-      setState(() {
-        _stats = stats;
-      });
+    try {
+      final stats = await ref.read(chatRepoProvider).getScenarioStats();
+      if (mounted) {
+        setState(() {
+          _stats = stats;
+        });
+      }
+    } catch (e) {
+      // Stats are best-effort decoration; keep any previously loaded stats
+      // so the list remains usable. Surface a subtle toast on debug builds.
+      if (mounted) {
+        final l = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.tArg('scenarios.stats_error', {'error': '$e'}))),
+        );
+      }
     }
   }
 
   Future<void> _startScenario(Scenario scenario) async {
     final repo = ref.read(chatRepoProvider);
-    final session = await repo.createSession(
-      topic: scenario.name,
-      scenarioId: scenario.id,
-    );
-    if (mounted) {
-      context.push('/chat/${session.id}');
+    try {
+      // BL-047: carry scenario metadata into the session so the chat layer
+      // knows the difficulty, category, and objective. levelTag maps the
+      // scenario difficulty to the session's level tag.
+      final session = await repo.createSession(
+        topic: scenario.name,
+        scenarioId: scenario.id,
+        levelTag: scenario.difficulty,
+      );
+      if (mounted) {
+        context.push('/chat/${session.id}');
+      }
+    } catch (e) {
+      if (mounted) {
+        final l = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.tArg('scenarios.start_error', {'error': '$e'}))),
+        );
+      }
     }
   }
 
@@ -109,7 +134,7 @@ class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
                               vertical: AppSpacing.sm,
                             ),
                             child: Text(
-                              category[0].toUpperCase() + category.substring(1),
+                              l.t('scenarios.category.$category'),
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(color: AppColors.textSecondary),
                             ),
@@ -162,7 +187,15 @@ class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Text(
+                  l.t('scenarios.error_loading'),
+                  style: TextStyle(color: AppColors.error),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -196,101 +229,120 @@ class _ScenarioCard extends StatelessWidget {
     }
   }
 
-  String _relativeTime(DateTime dt) {
+  String _relativeTime(BuildContext context, AppLocalizations l, DateTime dt) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inHours < 24) return 'today';
-    if (diff.inDays == 1) return 'yesterday';
-    if (diff.inDays < 7) return '${diff.inDays} days ago';
-    return '${dt.month}/${dt.day}';
+    if (diff.inHours < 24) return l.t('history.today').toLowerCase();
+    if (diff.inDays == 1) return l.t('history.yesterday').toLowerCase();
+    if (diff.inDays < 7) {
+      return l.tArg('history.days_ago', {'days': '${diff.inDays}'});
+    }
+    return DateFormat.Md(Localizations.localeOf(context).toString()).format(dt);
+  }
+
+  String _localizedDifficulty(AppLocalizations l, String difficulty) {
+    return l.t('scenarios.difficulty.$difficulty');
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final diffColor = _difficultyColor(scenario.difficulty);
 
     return Padding(
       padding: const EdgeInsets.only(right: AppSpacing.md),
-      child: GestureDetector(
+      child: GlassCard(
+        onTap: onTap,
         onLongPress: onLongPress,
-        child: GlassCard(
-          onTap: onTap,
-          borderRadius: AppRadius.xl,
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: SizedBox(
-            width: 140,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(scenario.icon, style: const TextStyle(fontSize: 32)),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  scenario.name,
-                  style: Theme.of(context).textTheme.titleMedium,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xs,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: diffColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                  child: Text(
-                    scenario.difficulty[0].toUpperCase() +
-                        scenario.difficulty.substring(1),
-                    style: TextStyle(
-                      color: diffColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+        borderRadius: AppRadius.xl,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: SizedBox(
+          width: 140,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(scenario.icon, style: const TextStyle(fontSize: 32)),
+                  const Spacer(),
+                  if (onLongPress != null)
+                    Icon(
+                      Icons.folder_copy_outlined,
+                      size: 16,
+                      color: AppColors.textMuted,
                     ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                scenario.name,
+                style: Theme.of(context).textTheme.titleMedium,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xs,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: diffColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Text(
+                  _localizedDifficulty(l, scenario.difficulty),
+                  style: TextStyle(
+                    color: diffColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (stats != null) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle_outline,
-                        size: 12,
-                        color: AppColors.textMuted,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          'Practiced ${stats!.count} times',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textMuted,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+              ),
+              if (stats != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline,
+                      size: 12,
+                      color: AppColors.textMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        l.tArg('scenarios.practiced_count', {
+                          'count': '${stats!.count}',
+                        }),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textMuted,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Icon(Icons.history, size: 12, color: AppColors.textMuted),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          'Last: ${_relativeTime(stats!.lastPracticedAt)}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textMuted,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Icon(Icons.history, size: 12, color: AppColors.textMuted),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        l.tArg('scenarios.last_practiced', {
+                          'when': _relativeTime(context, l, stats!.lastPracticedAt),
+                        }),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textMuted,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),

@@ -143,12 +143,32 @@ class _JoinProjectSheetState extends ConsumerState<JoinProjectSheet> {
       builder: (_) => const ProjectFormDialog(),
     );
     if (created == null) return;
-    await ref.read(projectRepoProvider).addLink(
-          created.id,
-          widget.contentType,
-          widget.contentId,
+    final repo = ref.read(projectRepoProvider);
+    try {
+      await repo.addLink(
+        created.id,
+        widget.contentType,
+        widget.contentId,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      // BL-067: if linking fails, roll back the orphaned project so the user
+      // isn't left with a project that has no linked content.
+      try {
+        await repo.deleteProject(created.id);
+      } catch (_) {
+        // Best-effort cleanup; ignore further errors.
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${AppLocalizations.of(context).t('common.error')}: $e',
+            ),
+          ),
         );
-    if (mounted) Navigator.pop(context, true);
+      }
+    }
   }
 }
 

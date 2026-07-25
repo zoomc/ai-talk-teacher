@@ -42,12 +42,14 @@ class ChatRepository {
   }
 
   Future<ChatSession> createSession({
+    String? id,
     String? topic,
     String? scenarioId,
     String? levelTag,
     bool isGuest = false,
   }) async {
     final session = ChatSession(
+      id: id,
       topic: topic,
       scenarioId: scenarioId,
       levelTag: levelTag,
@@ -257,17 +259,23 @@ class ChatRepository {
 
   Future<void> saveCorrection(Correction correction) async {
     final db = await DatabaseHelper.database;
-    await db.insert('corrections', correction.toMap());
+    // BL-004: keep corrections.next_review_at in sync with review_queue.due_at
+    // so the two sources never disagree about whether a new correction is due.
+    final now = DateTime.now();
+    final synced = correction.nextReviewAt == null
+        ? correction.copyWith(nextReviewAt: now)
+        : correction;
+    await db.insert('corrections', synced.toMap());
     // S5/S6 — seed a review_queue slot for the new correction so it
     // surfaces on the dashboard's "to review" list. New corrections are
     // due immediately (next_review_at is null at creation).
-    final dueAt = correction.nextReviewAt ?? DateTime.now();
+    final dueAt = synced.nextReviewAt ?? now;
     await syncReviewQueue(
-      correctionId: correction.id,
+      correctionId: synced.id,
       dueAt: dueAt,
-      intervalDays: correction.intervalDays,
-      repetitions: correction.reviewCount,
-      easeFactor: correction.easinessFactor,
+      intervalDays: synced.intervalDays,
+      repetitions: synced.reviewCount,
+      easeFactor: synced.easinessFactor,
     );
   }
 
@@ -394,6 +402,25 @@ class ChatRepository {
     return (result.first['count'] as int?) ?? 0;
   }
 
+  /// Load corrections flagged in the last [days] days, newest first.
+  /// Powers the "recent mistakes" review filter so the user sees the same
+  /// items that produced the daily-plan badge.
+  Future<List<Correction>> getRecentCorrections({
+    int days = 3,
+    int limit = 50,
+  }) async {
+    final db = await DatabaseHelper.database;
+    final cutoff = DateTime.now().subtract(Duration(days: days)).toIso8601String();
+    final results = await db.query(
+      'corrections',
+      where: 'last_seen_at >= ?',
+      whereArgs: [cutoff],
+      orderBy: 'last_seen_at DESC',
+      limit: limit,
+    );
+    return results.map((r) => Correction.fromMap(r)).toList();
+  }
+
   Future<Map<String, ({int count, DateTime lastPracticedAt})>>
   getScenarioStats() async {
     final db = await DatabaseHelper.database;
@@ -510,7 +537,19 @@ class ChatRepository {
     double easeFactor = 2.5,
   }) async {
     final db = await DatabaseHelper.database;
-    final now = DateTime.now().toIso8601String();
+    final now = DateTime.now();
+    // BL-012: preserve the queue slot's original created_at so analysis and
+    // ordering based on first-seen time stay meaningful across SM-2 updates.
+    final existing = await db.query(
+      'review_queue',
+      columns: ['created_at'],
+      where: 'id = ?',
+      whereArgs: ['${correctionId}_rq'],
+      limit: 1,
+    );
+    final createdAt = existing.isNotEmpty
+        ? DateTime.parse(existing.first['created_at'] as String)
+        : now;
     // SQLite has no native upsert in the sqflite helper; use
     // INSERT OR REPLACE with a deterministic id so re-syncing the same
     // correction doesn't create duplicate queue rows.
@@ -522,7 +561,7 @@ class ChatRepository {
       'interval_days': intervalDays,
       'repetitions': repetitions,
       'ease_factor': easeFactor,
-      'created_at': now,
+      'created_at': createdAt.toIso8601String(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -537,7 +576,18 @@ class ChatRepository {
     int repetitions = 0,
     double easeFactor = 2.5,
   }) async {
-    final now = DateTime.now().toIso8601String();
+    final now = DateTime.now();
+    // BL-012: preserve the queue slot's original created_at inside the txn.
+    final existing = await txn.query(
+      'review_queue',
+      columns: ['created_at'],
+      where: 'id = ?',
+      whereArgs: ['${correctionId}_rq'],
+      limit: 1,
+    );
+    final createdAt = existing.isNotEmpty
+        ? DateTime.parse(existing.first['created_at'] as String)
+        : now;
     final id = '${correctionId}_rq';
     await txn.insert('review_queue', {
       'id': id,
@@ -546,7 +596,7 @@ class ChatRepository {
       'interval_days': intervalDays,
       'repetitions': repetitions,
       'ease_factor': easeFactor,
-      'created_at': now,
+      'created_at': createdAt.toIso8601String(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -569,8 +619,12 @@ class ChatRepository {
   /// completeness; the dashboard's "today's tasks" section surfaces the
   /// SM-2-driven review task at priority 1, and the pending-review list
   /// is ordered by due_at per the spec.
-  Future<List<ReviewQueueItem>> getReviewQueueItems({int limit = 5}) async {
+  Future<List<ReviewQueueItem>> getReviewQueueItems({
+    int limit = 5,
+    bool onlyDue = true,
+  }) async {
     final db = await DatabaseHelper.database;
+    final now = DateTime.now().toIso8601String();
     final rows = await db.rawQuery(
       '''
       SELECT rq.id AS rq_id, rq.correction_id AS rq_cid, rq.due_at AS rq_due,
@@ -582,10 +636,11 @@ class ChatRepository {
              c.importance AS c_imp
       FROM review_queue rq
       INNER JOIN corrections c ON c.id = rq.correction_id
+      ${onlyDue ? 'WHERE rq.due_at <= ?' : ''}
       ORDER BY rq.due_at ASC
       LIMIT ?
     ''',
-      [limit],
+      onlyDue ? [now, limit] : [limit],
     );
     return rows.map((row) {
       return ReviewQueueItem(
@@ -724,12 +779,41 @@ class ChatRepository {
     );
   }
 
+  /// Upsert multiple skill_mastery rows inside a single transaction so
+  /// a full recompute is atomic (BL-032): either all skills are updated or
+  /// none are, preventing partial dashboard state.
+  Future<void> upsertSkillMasteryBatch(List<SkillMastery> masteries) async {
+    final db = await DatabaseHelper.database;
+    await db.transaction((txn) async {
+      for (final mastery in masteries) {
+        final id = '${mastery.skillId}_sm';
+        await txn.insert(
+          'skill_mastery',
+          {
+            'id': id,
+            'skill_id': mastery.skillId,
+            'score': mastery.score,
+            'level': mastery.level,
+            'updated_at': mastery.updatedAt.toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  }
+
   /// All skill_mastery rows, ordered by score ASC so the weakest skills
   /// surface first on the dashboard (the user wants to see what to work
   /// on next, not what they've already mastered).
+  ///
+  /// BL-017: tie-break by updated_at DESC then skill_id ASC so equal scores
+  /// render in a stable order across refreshes.
   Future<List<SkillMastery>> getAllSkillMastery() async {
     final db = await DatabaseHelper.database;
-    final maps = await db.query('skill_mastery', orderBy: 'score ASC');
+    final maps = await db.query(
+      'skill_mastery',
+      orderBy: 'score ASC, updated_at DESC, skill_id ASC',
+    );
     return maps.map((m) => SkillMastery.fromMap(m)).toList();
   }
 

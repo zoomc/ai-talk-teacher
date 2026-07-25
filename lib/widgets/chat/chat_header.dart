@@ -30,11 +30,12 @@ class ChatHeader extends StatelessWidget implements PreferredSizeWidget {
   });
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 1);
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return AppBar(
       leading: IconButton(
         tooltip: l.t('chat.back_home'),
@@ -42,13 +43,37 @@ class ChatHeader extends StatelessWidget implements PreferredSizeWidget {
         onPressed: onBack,
       ),
       title: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(tutorAvatar, style: const TextStyle(fontSize: 20)),
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: isLight
+                ? AppColors.lightBgTertiary
+                : AppColors.bgTertiary,
+            child: Text(
+              tutorAvatar,
+              style: const TextStyle(fontSize: 18),
+            ),
+          ),
           const SizedBox(width: AppSpacing.sm),
           Flexible(
-            child: Text(tutorName, overflow: TextOverflow.ellipsis),
+            child: Text(
+              tutorName,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
         ],
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Divider(
+          height: 1,
+          thickness: 1,
+          color: isLight
+              ? AppColors.lightGlassBorder
+              : AppColors.glassBorder,
+        ),
       ),
       actions: [
         if (showStatusDot)
@@ -81,11 +106,16 @@ class _AppBarStatusDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
     final color = switch (state) {
-      CharacterState.idle => AppColors.textMuted,
-      CharacterState.listening => AppColors.accentSecondary,
-      CharacterState.thinking => AppColors.accentPrimary,
-      CharacterState.speaking => AppColors.success,
+      CharacterState.idle =>
+        isLight ? AppColors.lightTextMuted : AppColors.textMuted,
+      CharacterState.listening =>
+        isLight ? AppColors.lightAccentSecondary : AppColors.accentSecondary,
+      CharacterState.thinking =>
+        isLight ? AppColors.lightAccentPrimary : AppColors.accentPrimary,
+      CharacterState.speaking =>
+        isLight ? AppColors.lightSuccess : AppColors.success,
     };
     return Semantics(
       liveRegion: true,

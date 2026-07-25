@@ -20,7 +20,17 @@ class LlmService {
     String? userMessage,
   }) async {
     // E2E mock: short-circuit if mock mode is enabled (no HTTP).
-    final canned = E2eMockServices.cannedLlmReply(userMessage ?? systemPrompt);
+    // The chat screen may put the current turn in history instead of passing
+    // it as userMessage, so fall back to the latest user message in history.
+    final latestUserMessage = history.isEmpty
+        ? null
+        : history.reversed
+            .where((m) => m.role == MessageRole.user)
+            .firstOrNull
+            ?.content;
+    final canned = E2eMockServices.cannedLlmReply(
+      userMessage ?? latestUserMessage ?? systemPrompt,
+    );
     if (canned != null) {
       return LlmResponse(
         content: _cleanResponse(canned),
@@ -103,7 +113,17 @@ class LlmService {
     String? userMessage,
   }) async* {
     // E2E mock: short-circuit if mock mode is enabled (no HTTP).
-    final canned = E2eMockServices.cannedLlmReply(userMessage ?? systemPrompt);
+    // The chat screen may put the current turn in history instead of passing
+    // it as userMessage, so fall back to the latest user message in history.
+    final latestUserMessage = history.isEmpty
+        ? null
+        : history.reversed
+            .where((m) => m.role == MessageRole.user)
+            .firstOrNull
+            ?.content;
+    final canned = E2eMockServices.cannedLlmReply(
+      userMessage ?? latestUserMessage ?? systemPrompt,
+    );
     if (canned != null) {
       yield StreamChunk(delta: canned);
       yield const StreamChunk(done: true);

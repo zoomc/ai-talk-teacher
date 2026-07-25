@@ -1,4 +1,6 @@
 import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -35,6 +37,21 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
     _loadProfiles();
   }
 
+  /// BL-075: reload when the user returns from ProfileFormScreen so edits
+  /// and new profiles are reflected immediately. We only reload after the
+  /// initial load has completed; this avoids calling setState during the
+  /// first build.
+  bool _hasInitiallyLoaded = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route?.isCurrent == true && _hasInitiallyLoaded) {
+      _loadProfiles();
+    }
+  }
+
   Future<void> _loadProfiles() async {
     final repo = ref.read(profileRepoProvider);
     final llm = await repo.getAllLlmProfiles();
@@ -46,6 +63,7 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
         _sttProfiles = stt;
         _ttsProfiles = tts;
         _isLoading = false;
+        _hasInitiallyLoaded = true;
       });
     }
   }
@@ -81,9 +99,10 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                       children: [
                         _buildSectionHeader(
                           context,
-                          '🧠',
-                          l.t('service.llm_section'),
-                          l.t('service.llm_section_subtitle'),
+                          icon: Icons.psychology_outlined,
+                          semanticsLabel: l.t('service.llm_section'),
+                          title: l.t('service.llm_section'),
+                          subtitle: l.t('service.llm_section_subtitle'),
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         ..._llmProfiles.map(
@@ -102,9 +121,10 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                         const SizedBox(height: AppSpacing.xl),
                         _buildSectionHeader(
                           context,
-                          '🎤',
-                          l.t('service.stt_section'),
-                          l.t('service.stt_section_subtitle'),
+                          icon: Icons.mic_outlined,
+                          semanticsLabel: l.t('service.stt_section'),
+                          title: l.t('service.stt_section'),
+                          subtitle: l.t('service.stt_section_subtitle'),
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         ..._sttProfiles.map(
@@ -123,9 +143,10 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                         const SizedBox(height: AppSpacing.xl),
                         _buildSectionHeader(
                           context,
-                          '🔊',
-                          l.t('service.tts_section'),
-                          l.t('service.tts_section_subtitle'),
+                          icon: Icons.volume_up_outlined,
+                          semanticsLabel: l.t('service.tts_section'),
+                          title: l.t('service.tts_section'),
+                          subtitle: l.t('service.tts_section_subtitle'),
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         ..._ttsProfiles.map(
@@ -174,14 +195,22 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
   }
 
   Widget _buildSectionHeader(
-    BuildContext context,
-    String emoji,
-    String title,
-    String subtitle,
-  ) {
+    BuildContext context, {
+    required IconData icon,
+    required String semanticsLabel,
+    required String title,
+    required String subtitle,
+  }) {
     return Row(
       children: [
-        Text(emoji, style: const TextStyle(fontSize: 24)),
+        Semantics(
+          label: semanticsLabel,
+          child: Icon(
+            icon,
+            size: 28,
+            color: AppColors.accentSecondary,
+          ),
+        ),
         const SizedBox(width: AppSpacing.sm),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,6 +237,7 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
     required bool isActive,
     required VoidCallback onTap,
   }) {
+    final l = AppLocalizations.of(context);
     final isTesting = _testingId == '${type}_$id';
     return GlassCard(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -215,33 +245,30 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
       glowColor: isActive ? AppColors.accentPrimary : null,
       child: Row(
         children: [
-          if (isActive)
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: AppColors.accentPrimary,
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-              child: const Icon(Icons.check, color: Colors.white, size: 16),
-            )
-          else
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.glassBorder),
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-            ),
-          const SizedBox(width: AppSpacing.md),
+          // UX-037: Radio-style indicator so users can see the card is
+          // selectable and which profile is currently active.
+          Radio<bool>(
+            value: true,
+            groupValue: isActive,
+            onChanged: (_) => onTap(),
+            activeColor: AppColors.accentPrimary,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Text(name, style: Theme.of(context).textTheme.titleMedium),
+                    Flexible(
+                      child: Text(
+                        name,
+                        style: Theme.of(context).textTheme.titleMedium,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
                     if (isActive) ...[
                       const SizedBox(width: AppSpacing.xs),
                       Container(
@@ -255,9 +282,9 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                           ),
                           borderRadius: BorderRadius.circular(AppRadius.sm),
                         ),
-                        child: const Text(
-                          'Active',
-                          style: TextStyle(
+                        child: Text(
+                          l.t('service.active'),
+                          style: const TextStyle(
                             color: AppColors.accentPrimary,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
@@ -268,11 +295,14 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                   ],
                 ),
                 const SizedBox(height: 2),
+                // UX-040: truncate long URLs so the card height stays stable.
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                        color: AppColors.textSecondary,
+                      ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -284,19 +314,25 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           else
-            PopupMenuButton<String>(
-              color: Theme.of(context).brightness == Brightness.light
-                  ? AppColors.lightBgSecondary
-                  : AppColors.bgSecondary,
+            // UX-038: wrap the popup icon in a 44×44 IconButton so the
+            // touch target meets iOS/Android accessibility guidelines.
+            IconButton(
               icon: const Icon(
                 Icons.more_vert,
                 size: 20,
                 color: AppColors.textMuted,
               ),
-              onSelected: (value) {
+              tooltip: l.t('service.options'),
+              style: IconButton.styleFrom(
+                minimumSize: const Size(44, 44),
+              ),
+              onPressed: () async {
+                final value = await _showProfileMenu(context, isActive);
+                if (value == null) return;
                 switch (value) {
                   case 'edit':
-                    context.push('/profile-form/$type?id=$id');
+                    await context.push('/profile-form/$type?id=$id');
+                    await _loadProfiles();
                     break;
                   case 'test':
                     _testConnection(type, id);
@@ -306,89 +342,81 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
                     break;
                 }
               },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.edit,
-                        size: 18,
-                        color: AppColors.textSecondary,
-                      ),
-                      SizedBox(width: AppSpacing.sm),
-                      Text('Edit'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'test',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.network_check,
-                        size: 18,
-                        color: AppColors.textSecondary,
-                      ),
-                      SizedBox(width: AppSpacing.sm),
-                      Text('Test Connection'),
-                    ],
-                  ),
-                ),
-                // D15: when the profile is active, Delete is disabled with a
-                // hint so the user learns *why* (switch active first) instead
-                // of hitting a snackbar after confirming.
-                if (isActive)
-                  const PopupMenuItem(
-                    enabled: false,
-                    value: '_disabled_delete',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.delete_outline,
-                          size: 18,
-                          color: AppColors.textMuted,
-                        ),
-                        SizedBox(width: AppSpacing.sm),
-                        Text(
-                          'Delete (switch active first)',
-                          style: TextStyle(color: AppColors.textMuted),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.delete_outline,
-                          size: 18,
-                          color: AppColors.error,
-                        ),
-                        SizedBox(width: AppSpacing.sm),
-                        Text(
-                          'Delete',
-                          style: TextStyle(color: AppColors.error),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
             ),
         ],
       ),
     );
   }
 
+  Future<String?> _showProfileMenu(BuildContext context, bool isActive) {
+    final l = AppLocalizations.of(context);
+    return showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit, color: AppColors.textSecondary),
+              title: Text(l.t('service.edit')),
+              onTap: () => Navigator.pop(ctx, 'edit'),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.network_check,
+                color: AppColors.textSecondary,
+              ),
+              title: Text(l.t('service.test_connection')),
+              onTap: () => Navigator.pop(ctx, 'test'),
+            ),
+            if (isActive)
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_outline,
+                  color: AppColors.textMuted,
+                ),
+                title: Text(
+                  l.t('service.delete_active_first'),
+                  style: const TextStyle(color: AppColors.textMuted),
+                ),
+                enabled: false,
+                onTap: null,
+              )
+            else
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_outline,
+                  color: AppColors.error,
+                ),
+                title: Text(
+                  l.t('service.delete'),
+                  style: const TextStyle(color: AppColors.error),
+                ),
+                onTap: () => Navigator.pop(ctx, 'delete'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAddButton(BuildContext context, String type) {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.sm),
-      child: TextButton.icon(
-        onPressed: () => context.push('/profile-form/$type'),
-        icon: const Icon(Icons.add, size: 18),
-        label: const Text('Add Profile'),
+      child: SizedBox(
+        height: 44,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () async {
+              await context.push('/profile-form/$type');
+              await _loadProfiles();
+            },
+            icon: const Icon(Icons.add, size: 18),
+            label: Text(l.t('service.add_profile')),
+          ),
+        ),
       ),
     );
   }
@@ -406,12 +434,20 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
         await repo.setActiveTtsProfile(id);
         break;
     }
+    // BL-077: invalidate the active-profile providers so any consumers
+    // watching them rebuild with the newly activated profile. Services that
+    // still read the repository ad-hoc will pick up the change on their
+    // next request.
+    ref.invalidate(activeLlmProfileProvider);
+    ref.invalidate(activeSttProfileProvider);
+    ref.invalidate(activeTtsProfileProvider);
     await _loadProfiles();
   }
 
   // ========== Export / Import ==========
 
   Future<void> _exportProfiles() async {
+    final l = AppLocalizations.of(context);
     final repo = ref.read(profileRepoProvider);
     try {
       final json = await repo.exportAllProfilesJson();
@@ -432,15 +468,12 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
         await showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            backgroundColor: Theme.of(context).brightness == Brightness.light
-                ? AppColors.lightBgTertiary
-                : AppColors.bgTertiary,
-            title: const Text('Export Complete'),
-            content: Text('Profiles exported to:\n${file.path}'),
+            title: Text(l.t('service.export_complete')),
+            content: Text(l.tArg('service.exported_to', {'path': file.path})),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('OK'),
+                child: Text(l.t('common.ok')),
               ),
             ],
           ),
@@ -449,45 +482,77 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: ${_safeError(e)}')),
+          SnackBar(
+            content: Text(l.tArg('service.export_failed', {'error': _safeError(e)})),
+          ),
         );
       }
     }
   }
 
   Future<void> _importProfiles() async {
+    final l = AppLocalizations.of(context);
     final controller = TextEditingController();
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).brightness == Brightness.light
-            ? AppColors.lightBgTertiary
-            : AppColors.bgTertiary,
-        title: const Text('Import Profiles'),
+        title: Text(l.t('service.import_profiles')),
         content: SizedBox(
           width: double.maxFinite,
-          child: TextField(
-            controller: controller,
-            maxLines: 12,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontFamily: 'monospace',
-              fontSize: 12,
-            ),
-            decoration: const InputDecoration(
-              hintText: 'Paste exported JSON here',
-              border: OutlineInputBorder(),
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: controller,
+                maxLines: 10,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+                decoration: InputDecoration(
+                  hintText: l.t('service.import_hint'),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              // UX-035: file picker so mobile users can import from a file.
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final pick = await FilePicker.platform.pickFiles(
+                    type: FileType.custom,
+                    allowedExtensions: ['json'],
+                    allowMultiple: false,
+                    withData: true,
+                  );
+                  if (pick == null || pick.files.isEmpty) return;
+                  final bytes = pick.files.first.bytes;
+                  final path = pick.files.first.path;
+                  String? text;
+                  if (bytes != null) {
+                    text = utf8.decode(bytes);
+                  } else if (path != null) {
+                    text = await File(path).readAsString();
+                  }
+                  if (text != null && ctx.mounted) {
+                    controller.text = text;
+                  }
+                },
+                icon: const Icon(Icons.folder_open, size: 18),
+                label: Text(l.t('service.import_choose_file')),
+              ),
+            ],
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(l.t('common.cancel')),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('Import'),
+            child: Text(l.t('common.import')),
           ),
         ],
       ),
@@ -503,17 +568,15 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Imported $count profiles. Please edit each to re-enter API keys.',
-            ),
+            content: Text(l.tArg('service.imported_count', {'count': '$count'})),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Invalid JSON')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.t('service.invalid_json'))),
+        );
       }
     }
   }
@@ -521,6 +584,7 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
   // ========== Test Connection ==========
 
   Future<void> _testConnection(String type, String id) async {
+    final l = AppLocalizations.of(context);
     final key = '${type}_$id';
     setState(() => _testingId = key);
 
@@ -533,53 +597,66 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
           profile,
         ).testConnection().timeout(const Duration(seconds: 15));
         final ms = stopwatch.elapsedMilliseconds;
-        result = '✓ Connected (${ms}ms, $count models)';
+        result = l.tArg('profile.connected_models', {
+          'ms': '$ms',
+          'count': '$count',
+        });
       } else if (type == 'stt') {
         final profile = _sttProfiles.firstWhere((p) => p.id == id);
         await SttService(
           profile,
         ).testConnection().timeout(const Duration(seconds: 15));
         final ms = stopwatch.elapsedMilliseconds;
-        result = '✓ Connected (${ms}ms)';
+        result = l.tArg('profile.connected', {
+          'ms': '$ms',
+          'extra': '',
+        });
       } else {
         final profile = _ttsProfiles.firstWhere((p) => p.id == id);
         await TtsService(
           profile,
         ).testConnection().timeout(const Duration(seconds: 15));
         final ms = stopwatch.elapsedMilliseconds;
-        result = '✓ Connected (${ms}ms)';
+        result = l.tArg('profile.connected', {
+          'ms': '$ms',
+          'extra': '',
+        });
       }
     } catch (e) {
-      result = '✗ ${_safeError(e)}';
+      result = l.tArg('profile.error', {'error': _safeError(e)});
     }
 
     if (mounted) {
       setState(() => _testingId = null);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(result)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result)),
+      );
     }
   }
 
   // ========== Delete ==========
 
   Future<void> _confirmDelete(String type, String id, String name) async {
+    final l = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Profile'),
-        content: Text('Are you sure you want to delete "$name"?'),
+        title: Text(l.t('service.delete_profile')),
+        content: Text(l.tArg('service.delete_profile_confirm', {'name': name})),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l.t('common.cancel')),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: AppColors.error),
+          // UX-042: destructive action uses a filled error button so it
+          // stands out from Cancel and matches Material guidelines.
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.textOnAccent,
             ),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l.t('service.delete')),
           ),
         ],
       ),
@@ -600,9 +677,9 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
           break;
       }
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Profile deleted')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.t('service.profile_deleted'))),
+        );
         await _loadProfiles();
       }
     } catch (e) {
@@ -610,16 +687,12 @@ class _ServiceConfigScreenState extends ConsumerState<ServiceConfigScreen> {
         final msg = e.toString();
         if (msg.contains('Cannot delete active')) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Cannot delete the active profile. Switch to another profile first.',
-              ),
-            ),
+            SnackBar(content: Text(l.t('service.cannot_delete_active'))),
           );
         } else {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(_safeError(e))));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_safeError(e))),
+          );
         }
       }
     }

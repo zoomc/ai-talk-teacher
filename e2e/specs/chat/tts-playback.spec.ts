@@ -19,7 +19,7 @@ import {
   expectElementCount,
   expectMinCount,
 } from '../../lib/assertions';
-import { settle, goTo } from '../../helpers';
+import { settle, goTo, sendChatMessage } from '../../helpers';
 import * as bridge from '../../lib/e2e-bridge';
 import {
   setLlmResponse,
@@ -37,12 +37,10 @@ const TEST_SESSION: ChatSessionRow = {
   topic: 'TTS Playback Test',
   scenario_id: null,
   status: 'active',
-  tutor_id: 'tutor-friendly',
   level_tag: 'B1',
   is_guest: 0,
   created_at: '2026-07-25T10:00:00.000Z',
   updated_at: '2026-07-25T10:00:00.000Z',
-  archived_at: null,
 };
 
 const SEEDED_AI_MSG: MessageRow = {
@@ -50,6 +48,7 @@ const SEEDED_AI_MSG: MessageRow = {
   session_id: 'test-session',
   role: 'assistant',
   content: 'Hello! I am your AI tutor. How can I help you practice today?',
+  audio_path: null,
   created_at: '2026-07-25T10:01:00.000Z',
 };
 
@@ -66,8 +65,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('HP-1: AI reply streams and TTS autoplays after first sentence', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 1500);
     await expectText(page, LLM_MOCKS.greeting);
     await expectNoException(page);
@@ -77,8 +75,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('HP-2: TTS audio plays and avatar enters speaking state', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hi', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await page.getByRole('textbox').fill('Hi there!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hi there!');
     await settle(page, 2000);
     await expectText(page, 'Speaking');
     await expectNoException(page);
@@ -88,8 +85,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('HP-3: Playback completes and avatar returns to idle', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hey', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await page.getByRole('textbox').fill('Hey!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hey!');
     await settle(page, 4000);
     await expectText(page, 'Ready');
     await expectNoException(page);
@@ -121,8 +117,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
     await navigate(page, '/chat/test-session');
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 1500);
     await expectText(page, LLM_MOCKS.greeting);
     await expectNoException(page);
@@ -132,8 +127,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('BR-1: Continuous mode plus TTS complete auto-rearms mic', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 4500);
     const mic = page.getByRole('button', { name: /mic|record|microphone/i }).first();
     await expect(mic).toBeVisible({ timeout: 15000 });
@@ -143,8 +137,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('BR-2: Barge-in tap mic during TTS stops playback immediately', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 1500);
     await page.getByRole('button', { name: /mic|record|microphone/i }).first().click().catch(() => {});
     await settle(page, 1500);
@@ -154,8 +147,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('BR-3: TTS speed change mid-playback applies via setSpeed', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 800);
     await bridge.setSetting(page, 'tts_speed', '1.25');
     await settle(page, 1500);
@@ -165,8 +157,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('BR-4: TTS for long reply over 500 chars plays full audio', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'long', LLM_MOCKS.long);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await page.getByRole('textbox').fill('Tell me a long story.');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Tell me a long story.');
     await settle(page, 2500);
     await expectText(page, 'long mock response');
     await expectNoException(page);
@@ -175,11 +166,9 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('BR-5: Multiple AI messages in rapid succession only latest autoplays', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 600);
-    await page.getByRole('textbox').fill('Hi again!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hi again!');
     await settle(page, 2000);
     await expectNoException(page);
   });
@@ -198,8 +187,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('BR-7: Viseme timeline pushed to AvatarStage on TTS success', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 2000);
     await expectText(page, 'Speaking');
     await expectNoException(page);
@@ -208,8 +196,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('BR-8: Viseme timeline cleared on playback completion', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 4500);
     await expectText(page, 'Ready');
     await expectNoException(page);
@@ -220,8 +207,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
     await navigate(page, '/chat/test-session');
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 2000);
     await expectText(page, LLM_MOCKS.greeting);
     await expectNoException(page);
@@ -230,8 +216,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('BR-10: User navigates away mid-TTS playback stops', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 800);
     await navigate(page, '/');
     await settle(page, 1500);
@@ -242,8 +227,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('BR-11: App backgrounded mid-TTS playback pauses', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 800);
     await page.evaluate(() => {
       document.dispatchEvent(new Event('visibilitychange'));
@@ -255,8 +239,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('BR-12: Volume muted at OS level playback proceeds silently', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 2000);
     const canvas = page.locator('canvas').first();
     await expect(canvas).toBeVisible({ timeout: 15000 });
@@ -267,8 +250,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
     await bridge.setMockMode(page, false);
     setLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await mockNetworkError(page, '**/v1/audio/speech*', 401);
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 3000);
     await expectNoException(page);
   });
@@ -277,8 +259,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
     await bridge.setMockMode(page, false);
     setLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await mockNetworkError(page, '**/v1/audio/speech*', 500);
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 3000);
     await expectNoException(page);
   });
@@ -287,8 +268,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
     await bridge.setMockMode(page, false);
     setLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await mockNetworkTimeout(page, '**/v1/audio/speech*');
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 3000);
     await expectNoException(page);
   });
@@ -296,8 +276,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('EX-4: TTS returns empty audio throws TtsException with inline retry', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     await bridge.setMockTtsAudio(page, '');
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 3000);
     await expectNoException(page);
   });
@@ -306,8 +285,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     // Non-audio payload that just_audio cannot decode.
     await bridge.setMockTtsAudio(page, Buffer.from('not-audio-bytes').toString('base64'));
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 2500);
     await page.getByRole('button', { name: /retry/i }).first().click().catch(() => {});
     await settle(page, 1500);
@@ -317,8 +295,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
   test('EX-6: Network offline when TTS requested shows offline banner', async ({ page }) => {
     await bridge.setMockMode(page, false);
     await page.context().setOffline(true);
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 3000);
     await expect(page.getByText(/offline/i).first()).toBeVisible({ timeout: 15000 }).catch(() => {});
     await page.context().setOffline(false);
@@ -329,8 +306,7 @@ test.describe('M06 — Chat: TTS Playback', () => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
     // Garbage base64 — neither mp3 nor wav.
     await bridge.setMockTtsAudio(page, '@@@@malformed-not-audio@@@@');
-    await page.getByRole('textbox').fill('Hello!');
-    await page.getByRole('button', { name: /send/i }).click();
+    await sendChatMessage(page, 'Hello!');
     await settle(page, 3000);
     await expectNoException(page);
   });

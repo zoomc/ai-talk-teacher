@@ -365,6 +365,16 @@ class ProfileRepository {
     return jsonEncode(data);
   }
 
+  /// Detects keys that were masked during export (e.g. `sk-ab****cdef`).
+  /// Imported masked keys must be treated as empty so the user is forced to
+  /// re-enter a real key (BL-096).
+  static String _sanitizeImportedKey(String? key) {
+    if (key == null || key.isEmpty) return '';
+    // Mask pattern: prefix + '****' + suffix, with no other '*'
+    if (key.contains('****') && key.split('*').length == 3) return '';
+    return key;
+  }
+
   Future<int> importProfilesJson(String jsonStr) async {
     final data = jsonDecode(jsonStr) as Map<String, dynamic>;
     int count = 0;
@@ -376,7 +386,7 @@ class ProfileRepository {
           providerId:
               (map['provider_id'] as String?) ?? LlmProviderCatalog.customId,
           baseUrl: map['base_url'] as String? ?? '',
-          apiKey: map['api_key'] as String? ?? '',
+          apiKey: _sanitizeImportedKey(map['api_key'] as String?),
           model: map['model'] as String? ?? '',
         );
         await saveLlmProfile(profile);
@@ -395,7 +405,7 @@ class ProfileRepository {
           name: '${map['name'] ?? ''} (imported)',
           providerId: providerId,
           baseUrl: map['base_url'] as String? ?? '',
-          apiKey: map['api_key'] as String? ?? '',
+          apiKey: _sanitizeImportedKey(map['api_key'] as String?),
           model: map['model'] as String? ?? '',
           language: map['language'] as String? ?? 'en-US',
           extraConfig: map['extra_config'] as String?,

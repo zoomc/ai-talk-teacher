@@ -78,7 +78,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     });
   }
 
-  String _formatTime(DateTime dt) {
+  String _formatTime(AppLocalizations l, DateTime dt) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final that = DateTime(dt.year, dt.month, dt.day);
@@ -86,11 +86,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final hh = dt.hour.toString().padLeft(2, '0');
     final mm = dt.minute.toString().padLeft(2, '0');
     if (diffDays == 0) {
-      return 'Today, $hh:$mm';
+      return '${l.t('history.today')}, $hh:$mm';
     } else if (diffDays == 1) {
-      return 'Yesterday, $hh:$mm';
+      return '${l.t('history.yesterday')}, $hh:$mm';
     } else if (diffDays < 7) {
-      return '$diffDays days ago';
+      return l.tArg('history.days_ago', {'days': '$diffDays'});
     } else {
       final m = dt.month.toString().padLeft(2, '0');
       final d = dt.day.toString().padLeft(2, '0');
@@ -111,8 +111,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       builder: (ctx) => AlertDialog(
         title: Text(l.t('common.delete')),
         content: Text(
-          'Are you sure you want to delete "${session.topic ?? 'Free Talk'}"? '
-          'This also removes its messages and corrections.',
+          l.tArg('history.delete_confirm_body', {
+            'topic': session.topic ?? l.t('history.free_talk'),
+          }),
         ),
         actions: [
           TextButton(
@@ -143,7 +144,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete: ${_safeError(e)}')),
+          SnackBar(content: Text(l.tArg('history.delete_failed', {'error': _safeError(e)}))),
         );
       }
     }
@@ -220,7 +221,44 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
+  Widget _buildNoMatchesState(BuildContext context, AppLocalizations l) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_off,
+                size: 64, color: AppColors.textMuted),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              l.t('history.no_matches'),
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            OutlinedButton.icon(
+              onPressed: () {
+                _searchController.clear();
+                _filter('');
+              },
+              icon: const Icon(Icons.clear),
+              label: Text(l.t('history.clear_search')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildList(BuildContext context, AppLocalizations l) {
+    if (_filtered.isEmpty && _searchQuery.isNotEmpty) {
+      return _buildNoMatchesState(context, l);
+    }
+
     return CustomScrollView(
       slivers: [
         // Search bar
@@ -299,12 +337,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                session.topic ?? 'Free Talk',
+                                session.topic ?? l.t('history.free_talk'),
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                _formatTime(session.updatedAt),
+                                _formatTime(l, session.updatedAt),
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
@@ -319,13 +357,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         TextButton.icon(
                           onPressed: () => context.push(
                               '/pronunciation/${session.id}'),
-                          icon: const Icon(Icons.volume_up, size: 14),
-                          label: const Text('Score',
-                              style: TextStyle(fontSize: 11)),
+                          icon: const Icon(Icons.volume_up, size: 16),
+                          label: Text(l.t('history.score')),
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            minimumSize: Size.zero,
+                                horizontal: 10, vertical: 6),
+                            minimumSize: const Size(44, 44),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                         ),

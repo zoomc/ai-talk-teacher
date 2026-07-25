@@ -18,6 +18,8 @@ class DailyPlanService {
   /// - [recentErrorCount] — number of corrections seen in the last 3 days
   ///   (drives a "review recent mistakes" task when the user is actively
   ///   making new errors).
+  /// - [scenarioDueCount] — S7/S8 — number of scenario review-queue items
+  ///   due today. When >0, adds a high-priority "review scenarios" task.
   /// - [contentEnabled] — S7/S8 — whether structured scenario content is
   ///   enabled in Settings. When true and [recommendedScenarioId] is set,
   ///   the P5 task starts that specific scenario instead of opening the
@@ -41,6 +43,7 @@ class DailyPlanService {
     required bool hasActiveSession,
     required int scenarioCount,
     int recentErrorCount = 0,
+    int scenarioDueCount = 0,
     bool contentEnabled = false,
     String? recommendedScenarioId,
     DateTime? now,
@@ -50,15 +53,17 @@ class DailyPlanService {
 
     // 1. SRS review of due corrections (only when there's something due).
     //    Highest priority — overdue reviews decay memory fastest.
+    //    BL-013: estimate ~20 seconds per card so the displayed duration
+    //    matches the badge count instead of always showing 2 minutes.
     if (dueCount > 0) {
       tasks.add(DailyPlanTask(
         id: 'review',
         titleKey: 'plan.task.review',
         subtitleKey: 'plan.task.review_subtitle',
         icon: Icons.refresh,
-        durationMinutes: 2,
+        durationMinutes: ((dueCount * 20) / 60).ceil().clamp(2, 30),
         action: DailyPlanAction.openReview,
-        badge: '$dueCount',
+        badge: dueCount > 99 ? '99+' : '$dueCount',
         priority: 1,
       ));
     }
@@ -67,6 +72,8 @@ class DailyPlanService {
     //    last 3 days, a focused review of those recent mistakes is more
     //    impactful than generic practice. Lower priority than due SRS cards
     //    (which are on a forgetting-curve deadline) but above warm-ups.
+    //    BL-003: use a dedicated action so the review screen can filter to
+    //    the same recent window instead of opening the generic due queue.
     if (recentErrorCount > 0 && tasks.length < 5) {
       tasks.add(DailyPlanTask(
         id: 'recent_errors',
@@ -74,9 +81,24 @@ class DailyPlanService {
         subtitleKey: 'plan.task.recent_errors_subtitle',
         icon: Icons.spellcheck_outlined,
         durationMinutes: 3,
-        action: DailyPlanAction.openReview,
-        badge: '$recentErrorCount',
+        action: DailyPlanAction.openRecentErrors,
+        badge: recentErrorCount > 99 ? '99+' : '$recentErrorCount',
         priority: 2,
+      ));
+    }
+
+    // BL-010: scenario review queue — when structured content is enabled and
+    // there are scenarios due for review, surface them as a high-priority task.
+    if (scenarioDueCount > 0 && contentEnabled && tasks.length < 5) {
+      tasks.add(DailyPlanTask(
+        id: 'scenario_review',
+        titleKey: 'plan.task.scenario_review',
+        subtitleKey: 'plan.task.scenario_review_subtitle',
+        icon: Icons.school_outlined,
+        durationMinutes: 5,
+        action: DailyPlanAction.openScenarios,
+        badge: scenarioDueCount > 99 ? '99+' : '$scenarioDueCount',
+        priority: 1,
       ));
     }
 
@@ -153,24 +175,57 @@ class DailyPlanService {
   /// count, and (S7/S8) content-settings + recommended scenario in one
   /// pass so the plan reflects live repository state.
   Future<DailyPlan> buildFromRepository(ChatRepository repo) async {
-    final dueCount = await repo.getDueCorrectionCount();
-    final active = await repo.getActiveSession();
-    final scenarios = await repo.getAllScenarios();
-    final recentErrors = await _getRecentErrorCount(repo);
+    // BL-030: wrap each repository call so a single failure doesn't leave
+    // the user with an empty daily plan. Defaults keep the baseline tasks.
+    int dueCount = 0;
+    bool hasActiveSession = false;
+    int scenarioCount = 0;
+    int recentErrors = 0;
+    int scenarioDueCount = 0;
+    bool contentEnabled = false;
+    int dailyCount = 3;
+    String? recommendedId;
+    try {
+      dueCount = await repo.getDueCorrectionCount();
+    } catch (_) {}
+    try {
+      final active = await repo.getActiveSession();
+      // BL-029: only count a session as "active for today" if it was updated
+      // within the last 6 hours, preventing stale sessions from skipping the
+      // voice-health warm-up.
+      if (active != null) {
+        final cutoff = DateTime.now().subtract(const Duration(hours: 6));
+        hasActiveSession = active.updatedAt.isAfter(cutoff);
+      }
+    } catch (_) {}
+    try {
+      final scenarios = await repo.getAllScenarios();
+      scenarioCount = scenarios.length;
+    } catch (_) {}
+    try {
+      recentErrors = await _getRecentErrorCount(repo);
+    } catch (_) {}
+    try {
+      scenarioDueCount = await repo.getDueScenarioReviewQueueCount();
+    } catch (_) {}
     // S7/S8 — pull content settings + today's recommended scenario so the
     // P5 task can start a specific scenario when content is enabled.
-    final contentEnabled = await repo.getContentEnabled();
-    final dailyCount = await repo.getDailyScenarioRecommendationCount();
-    String? recommendedId;
+    try {
+      contentEnabled = await repo.getContentEnabled();
+      dailyCount = await repo.getDailyScenarioRecommendationCount();
+    } catch (_) {}
     if (contentEnabled) {
-      final recs = await repo.getRecommendedScenarios(limit: dailyCount);
-      if (recs.isNotEmpty) recommendedId = recs.first.id;
+      try {
+        final recs = await repo.getRecommendedScenarios(limit: dailyCount);
+        if (recs.isNotEmpty) recommendedId = recs.first.id;
+      } catch (_) {}
     }
     return buildForToday(
       dueCount: dueCount,
-      hasActiveSession: active != null,
-      scenarioCount: scenarios.length,
+      hasActiveSession: hasActiveSession,
+      scenarioCount: scenarioCount,
       recentErrorCount: recentErrors,
+      scenarioDueCount: scenarioDueCount,
       contentEnabled: contentEnabled,
       recommendedScenarioId: recommendedId,
     );

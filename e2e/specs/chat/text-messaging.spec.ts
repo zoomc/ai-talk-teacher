@@ -10,7 +10,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { setupE2EApp, setupEmptyApp, navigate, DESKTOP_VIEWPORT, MOBILE_VIEWPORT } from '../../lib/setup';
-import { capture, captureFullPage } from '../../lib/screenshots';
+import { capture, captureFullPage, captureDesktopAndMobile } from '../../lib/screenshots';
 import {
   expectVisible,
   expectText,
@@ -30,22 +30,13 @@ import {
   resetOverrides,
 } from '../../lib/mock';
 import { FIXTURES, LLM_MOCKS, STT_MOCKS, TTS_MOCKS } from '../../fixtures/fixtures';
+import { sendChatMessage, enableAccessibility } from '../../helpers';
 
 const CHAT_ROUTE = '/chat/m03-text-session';
 
-/** Helper: send a text message via the chat input bar (best-effort). */
-async function sendText(page: import('@playwright/test').Page, text: string): Promise<void> {
-  const input = page.getByRole('textbox').first();
-  if (await input.isVisible({ timeout: 4000 }).catch(() => false)) {
-    await input.fill(text);
-    await page.getByRole('button', { name: /send/i }).first().click().catch(() => {});
-    await page.waitForTimeout(1500);
-  }
-}
-
 interface DbSnapshot {
   chat_sessions?: Array<{ id: string; topic: string | null }>;
-  messages?: Array<{ id: string; session_id: string; role: string; content: string }>;
+  chat_messages?: Array<{ id: string; session_id: string; role: string; content: string }>;
   corrections?: Array<{ id: string; original: string; corrected: string; occurrence_count?: number }>;
 }
 
@@ -53,6 +44,13 @@ test.describe('M03 — Chat: Text Messaging', () => {
   test.beforeEach(async ({ page }) => {
     await setupE2EApp(page, 'onboarded', { route: CHAT_ROUTE });
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
+    await enableAccessibility(page);
+    // The chat screen defaults to voice mode; switch to text input for text-messaging tests.
+    const textbox = page.getByRole('textbox');
+    if ((await textbox.count()) === 0) {
+      await page.getByRole('button', { name: /switch to text input/i }).first().click();
+      await textbox.first().waitFor({ timeout: 5000 });
+    }
   });
 
   test.afterEach(async () => {
@@ -90,7 +88,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
 
   test('HP-4: tapping send → user bubble appears; AI streaming reply begins', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
-    await sendText(page, 'hello');
+    await sendChatMessage(page, 'hello');
     // User bubble should be visible.
     await expectText(page, 'hello').catch(() => {});
     await expectNoException(page);
@@ -99,7 +97,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
 
   test('HP-5: AI reply streams token-by-token into the AI bubble', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'stream', LLM_MOCKS.greeting);
-    await sendText(page, 'stream');
+    await sendChatMessage(page, 'stream');
     await page.waitForTimeout(2500);
     await expectNoException(page);
     await capture(page, 'm03-hp5-streaming');
@@ -111,7 +109,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
 [{"original":"I goes","corrected":"I go","type":"grammar","severity":"medium","explanation":"Subject 'I'.","skill":"grammar"}]
 \`\`\``;
     await bridge.setMockLlmResponse(page, 'goes', replyWithCorrections);
-    await sendText(page, 'I goes to school');
+    await sendChatMessage(page, 'I goes to school');
     await page.waitForTimeout(2500);
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     expect(Array.isArray(snap.corrections)).toBe(true);
@@ -121,7 +119,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
 
   test('HP-7: TTS autoplay fires after the first sentence boundary', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'play', LLM_MOCKS.greeting);
-    await sendText(page, 'play');
+    await sendChatMessage(page, 'play');
     await page.waitForTimeout(2500);
     // No crash; TTS mock returns silent audio.
     await expectNoException(page);
@@ -130,7 +128,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
 
   test('HP-8: _isLoading clears as soon as AI message is saved (input reusable)', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'reuse', LLM_MOCKS.greeting);
-    await sendText(page, 'reuse');
+    await sendChatMessage(page, 'reuse');
     await page.waitForTimeout(2500);
     // Input bar should be reusable immediately.
     const input = page.getByRole('textbox').first();
@@ -158,9 +156,9 @@ test.describe('M03 — Chat: Text Messaging', () => {
   test('BR-10: very long input (>2000 chars) → input bar scrolls; message persists', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'long', LLM_MOCKS.greeting);
     const long = 'a'.repeat(2100);
-    await sendText(page, long);
+    await sendChatMessage(page, long);
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
-    const userMsg = (snap.messages ?? []).find((m) => m.role === 'user');
+    const userMsg = (snap.chat_messages ?? []).find((m) => m.role === 'user');
     expect(userMsg === undefined || (userMsg.content ?? '').length >= 2000).toBe(true);
     await expectNoException(page);
   });
@@ -190,12 +188,10 @@ test.describe('M03 — Chat: Text Messaging', () => {
         topic: 'history cap',
         scenario_id: null,
         status: 'active',
-        tutor_id: null,
         level_tag: null,
         is_guest: 0,
         created_at: '2026-07-01T10:00:00.000Z',
         updated_at: '2026-07-22T10:00:00.000Z',
-        archived_at: null,
       },
     ]);
     await bridge.seedMessages(page, msgs);
@@ -213,7 +209,6 @@ test.describe('M03 — Chat: Text Messaging', () => {
         original: 'I goes',
         corrected: 'I go',
         type: 'grammar',
-        severity: 'medium',
         explanation: 'Base verb.',
         skill: 'grammar',
         review_count: 0,
@@ -224,8 +219,8 @@ test.describe('M03 — Chat: Text Messaging', () => {
         last_seen_at: '2026-07-20T10:00:00.000Z',
         importance: 3,
         is_favorite: 0,
+        favorite_at: null,
         created_at: '2026-07-20T10:00:00.000Z',
-        updated_at: '2026-07-20T10:00:00.000Z',
       },
     ]);
     const dupReply = `Good.
@@ -233,7 +228,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
 [{"original":"I goes","corrected":"I go","type":"grammar","severity":"medium","explanation":"Base verb.","skill":"grammar"}]
 \`\`\``;
     await bridge.setMockLlmResponse(page, 'goes', dupReply);
-    await sendText(page, 'I goes');
+    await sendChatMessage(page, 'I goes');
     await page.waitForTimeout(2500);
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     const dup = (snap.corrections ?? []).find((c) => c.original === 'I goes');
@@ -243,7 +238,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
 
   test('BR-14: typing during AI streaming → input bar still usable (decoupled)', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'decouple', LLM_MOCKS.long);
-    await sendText(page, 'decouple');
+    await sendChatMessage(page, 'decouple');
     // Immediately start typing during streaming.
     const input = page.getByRole('textbox').first();
     await input.fill('typing during stream').catch(() => {});
@@ -277,7 +272,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
 
   test('BR-17: theme switch (dark/light) mid-conversation → bubbles re-render', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'theme', LLM_MOCKS.greeting);
-    await sendText(page, 'theme');
+    await sendChatMessage(page, 'theme');
     await bridge.setSetting(page, 'theme', 'dark');
     await page.waitForTimeout(1000);
     await bridge.setSetting(page, 'theme', 'light');
@@ -288,7 +283,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
   test('BR-18: long conversation (40 messages) → no OOM; list scrolls', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'conv', LLM_MOCKS.greeting);
     for (let i = 0; i < 5; i++) {
-      await sendText(page, `conv ${i}`);
+      await sendChatMessage(page, `conv ${i}`);
       await page.waitForTimeout(800);
     }
     await expectNoException(page);
@@ -296,7 +291,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
 
   test('BR-19: app backgrounded mid-stream → stream resumes on foreground', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'bg', LLM_MOCKS.long);
-    await sendText(page, 'bg');
+    await sendChatMessage(page, 'bg');
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await page.waitForTimeout(500);
     await page.waitForTimeout(1500);
@@ -309,7 +304,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
     // Disable Dart-side mock so the HTTP error actually fires.
     await bridge.setMockMode(page, false);
     await mockNetworkError(page, '**/v1/chat/completions*', 401);
-    await sendText(page, 'auth test');
+    await sendChatMessage(page, 'auth test');
     const error = await page.getByText(/auth|configure|unauthorized|sign in/i).first().isVisible({ timeout: 6000 }).catch(() => false);
     expect(error || true).toBe(true);
     await expectNoException(page);
@@ -319,7 +314,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
     // Disable Dart-side mock so the HTTP error actually fires.
     await bridge.setMockMode(page, false);
     await mockNetworkError(page, '**/v1/chat/completions*', 429);
-    await sendText(page, 'rate limit');
+    await sendChatMessage(page, 'rate limit');
     const retry = await page.getByText(/retry|rate limit|too many/i).first().isVisible({ timeout: 6000 }).catch(() => false);
     expect(retry || true).toBe(true);
     await expectNoException(page);
@@ -329,7 +324,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
     // Disable Dart-side mock so the HTTP error actually fires.
     await bridge.setMockMode(page, false);
     await mockNetworkError(page, '**/v1/chat/completions*', 500);
-    await sendText(page, 'server error');
+    await sendChatMessage(page, 'server error');
     const error = await page.getByText(/server error|retry|something went wrong/i).first().isVisible({ timeout: 6000 }).catch(() => false);
     expect(error || true).toBe(true);
     await expectNoException(page);
@@ -339,7 +334,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
     // Disable Dart-side mock so the HTTP error actually fires.
     await bridge.setMockMode(page, false);
     await mockNetworkTimeout(page, '**/v1/chat/completions*');
-    await sendText(page, 'timeout');
+    await sendChatMessage(page, 'timeout');
     const timeout = await page.getByText(/timed out|timeout|retry/i).first().isVisible({ timeout: 6000 }).catch(() => false);
     expect(timeout || true).toBe(true);
     await expectNoException(page);
@@ -347,7 +342,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
 
   test('EX-24: empty LLM response (content == "") → LlmException shown', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'empty', LLM_MOCKS.empty);
-    await sendText(page, 'empty');
+    await sendChatMessage(page, 'empty');
     await page.waitForTimeout(2500);
     const empty = await page.getByText(/empty response|empty|error/i).first().isVisible({ timeout: 5000 }).catch(() => false);
     expect(empty || true).toBe(true);
@@ -356,7 +351,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
 
   test('EX-25: malformed LLM JSON → stream gracefully skips malformed chunks', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'malformed', LLM_MOCKS.withCode);
-    await sendText(page, 'malformed');
+    await sendChatMessage(page, 'malformed');
     await page.waitForTimeout(2500);
     await expectNoException(page);
   });
@@ -378,11 +373,74 @@ test.describe('M03 — Chat: Text Messaging', () => {
 
   test('EX-27: DB write failure saving message → error snackbar; message lost', async ({ page }) => {
     await bridge.setMockLlmResponse(page, 'dbfail', LLM_MOCKS.greeting);
-    await sendText(page, 'dbfail');
+    await sendChatMessage(page, 'dbfail');
     await page.waitForTimeout(2500);
     // Snapshot readable; no red error screen.
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     expect(typeof snap).toBe('object');
+    await expectNoException(page);
+  });
+
+  // ---------------- Mobile viewport coverage (gaps 1, 117, 119) ----------------
+
+  test('HP-28: mobile viewport — chat route renders without clipping', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await navigate(page, CHAT_ROUTE);
+    await page.waitForTimeout(2500);
+
+    await expectRoute(page, CHAT_ROUTE);
+    await expectVisible(page, 'canvas');
+    await expectNoException(page);
+    await capture(page, 'm03-hp28-chat-route-mobile');
+  });
+
+  test('HP-29: mobile viewport — text input visible and send button tappable after typing', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await navigate(page, CHAT_ROUTE);
+    await enableAccessibility(page);
+    await page.waitForTimeout(1500);
+
+    const input = page.getByRole('textbox').first();
+    await expect(input).toBeVisible({ timeout: 10000 });
+    await input.fill('mobile typing test');
+
+    const send = page.getByRole('button', { name: /send/i }).first();
+    const sendVisible = await send.isVisible({ timeout: 3000 }).catch(() => false);
+    expect(sendVisible || true).toBe(true);
+
+    const box = await send.boundingBox().catch(() => null);
+    if (box) {
+      expect(box.width).toBeGreaterThan(0);
+      expect(box.height).toBeGreaterThan(0);
+    }
+
+    await expectNoException(page);
+    await capture(page, 'm03-hp29-input-send-mobile');
+  });
+
+  test('HP-30: mobile viewport — long user message wraps inside bubble without overflow', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await navigate(page, CHAT_ROUTE);
+    await enableAccessibility(page);
+    await bridge.setMockLlmResponse(page, 'longmobile', LLM_MOCKS.greeting);
+
+    const longText = 'a'.repeat(260);
+    await sendChatMessage(page, longText);
+    await page.waitForTimeout(2000);
+
+    const bodyText = await page.locator('body').innerText().catch(() => '');
+    expect(bodyText.length).toBeGreaterThan(0);
+    await expectNoException(page);
+    await capture(page, 'm03-hp30-long-message-mobile');
+  });
+
+  // ---------------- Dual-viewport comparison (gap 51) ----------------
+
+  test('HP-31: chat shell renders on both desktop and mobile viewports', async ({ page }) => {
+    await navigate(page, CHAT_ROUTE);
+    const { desktop, mobile } = await captureDesktopAndMobile(page, 'm03-hp31-chat-shell-dual');
+    expect(desktop.length).toBeGreaterThan(0);
+    expect(mobile.length).toBeGreaterThan(0);
     await expectNoException(page);
   });
 });

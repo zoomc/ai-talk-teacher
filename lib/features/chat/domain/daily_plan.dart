@@ -67,6 +67,9 @@ enum DailyPlanAction {
   /// Push /review — SRS correction review.
   openReview,
 
+  /// Push /review?filter=recent — corrections seen in the last 3 days.
+  openRecentErrors,
+
   /// Push /practice — sentence-by-sentence practice mode.
   openPractice,
 

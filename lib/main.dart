@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -133,6 +134,7 @@ class SpeakFlowApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
+      scrollBehavior: const _AppScrollBehavior(),
       // i18n: app strings + Material/Cupertino built-in strings
       // (toolbar back button, date picker, etc.) for all 7 locales.
       localizationsDelegates: const [
@@ -147,4 +149,17 @@ class SpeakFlowApp extends ConsumerWidget {
       builder: (context, child) => AppBanners(child: child!),
     );
   }
+}
+
+/// Enables mouse-drag and trackpad scrolling on desktop and web.
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  const _AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+  };
 }

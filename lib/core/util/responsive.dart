@@ -31,12 +31,29 @@ enum FormFactor { phone, tablet, desktop }
 class Responsive {
   Responsive._();
 
+  // -- Breakpoint tokens ------------------------------------------------
+
+  static const double _breakpointCompact = 600;
+  static const double _breakpointMedium = 1240;
+  static const double _legacyWideThreshold = 900;
+  static const double _sideBySidePhoneLandscapeWidth = 700;
+  static const double _shortViewportThreshold = 480;
+  static const double _tabletShortEdgeThreshold = 768;
+  static const double _desktopLongEdgeThreshold = 1240;
+  static const double _gridColumnsExpanded = 1400;
+  static const double _gridColumnsMedium = 900;
+  static const double _gridColumnsCompact = 600;
+  static const double _navRailCollapsedWidth = 72;
+  static const double _navRailExpandedWidth = 200;
+  static const double _sidePanelMin = 280;
+  static const double _sidePanelMax = 400;
+
   // -- Width breakpoints ------------------------------------------------
 
   static Breakpoint breakpointOf(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    if (width >= 1240) return Breakpoint.expanded;
-    if (width >= 600) return Breakpoint.medium;
+    if (width >= _breakpointMedium) return Breakpoint.expanded;
+    if (width >= _breakpointCompact) return Breakpoint.medium;
     return Breakpoint.compact;
   }
 
@@ -51,28 +68,30 @@ class Responsive {
 
   /// True for phone-class widths.
   static bool isMobile(BuildContext context) =>
-      MediaQuery.sizeOf(context).width < 600;
+      MediaQuery.sizeOf(context).width < _breakpointCompact;
 
   /// Tablet or desktop — anything wide enough to consider side-by-side.
   /// Note: this is the *legacy* 900dp threshold used by chat_screen. For
   /// finer control prefer [formFactorOf] / [shouldUseSideBySide].
+  @Deprecated('Use shouldUseSideBySide or breakpointOf instead')
   static bool isWide(BuildContext context) =>
-      MediaQuery.sizeOf(context).width >= 900;
+      MediaQuery.sizeOf(context).width >= _legacyWideThreshold;
 
   // -- Form factor ------------------------------------------------------
 
   /// Coarse device class. iPad (any orientation) → tablet; phone (any
   /// orientation) → phone; wide browser/desktop → desktop.
   ///
-  /// We classify by the *long edge* so an iPad in portrait (768×1024)
-  /// and in landscape (1024×768) both report [FormFactor.tablet]. This
-  /// is what lets us give every iPad a split-view chat regardless of
-  /// orientation.
+  /// Uses [shortestSide] instead of longestSide so large phones
+  /// (e.g. iPhone 14 Pro Max 430×932) are not misclassified as tablets.
   static FormFactor formFactorOf(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    final shortEdge = size.shortestSide;
     final longEdge = size.longestSide;
-    if (longEdge >= 1240) return FormFactor.desktop;
-    if (longEdge >= 768) return FormFactor.tablet;
+    if (longEdge >= _desktopLongEdgeThreshold && shortEdge >= _breakpointCompact) {
+      return FormFactor.desktop;
+    }
+    if (shortEdge >= _tabletShortEdgeThreshold) return FormFactor.tablet;
     return FormFactor.phone;
   }
 
@@ -87,16 +106,29 @@ class Responsive {
 
   // -- Orientation ------------------------------------------------------
 
-  static bool isPortrait(BuildContext context) =>
-      MediaQuery.sizeOf(context).height >= MediaQuery.sizeOf(context).width;
+  static bool isPortrait(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    return size.height > size.width;
+  }
 
-  static bool isLandscape(BuildContext context) => !isPortrait(context);
+  static bool isLandscape(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    return size.width > size.height;
+  }
 
-  /// True when the viewport is too short to show a stacked character
-  /// panel above the chat — e.g. iPhone landscape (~390pt tall) or
+  static bool isSquare(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    return size.width == size.height;
+  }
+
+  /// True when the available content height is too short to show a stacked
+  /// character panel above the chat — e.g. iPhone landscape (~390pt tall) or
   /// iPad Split View sliver. Callers should hide/shrink the panel.
-  static bool isShortViewport(BuildContext context) =>
-      MediaQuery.sizeOf(context).height < 480;
+  static bool isShortViewport(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final availableHeight = mq.size.height - mq.viewInsets.bottom - mq.padding.bottom;
+    return availableHeight < _shortViewportThreshold;
+  }
 
   // -- Layout regime decisions -----------------------------------------
 
@@ -104,7 +136,7 @@ class Responsive {
   /// the character panel beside the chat instead of stacked on top.
   ///
   /// Returns true when:
-  ///   - The form factor is tablet/desktop (≥768 long edge), OR
+  ///   - The form factor is tablet/desktop (≥768 short edge), OR
   ///   - The width is ≥900 (legacy wide-browser threshold), OR
   ///   - We're on a phone in landscape with ≥700pt width AND a
   ///     not-short viewport (so the panel doesn't dominate).
@@ -114,22 +146,24 @@ class Responsive {
   /// shown at all.
   static bool shouldUseSideBySide(BuildContext context) {
     final ff = formFactorOf(context);
-    if (ff == FormFactor.desktop) return true;
     final w = MediaQuery.sizeOf(context).width;
-    if (ff == FormFactor.tablet) {
-      // On a portrait tablet under 900pt (e.g. iPad mini portrait 768pt),
-      // stacking gives the chat column the full width — the side-by-side
-      // 280pt panel + 488pt chat feels cramped on a 768pt device.
-      // Landscape tablets (≥1024pt) and portrait tablets ≥900pt get
-      // side-by-side.
-      if (isPortrait(context) && w < 900) return false;
-      return true;
-    }
-    if (w >= 900) return true;
-    if (isLandscape(context) && w >= 700 && !isShortViewport(context)) {
-      return true;
-    }
-    return false;
+
+    final isDesktopLayout = ff == FormFactor.desktop;
+    final isWideTabletLandscape = ff == FormFactor.tablet && !isPortrait(context);
+    final isLargePortraitTablet = ff == FormFactor.tablet &&
+        isPortrait(context) &&
+        w >= _legacyWideThreshold;
+    final isLegacyWide = w >= _legacyWideThreshold;
+    final isPhoneLandscapeSideBySide = isLandscape(context) &&
+        ff == FormFactor.phone &&
+        w >= _sideBySidePhoneLandscapeWidth &&
+        !isShortViewport(context);
+
+    return isDesktopLayout ||
+        isWideTabletLandscape ||
+        isLargePortraitTablet ||
+        isLegacyWide ||
+        isPhoneLandscapeSideBySide;
   }
 
   /// On a short phone-landscape viewport (~390pt tall) the stacked
@@ -145,6 +179,8 @@ class Responsive {
   /// Max width to constrain full-bleed content on large screens so
   /// text lines stay readable on desktop browsers.
   ///
+  /// These are *upper bounds*; callers should clamp with the actual
+  /// available width using `min(availableWidth, contentMaxWidth(...))`.
   /// Tablet-tier (medium) is bumped from 640 → 880 so iPads actually
   /// use their width instead of leaving ~300pt of dead centered space.
   static double contentMaxWidth(BuildContext context) {
@@ -158,12 +194,19 @@ class Responsive {
     }
   }
 
+  /// Width of the navigation rail in the current breakpoint.
+  static double navRailWidth(BuildContext context) {
+    return isExpanded(context) ? _navRailExpandedWidth : _navRailCollapsedWidth;
+  }
+
   /// Side-panel width (character / sidebar) on wide layouts.
-  static double sidePanelWidth(BuildContext context) {
-    final w = MediaQuery.sizeOf(context).width;
-    // Keep the chat column ~60% of the screen, panel takes the rest
-    // but is clamped so it never gets cramped or absurdly wide.
-    return (w * 0.36).clamp(280.0, 400.0);
+  /// [bodyWidth] is the available width after the nav rail has been
+  /// subtracted. If omitted the full screen width is used.
+  static double sidePanelWidth(BuildContext context, {double? bodyWidth}) {
+    final w = bodyWidth ?? MediaQuery.sizeOf(context).width;
+    // Keep the chat column ~60% of the available body width, panel takes
+    // the rest but is clamped so it never gets cramped or absurdly wide.
+    return (w * 0.36).clamp(_sidePanelMin, _sidePanelMax);
   }
 
   /// Suggested diameter (px) of the virtual character circle.
@@ -198,18 +241,19 @@ class Responsive {
 
   /// Vertical height of the character panel when stacked on top of chat
   /// (compact/medium). On expanded layouts the panel sits beside the chat
-  /// and uses its intrinsic height instead. Returns 0 when the panel
-  /// should be hidden (short landscape phone).
-  static double characterPanelHeight(BuildContext context) {
+  /// and should use its intrinsic height — callers must provide a bounded
+  /// parent. Returns 0 when the panel should be hidden (short landscape
+  /// phone).
+  static double? characterPanelHeight(BuildContext context) {
     if (shouldHideStackedCharacterPanel(context)) return 0;
-    if (shouldUseSideBySide(context)) return double.infinity;
+    if (shouldUseSideBySide(context)) return null;
     switch (breakpointOf(context)) {
       case Breakpoint.compact:
         return 184;
       case Breakpoint.medium:
         return 208;
       case Breakpoint.expanded:
-        return double.infinity;
+        return null;
     }
   }
 
@@ -226,26 +270,28 @@ class Responsive {
   }
 
   /// Number of columns for grid-style content (Quick Start cards, etc.).
-  /// Adds an expanded-tablet tier so iPads in landscape get 3 columns
-  /// and iPad Pro / desktop gets 4.
-  static int gridColumnCount(BuildContext context) {
-    final w = MediaQuery.sizeOf(context).width;
+  /// [bodyWidth] lets callers subtract the nav rail width so column counts
+  /// are accurate on desktop layouts.
+  static int gridColumnCount(BuildContext context, {double? bodyWidth}) {
+    final w = bodyWidth ?? MediaQuery.sizeOf(context).width;
     // Grid density is determined by usable *width*. A 390×844 phone has a
     // tablet-sized long edge, but still only has room for one readable card.
-    if (w >= 1400) return 4;
-    if (w >= 900) return 3;
-    if (w >= 600) return 2;
+    if (w >= _gridColumnsExpanded) return 4;
+    if (w >= _gridColumnsMedium) return 3;
+    if (w >= _gridColumnsCompact) return 2;
     return 1;
   }
 
   /// Number of columns for stat-card grids (smaller cards, can pack
   /// tighter than quick-action cards).
-  static int statCardColumnCount(BuildContext context) {
+  static int statCardColumnCount(BuildContext context, {double? bodyWidth}) {
     final ff = formFactorOf(context);
-    final w = MediaQuery.sizeOf(context).width;
-    if (ff == FormFactor.desktop || w >= 1400) return 4;
-    if (ff == FormFactor.tablet || w >= 900) return 3;
-    if (w >= 600) return 2;
+    final w = bodyWidth ?? MediaQuery.sizeOf(context).width;
+    if (ff == FormFactor.desktop || w >= _gridColumnsExpanded) return 4;
+    if (ff == FormFactor.tablet || w >= _gridColumnsMedium) return 3;
+    if (w >= _gridColumnsCompact) return 2;
+    // Very narrow phones (e.g. iPhone SE) fall back to 1 column.
+    if (w < 360) return 1;
     // Phone: 2 columns fits even on SE, 1 is too sparse for stats.
     return 2;
   }
@@ -260,13 +306,18 @@ class Responsive {
 
   /// Whether the bottom navigation bar should be shown.
   ///
-  /// Phone portrait must be determined from its *usable width*, not its long
-  /// edge: a 390×844 iPhone has a long edge above 768 but is still a phone.
-  /// The old form-factor-only condition incorrectly rendered a desktop rail
-  /// and crushed the actual content into a narrow column.
-  static bool useBottomNav(BuildContext context) =>
-      MediaQuery.sizeOf(context).width < 600 ||
-      formFactorOf(context) == FormFactor.phone;
+  /// Uses width as the primary signal, but desktop-class windows that
+  /// happen to be narrow (e.g. split-screen) keep the rail so the content
+  /// area isn't crushed by a phone-style bottom bar.
+  static bool useBottomNav(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    final ff = formFactorOf(context);
+    if (ff == FormFactor.desktop) return false;
+    // Wide phone landscape / foldable expanded keeps the rail so the
+    // content area isn't crushed by a phone-style bottom bar (UX-033, UX-050).
+    if (ff == FormFactor.phone && w >= _breakpointCompact) return false;
+    return w < _breakpointCompact;
+  }
 
   /// Whether to render the side navigation rail.
   static bool useNavRail(BuildContext context) => !useBottomNav(context);

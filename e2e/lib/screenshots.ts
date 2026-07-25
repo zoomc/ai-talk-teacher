@@ -10,11 +10,13 @@
  * `e2e/baselines/` and `compareWithBaseline` performs a pixel diff.
  * Both are stubs for now (per plan decision: no visual regression in v1).
  */
-import { Page } from '@playwright/test';
+import { Page, test } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 
-const SHOT_DIR = path.resolve(__dirname, '..', 'screenshots');
+const SHOT_DIR = process.env.E2E_SCREENSHOT_DIR
+  ? path.resolve(process.env.E2E_SCREENSHOT_DIR)
+  : path.resolve(__dirname, '..', 'screenshots');
 const BASELINE_DIR = path.resolve(__dirname, '..', 'baselines');
 
 function ensureDir(dir: string): void {
@@ -24,12 +26,35 @@ function ensureDir(dir: string): void {
 }
 
 /**
+ * Try to get the current Playwright project name so screenshots from
+ * different browser projects (chromium / mobile-chrome) do not overwrite
+ * each other. Returns undefined when called outside a test context.
+ */
+function getProjectName(): string | undefined {
+  try {
+    return test.info().project.name;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Build a unique screenshot filename. If a project name is available,
+ * suffix it so dual-viewport runs keep both images.
+ */
+function buildFileName(name: string, suffix?: string): string {
+  const parts = suffix ? [name, suffix] : [name];
+  return `${parts.join('--')}.png`;
+}
+
+/**
  * Capture a viewport screenshot (only what's visible in the browser window).
  * Use this for tests that verify a specific viewport's rendering.
  */
 export async function capture(page: Page, name: string): Promise<string> {
   ensureDir(SHOT_DIR);
-  const filePath = path.join(SHOT_DIR, `${name}.png`);
+  const fileName = buildFileName(name, getProjectName());
+  const filePath = path.join(SHOT_DIR, fileName);
   await page.screenshot({
     path: filePath,
     fullPage: false,
@@ -45,7 +70,8 @@ export async function capture(page: Page, name: string): Promise<string> {
  */
 export async function captureFullPage(page: Page, name: string): Promise<string> {
   ensureDir(SHOT_DIR);
-  const filePath = path.join(SHOT_DIR, `${name}-full.png`);
+  const fileName = buildFileName(`${name}-full`, getProjectName());
+  const filePath = path.join(SHOT_DIR, fileName);
   await page.screenshot({
     path: filePath,
     fullPage: true,
@@ -64,7 +90,8 @@ export async function captureElement(
   name: string,
 ): Promise<string> {
   ensureDir(SHOT_DIR);
-  const filePath = path.join(SHOT_DIR, `${name}.png`);
+  const fileName = buildFileName(name, getProjectName());
+  const filePath = path.join(SHOT_DIR, fileName);
   const loc = page.locator(selector).first();
   await loc.screenshot({ path: filePath, type: 'png' });
   return filePath;
@@ -89,6 +116,26 @@ export async function captureAtViewport(
       await page.setViewportSize(original);
     }
   }
+}
+
+/**
+ * Capture desktop-only and mobile-only screenshots for the same feature.
+ * Useful when a spec wants to guarantee both viewports are reviewed even
+ * though the current Playwright project only provides one viewport.
+ */
+export async function captureDesktopAndMobile(
+  page: Page,
+  name: string,
+): Promise<{ desktop: string; mobile: string }> {
+  const desktopPath = await captureAtViewport(page, `${name}--desktop`, {
+    width: 1280,
+    height: 800,
+  });
+  const mobilePath = await captureAtViewport(page, `${name}--mobile`, {
+    width: 375,
+    height: 812,
+  });
+  return { desktop: desktopPath, mobile: mobilePath };
 }
 
 /**

@@ -35,20 +35,27 @@ const List<String> _allTables = <String>[
   'stt_profiles',
   'tts_profiles',
   'chat_sessions',
-  'messages',
+  'chat_messages',
   'corrections',
-  'review_queue',
   'scenarios',
-  'scenario_items',
-  'scenario_review_queue',
+  'user_settings',
+  'phoneme_score_sets',
+  'phoneme_scores',
   'practice_log',
+  'review_queue',
   'skill_mastery',
-  'user_goals',
-  'settings',
+  'user_goal',
+  'scenario_items',
+  'teacher_persona',
+  'scenario_review_queue',
   'projects',
   'project_links',
   'project_activities',
-  'teacher_persona',
+  'pronunciation_reports',
+  'weak_areas',
+  'session_snapshots',
+  'expression_suggestions',
+  'session_metadata',
 ];
 
 /// In-memory map of LLM prompt-substring → canned reply. Populated by
@@ -117,7 +124,7 @@ class E2eBridge {
   static void exposeHooks() {
     if (!kE2E) return;
     // Bind each Dart function to the global JS object.
-    globalContext['speakflowE2E'] = _buildJsBridge().toJS;
+    _speakflowE2E = _buildJsBridge();
     debugPrint('[E2E] Bridge hooks exposed as window.speakflowE2E');
   }
 
@@ -126,41 +133,56 @@ class E2eBridge {
 }
 
 /// Construct the JS-exposable bridge object.
+///
+/// Every bridged function is converted to a [JSFunction] via `.toJS`. The
+/// lambdas must return [JSPromise] values (not Dart [Future]) so the JS
+/// interop compiler accepts the signature. We therefore call `.toJS` on the
+/// returned [Future] inside each lambda, then convert the whole lambda.
 SpeakflowE2E _buildJsBridge() {
   return SpeakflowE2E(
-    resetDatabase: () => _resetDatabase().toJS,
-    seedFixture: (JSString name, JSString json) =>
-        _seedFixture(name.toDart, json.toDart).toJS,
-    seedProjects: (JSString json) => _seedTable('projects', json.toDart).toJS,
-    seedChatSessions: (JSString json) =>
-        _seedTable('chat_sessions', json.toDart).toJS,
-    seedMessages: (JSString json) => _seedTable('messages', json.toDart).toJS,
-    seedCorrections: (JSString json) =>
-        _seedTable('corrections', json.toDart).toJS,
-    seedReviewQueue: (JSString json) =>
-        _seedTable('review_queue', json.toDart).toJS,
-    seedScenarios: (JSString json) => _seedScenarios(json.toDart).toJS,
-    seedProfiles: (JSString json) => _seedProfiles(json.toDart).toJS,
-    setMockMode: (JSBoolean enabled) {
+    resetDatabase: (() => _resetDatabase().toJS).toJS,
+    seedFixture: ((JSString name, JSString json) =>
+            _seedFixture(name.toDart, json.toDart).toJS)
+        .toJS,
+    seedProjects:
+        ((JSString json) => _seedTable('projects', json.toDart).toJS).toJS,
+    seedChatSessions: ((JSString json) =>
+            _seedTable('chat_sessions', json.toDart).toJS)
+        .toJS,
+    seedMessages:
+        ((JSString json) => _seedTable('chat_messages', json.toDart).toJS).toJS,
+    seedCorrections: ((JSString json) =>
+            _seedTable('corrections', json.toDart).toJS)
+        .toJS,
+    seedReviewQueue: ((JSString json) =>
+            _seedTable('review_queue', json.toDart).toJS)
+        .toJS,
+    seedScenarios:
+        ((JSString json) => _seedScenarios(json.toDart).toJS).toJS,
+    seedProfiles:
+        ((JSString json) => _seedProfiles(json.toDart).toJS).toJS,
+    setMockMode: ((JSBoolean enabled) {
       _mockModeEnabled = enabled.toDart;
       return Future<void>.value().toJS;
-    },
-    setMockLlmResponse: (JSString promptSubstring, JSString reply) {
+    }).toJS,
+    setMockLlmResponse: ((JSString promptSubstring, JSString reply) {
       _llmOverrides[promptSubstring.toDart.toLowerCase()] = reply.toDart;
       return Future<void>.value().toJS;
-    },
-    setMockSttResult: (JSString transcript) {
+    }).toJS,
+    setMockSttResult: ((JSString transcript) {
       _mockSttTranscript = transcript.toDart;
       return Future<void>.value().toJS;
-    },
-    setMockTtsAudio: (JSString base64Audio) {
+    }).toJS,
+    setMockTtsAudio: ((JSString base64Audio) {
       _mockTtsAudioBase64 = base64Audio.toDart;
       return Future<void>.value().toJS;
-    },
-    getDatabaseSnapshot: () => _getSnapshot().then((s) => s.toJS).toJS,
-    setSetting: (JSString key, JSString value) =>
-        _setSetting(key.toDart, value.toDart).toJS,
-    completeOnboarding: () => _completeOnboarding().toJS,
+    }).toJS,
+    getDatabaseSnapshot:
+        (() => _getSnapshot().then((s) => s.toJS).toJS).toJS,
+    setSetting: ((JSString key, JSString value) =>
+            _setSetting(key.toDart, value.toDart).toJS)
+        .toJS,
+    completeOnboarding: (() => _completeOnboarding().toJS).toJS,
   );
 }
 
@@ -169,100 +191,122 @@ SpeakflowE2E _buildJsBridge() {
 // ============================================================================
 
 Future<void> _resetDatabase() async {
-  final db = await DatabaseHelper.database;
-  await db.transaction((txn) async {
-    for (final table in _allTables) {
-      await txn.delete(table);
-    }
-  });
-  // Re-mark onboarding complete by default — tests that want a fresh
-  // first-run state should call setSetting('onboarding_complete','false').
-  await _completeOnboarding();
+  try {
+    final db = await DatabaseHelper.database;
+    await db.execute('PRAGMA foreign_keys = OFF');
+    await db.transaction((txn) async {
+      for (final table in _allTables) {
+        await txn.delete(table);
+      }
+    });
+    await db.execute('PRAGMA foreign_keys = ON');
+    // Re-mark onboarding complete by default — tests that want a fresh
+    // first-run state should call setSetting('onboarding_complete','false').
+    await _completeOnboarding();
+  } catch (e, st) {
+    throw Exception('E2E bridge error in _resetDatabase: $e\n$st');
+  }
 }
 
 Future<void> _seedFixture(String name, String json) async {
-  // A "fixture" is a JSON object with optional arrays per table.
-  // Example: {"projects": [...], "chat_sessions": [...]}
-  final Map<String, dynamic> data =
-      jsonDecode(json) as Map<String, dynamic>;
-  if (data['projects'] is List) {
-    await _seedTable('projects', jsonEncode(data['projects']));
-  }
-  if (data['chat_sessions'] is List) {
-    await _seedTable('chat_sessions', jsonEncode(data['chat_sessions']));
-  }
-  if (data['messages'] is List) {
-    await _seedTable('messages', jsonEncode(data['messages']));
-  }
-  if (data['corrections'] is List) {
-    await _seedTable('corrections', jsonEncode(data['corrections']));
-  }
-  if (data['review_queue'] is List) {
-    await _seedTable('review_queue', jsonEncode(data['review_queue']));
-  }
-  if (data['scenarios'] is List) {
-    await _seedScenarios(jsonEncode(data['scenarios']));
-  }
-  if (data['profiles'] is List) {
-    await _seedProfiles(jsonEncode(data['profiles']));
-  }
-  if (data['settings'] is Map) {
-    final settings = data['settings'] as Map<String, dynamic>;
-    for (final entry in settings.entries) {
-      await _setSetting(entry.key, entry.value.toString());
+  try {
+    // A "fixture" is a JSON object with optional arrays per table.
+    // Example: {"projects": [...], "chat_sessions": [...]}
+    final Map<String, dynamic> data =
+        jsonDecode(json) as Map<String, dynamic>;
+    if (data['projects'] is List) {
+      await _seedTable('projects', jsonEncode(data['projects']));
     }
-  }
-  if (data['complete_onboarding'] == true) {
-    await _completeOnboarding();
+    if (data['chat_sessions'] is List) {
+      await _seedTable('chat_sessions', jsonEncode(data['chat_sessions']));
+    }
+    if (data['messages'] is List) {
+      await _seedTable('chat_messages', jsonEncode(data['messages']));
+    }
+    if (data['corrections'] is List) {
+      await _seedTable('corrections', jsonEncode(data['corrections']));
+    }
+    if (data['review_queue'] is List) {
+      await _seedTable('review_queue', jsonEncode(data['review_queue']));
+    }
+    if (data['scenarios'] is List) {
+      await _seedScenarios(jsonEncode(data['scenarios']));
+    }
+    if (data['profiles'] is List) {
+      await _seedProfiles(jsonEncode(data['profiles']));
+    }
+    if (data['settings'] is Map) {
+      final settings = data['settings'] as Map<String, dynamic>;
+      for (final entry in settings.entries) {
+        await _setSetting(entry.key, entry.value.toString());
+      }
+    }
+    if (data['complete_onboarding'] == true) {
+      await _completeOnboarding();
+    }
+  } catch (e, st) {
+    throw Exception('E2E bridge error in _seedFixture: $e\n$st');
   }
 }
 
 Future<void> _seedTable(String table, String json) async {
-  final List<dynamic> rows = jsonDecode(json) as List<dynamic>;
-  final db = await DatabaseHelper.database;
-  await db.transaction((txn) async {
-    for (final row in rows) {
-      final Map<String, dynamic> rowMap = Map<String, dynamic>.from(row as Map);
-      await txn.insert(
-        table,
-        rowMap,
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    }
-  });
+  try {
+    final List<dynamic> rows = jsonDecode(json) as List<dynamic>;
+    final db = await DatabaseHelper.database;
+    await db.transaction((txn) async {
+      for (final row in rows) {
+        final Map<String, dynamic> rowMap = Map<String, dynamic>.from(row as Map);
+        await txn.insert(
+          table,
+          rowMap,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  } catch (e, st) {
+    throw Exception('E2E bridge error in _seedTable: $e\n$st');
+  }
 }
 
 Future<void> _seedScenarios(String json) async {
-  // Scenarios live in two tables: `scenarios` (parent) and `scenario_items` (child).
-  // The fixture may include an `_items` array per scenario. For simplicity in v1,
-  // we just seed the parent table — child items are auto-created by the app.
-  await _seedTable('scenarios', json);
+  try {
+    // Scenarios live in two tables: `scenarios` (parent) and `scenario_items` (child).
+    // The fixture may include an `_items` array per scenario. For simplicity in v1,
+    // we just seed the parent table — child items are auto-created by the app.
+    await _seedTable('scenarios', json);
+  } catch (e, st) {
+    throw Exception('E2E bridge error in _seedScenarios: $e\n$st');
+  }
 }
 
 Future<void> _seedProfiles(String json) async {
-  // Profiles can be LLM, STT, or TTS — distinguished by the presence of fields.
-  // The fixture JSON should be a flat array; we route each row to the right table
-  // based on its shape (LLM has `model` only; STT has `language`; TTS has `voice_id`).
-  final List<dynamic> rows = jsonDecode(json) as List<dynamic>;
-  final db = await DatabaseHelper.database;
-  await db.transaction((txn) async {
-    for (final row in rows) {
-      final Map<String, dynamic> rowMap = Map<String, dynamic>.from(row as Map);
-      String table;
-      if (rowMap.containsKey('voice_id') || rowMap.containsKey('voice_name')) {
-        table = 'tts_profiles';
-      } else if (rowMap.containsKey('language')) {
-        table = 'stt_profiles';
-      } else {
-        table = 'llm_profiles';
+  try {
+    // Profiles can be LLM, STT, or TTS — distinguished by the presence of fields.
+    // The fixture JSON should be a flat array; we route each row to the right table
+    // based on its shape (LLM has `model` only; STT has `language`; TTS has `voice_id`).
+    final List<dynamic> rows = jsonDecode(json) as List<dynamic>;
+    final db = await DatabaseHelper.database;
+    await db.transaction((txn) async {
+      for (final row in rows) {
+        final Map<String, dynamic> rowMap = Map<String, dynamic>.from(row as Map);
+        String table;
+        if (rowMap.containsKey('voice_id') || rowMap.containsKey('voice_name')) {
+          table = 'tts_profiles';
+        } else if (rowMap.containsKey('language')) {
+          table = 'stt_profiles';
+        } else {
+          table = 'llm_profiles';
+        }
+        await txn.insert(
+          table,
+          rowMap,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       }
-      await txn.insert(
-        table,
-        rowMap,
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    }
-  });
+    });
+  } catch (e, st) {
+    throw Exception('E2E bridge error in _seedProfiles: $e\n$st');
+  }
 }
 
 Future<String> _getSnapshot() async {
@@ -281,47 +325,62 @@ Future<String> _getSnapshot() async {
 }
 
 Future<void> _setSetting(String key, String value) async {
-  final db = await DatabaseHelper.database;
-  await db.insert(
-    'settings',
-    <String, dynamic>{
-      'key': key,
-      'value': value,
-      'updated_at': DateTime.now().toIso8601String(),
-    },
-    conflictAlgorithm: ConflictAlgorithm.replace,
-  );
+  try {
+    final db = await DatabaseHelper.database;
+    await db.insert(
+      'user_settings',
+      <String, dynamic>{
+        'key': key,
+        'value': value,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  } catch (e, st) {
+    throw Exception('E2E bridge error in _setSetting: $e\n$st');
+  }
 }
 
 Future<void> _completeOnboarding() async {
-  await _setSetting('onboarding_complete', 'true');
-  await _setSetting('placement_complete', 'true');
+  try {
+    await _setSetting('onboarding_completed', 'true');
+    await _setSetting('placement_completed', 'true');
+  } catch (e, st) {
+    throw Exception('E2E bridge error in _completeOnboarding: $e\n$st');
+  }
 }
 
 // ============================================================================
 //  JS interop types
 // ============================================================================
 
+/// Global setter for `window.speakflowE2E`. Used by `E2eBridge.exposeHooks`.
+@JS('window.speakflowE2E')
+external set _speakflowE2E(SpeakflowE2E value);
+
 /// The JS-exposable bridge object shape. Each field is a function that
 /// returns a Promise (for async methods) or void (for sync setters).
+///
+/// Function fields are typed as [JSFunction] because the JS interop compiler
+/// does not accept Dart function types (`JSPromise Function(...)`) in
+/// external extension-type constructors.
 @JS()
 extension type SpeakflowE2E._(JSObject _) implements JSObject {
   external SpeakflowE2E({
-    required JSPromise Function() resetDatabase,
-    required JSPromise Function(JSString, JSString) seedFixture,
-    required JSPromise Function(JSString) seedProjects,
-    required JSPromise Function(JSString) seedChatSessions,
-    required JSPromise Function(JSString) seedMessages,
-    required JSPromise Function(JSString) seedCorrections,
-    required JSPromise Function(JSString) seedReviewQueue,
-    required JSPromise Function(JSString) seedScenarios,
-    required JSPromise Function(JSString) seedProfiles,
-    required JSPromise Function(JSBoolean) setMockMode,
-    required JSPromise Function(JSString, JSString) setMockLlmResponse,
-    required JSPromise Function(JSString) setMockSttResult,
-    required JSPromise Function(JSString) setMockTtsAudio,
-    required JSPromise Function() getDatabaseSnapshot,
-    required JSPromise Function(JSString, JSString) setSetting,
-    required JSPromise Function() completeOnboarding,
+    required JSFunction resetDatabase,
+    required JSFunction seedFixture,
+    required JSFunction seedProjects,
+    required JSFunction seedChatSessions,
+    required JSFunction seedMessages,
+    required JSFunction seedCorrections,
+    required JSFunction seedReviewQueue,
+    required JSFunction seedScenarios,
+    required JSFunction seedProfiles,
+    required JSFunction setMockMode,
+    required JSFunction setMockLlmResponse,
+    required JSFunction setMockSttResult,
+    required JSFunction setMockTtsAudio,
+    required JSFunction getDatabaseSnapshot,
+    required JSFunction setSetting,
+    required JSFunction completeOnboarding,
   });
 }

@@ -71,6 +71,39 @@ export async function settle(page: Page, ms = 1200) {
 }
 
 /**
+ * Dismiss the Flutter web accessibility placeholder if it is shown.
+ */
+export async function enableAccessibility(page: Page): Promise<void> {
+  const btn = page.getByRole('button', { name: /enable accessibility/i });
+  if (await btn.count() > 0) {
+    await page.evaluate(() => {
+      const el = document.querySelector('flt-semantics-placeholder');
+      if (el && el instanceof HTMLElement) el.click();
+    });
+    await page.waitForTimeout(300);
+  }
+}
+
+/**
+ * Send a text message through the chat input bar (switches from voice mode
+ * when needed, types the message, submits it, and waits for the UI to settle).
+ */
+export async function sendChatMessage(page: Page, text: string): Promise<void> {
+  await enableAccessibility(page);
+  const textbox = page.getByRole('textbox');
+  if ((await textbox.count()) === 0) {
+    await page.getByRole('button', { name: /switch to text input/i }).first().click();
+    await textbox.first().waitFor({ timeout: 5000 });
+  }
+  const input = textbox.first();
+  await input.click({ timeout: 5000 }).catch(() => {});
+  await input.fill(text);
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: /send|发送/i }).first().click({ timeout: 1500 }).catch(() => {});
+  await settle(page, 2500);
+}
+
+/**
  * Get the current Flutter route from the URL hash.
  */
 export async function getCurrentRoute(page: Page): Promise<string> {

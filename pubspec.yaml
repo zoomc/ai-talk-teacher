@@ -49,6 +49,9 @@ dependencies:
   shared_preferences: ^2.5.3
   url_launcher: ^6.3.1
 
+  # File picking (profile import, etc.)
+  file_picker: ^8.0.0+1
+
   # 3D avatar (mobile/desktop webview; web uses HtmlElementView)
   webview_flutter: ^4.10.0
 

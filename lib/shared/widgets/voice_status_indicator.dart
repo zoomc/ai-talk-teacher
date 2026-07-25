@@ -53,7 +53,8 @@ class _VoiceStatusIndicatorState extends State<VoiceStatusIndicator>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     );
-    _pulseScale = Tween<double>(begin: 0.7, end: 1.6).animate(
+    // UX-052: lower max scale so the pulse ring stays inside its container.
+    _pulseScale = Tween<double>(begin: 0.7, end: 1.3).animate(
       CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
     );
     _syncAnimation();
@@ -115,9 +116,10 @@ class _VoiceStatusIndicatorState extends State<VoiceStatusIndicator>
         children: [
           // Pulsing status dot — the heart of the "consistent animation"
           // requirement. Scale pulses only on active phases.
+          // UX-052: enlarge the container so the pulse ring is not clipped.
           SizedBox(
-            width: dotSize + 4,
-            height: dotSize + 4,
+            width: dotSize * 1.8,
+            height: dotSize * 1.8,
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -155,28 +157,43 @@ class _VoiceStatusIndicatorState extends State<VoiceStatusIndicator>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: widget.expanded ? 16 : 14,
-                    fontWeight: FontWeight.w600,
+                // UX-053: subtle backing so the phase label stays readable
+                // on glass cards with busy backgrounds.
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xs,
+                    vertical: 2,
                   ),
-                  overflow: TextOverflow.ellipsis,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: widget.expanded ? 16 : 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                if (widget.expanded)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: LinearProgressIndicator(
-                        value: widget.phase.progress,
-                        minHeight: 3,
-                        backgroundColor: color.withValues(alpha: 0.15),
-                        valueColor: AlwaysStoppedAnimation<Color>(color),
-                      ),
+                // UX-051: show a thin progress bar in compact mode too.
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: widget.phase.progress,
+                      minHeight: widget.expanded ? 3 : 2,
+                      backgroundColor: color.withValues(alpha: 0.15),
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
                     ),
                   ),
+                ),
               ],
             ),
           ),

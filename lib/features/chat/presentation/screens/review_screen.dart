@@ -12,12 +12,17 @@ import '../../data/tts_service.dart';
 import '../../domain/chat_models.dart';
 import '../../domain/app_error.dart';
 import '../../../home/presentation/home_providers.dart';
+import '../../../home/data/streak_service.dart';
 import '../../../review/data/sm2_service.dart';
 import '../../../project_space/domain/project_models.dart';
 import '../../../project_space/presentation/widgets/join_project_sheet.dart';
 
 class ReviewScreen extends ConsumerStatefulWidget {
-  const ReviewScreen({super.key});
+  /// Optional filter preset from the route. `recent` opens the "recent
+  /// mistakes" view (last 3 days) instead of the default due queue.
+  final String? filter;
+
+  const ReviewScreen({super.key, this.filter});
 
   @override
   ConsumerState<ReviewScreen> createState() => _ReviewScreenState();
@@ -29,6 +34,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   // E19 — when true the list shows only the user's starred corrections
   // (across all sessions), surfaced via [ChatRepository.getFavoriteCorrections].
   bool _showStarredOnly = false;
+  // BL-003 — `recent` shows corrections from the last 3 days, matching the
+  // daily-plan "recent mistakes" badge window.
+  bool get _showRecentOnly => widget.filter == 'recent';
   // Tracks which correction ids are currently being submitted to prevent
   // double-taps on the rating buttons while the SM-2 update is in flight.
   final Set<String> _ratingInFlight = {};
@@ -41,9 +49,15 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
   Future<void> _loadCorrections() async {
     final repo = ref.read(chatRepoProvider);
-    final corrections = _showStarredOnly
-        ? await repo.getFavoriteCorrections(limit: 100)
-        : await repo.getDueCorrections(limit: 50);
+    final List<Correction> corrections;
+    if (_showStarredOnly) {
+      corrections = await repo.getFavoriteCorrections(limit: 100);
+    } else if (_showRecentOnly) {
+      // BL-003: load the same 3-day window used by the daily plan badge.
+      corrections = await repo.getRecentCorrections(days: 3, limit: 50);
+    } else {
+      corrections = await repo.getDueCorrections(limit: 50);
+    }
     if (mounted) {
       setState(() {
         _corrections = corrections;
@@ -89,6 +103,28 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
   Widget _buildEmptyState(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final isStarred = _showStarredOnly;
+    final isRecent = _showRecentOnly;
+    final (title, body, icon, color) = switch ((isStarred, isRecent)) {
+      (true, _) => (
+          'No starred corrections',
+          'Tap the star on any correction to save it for focused review.',
+          Icons.star_border_rounded,
+          AppColors.warning,
+        ),
+      (_, true) => (
+          'No recent mistakes',
+          'Great job — you have not made any new errors in the last 3 days.',
+          Icons.check_circle,
+          AppColors.success,
+        ),
+      _ => (
+          'All caught up!',
+          l.t('review.nothing_due'),
+          Icons.check_circle,
+          AppColors.success,
+        ),
+    };
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -97,23 +133,23 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: 0.15),
+              color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(AppRadius.xl),
             ),
-            child: const Icon(
-              Icons.check_circle,
-              color: AppColors.success,
+            child: Icon(
+              icon,
+              color: color,
               size: 40,
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            'All caught up!',
+            title,
             style: Theme.of(context).textTheme.headlineLarge,
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            l.t('review.nothing_due'),
+            body,
             textAlign: TextAlign.center,
             style: Theme.of(
               context,
@@ -156,7 +192,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                           ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
-                            '${_corrections.length} ${l.t('review.due_now')}',
+                            _showRecentOnly
+                                ? '${_corrections.length} recent mistake${_corrections.length == 1 ? '' : 's'}'
+                                : '${_corrections.length} ${l.t('review.due_now')}',
                             style: Theme.of(context).textTheme.bodyLarge
                                 ?.copyWith(color: AppColors.textSecondary),
                           ),
@@ -179,7 +217,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  'Rate how well you remember each correction — the schedule adapts to your answer. Tap the card to practice it in a conversation.',
+                  _showRecentOnly
+                      ? 'These are corrections from the last 3 days. Tap a card to practice or rate them to update their schedule.'
+                      : 'Rate how well you remember each correction — the schedule adapts to your answer. Tap the card to practice it in a conversation.',
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
@@ -230,6 +270,27 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   Future<void> _startAIReview(BuildContext context) async {
     final repo = ref.read(chatRepoProvider);
     final session = await repo.createSession(topic: 'AI Review Session');
+
+    // Build a focused review prompt from the currently due corrections so
+    // the AI actually drills the user's weak points instead of starting a
+    // generic conversation.
+    final buffer = StringBuffer();
+    buffer.writeln(
+        'You are conducting a focused English review session. The user has the following corrections due for review today:');
+    for (final c in _corrections.take(20)) {
+      buffer.writeln(
+          '- [${c.type.name}] "${c.original}" → "${c.corrected}"${c.explanation != null ? ' (${c.explanation})' : ''}');
+    }
+    buffer.writeln();
+    buffer.writeln(
+        'Guide the user through these items naturally. Ask them to produce sentences using the corrected forms, explain why the original was wrong when helpful, and keep the conversation focused on these weak areas.');
+
+    await repo.saveMessage(ChatMessage(
+      sessionId: session.id,
+      role: MessageRole.system,
+      content: buffer.toString(),
+    ));
+
     if (context.mounted) {
       context.push('/chat/${session.id}');
     }
@@ -243,6 +304,25 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     final session = await repo.createSession(
       topic: 'Practice: ${correction.original} → ${correction.corrected}',
     );
+
+    // Inject a system prompt that focuses the AI on this specific correction
+    // so tapping "practice" has real pedagogical value.
+    final prompt = '''You are helping the user practice a specific correction.
+
+Original mistake: "${correction.original}"
+Corrected form: "${correction.corrected}"
+Type: ${correction.type.name}
+${correction.explanation != null ? 'Explanation: ${correction.explanation}' : ''}
+${correction.skill != null ? 'Skill tag: ${correction.skill}' : ''}
+
+Your goal is to help the user internalize this correction. Ask them to produce sentences using "${correction.corrected}" in different contexts, gently correct them if they revert to "${correction.original}", and stay focused on this error until the user demonstrates mastery.''';
+
+    await repo.saveMessage(ChatMessage(
+      sessionId: session.id,
+      role: MessageRole.system,
+      content: prompt,
+    ));
+
     if (context.mounted) {
       context.push('/chat/${session.id}');
     }
@@ -287,10 +367,11 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       // streak so the home dashboard reflects the activity when the user
       // returns. Streak failures are swallowed so a SQLite hiccup never
       // interferes with the rating flow (the correction update already
-      // succeeded above).
+      // succeeded above). Use the minimum practice threshold so a single
+      // rating session is substantial enough to count toward the streak.
       try {
         await ref.read(streakServiceProvider).recordPractice(
-              durationSeconds: 0,
+              durationSeconds: StreakService.kMinPracticeSeconds,
               completed: true,
             );
       } catch (_) {
@@ -312,7 +393,17 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           ),
         );
         setState(() {
-          _corrections.removeWhere((c) => c.id == correction.id);
+          if (_showStarredOnly) {
+            // Starred mode is meant for items the user wants to revisit
+            // repeatedly; update the card with the new SM-2 state instead
+            // of removing it from the list.
+            final index = _corrections.indexWhere((c) => c.id == correction.id);
+            if (index >= 0) {
+              _corrections[index] = updated;
+            }
+          } else {
+            _corrections.removeWhere((c) => c.id == correction.id);
+          }
           _ratingInFlight.remove(correction.id);
         });
 
@@ -474,6 +565,12 @@ class _CorrectionCardState extends ConsumerState<_CorrectionCard> {
     } finally {
       if (mounted) setState(() => _isTogglingFav = false);
     }
+
+    // Toggle may change starred counts and daily-plan recommendations;
+    // invalidate the related providers so the home dashboard stays fresh.
+    ref.invalidate(reviewQueueProvider);
+    ref.invalidate(dueReviewQueueCountProvider);
+    ref.invalidate(dailyPlanProvider);
   }
 
   @override

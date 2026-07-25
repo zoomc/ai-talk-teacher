@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
@@ -74,9 +75,29 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                 data: (stats) => _buildContent(context, stats),
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(
-                  child: Text(
-                    'Error loading stats',
-                    style: TextStyle(color: AppColors.error),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: AppColors.error,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          l.t('common.error_loading'),
+                          style: TextStyle(color: AppColors.error),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        OutlinedButton.icon(
+                          onPressed: () => ref.invalidate(statsProvider),
+                          icon: const Icon(Icons.refresh),
+                          label: Text(l.t('progress.retry')),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -99,12 +120,12 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Your Progress',
+            l.t('progress.heading'),
             style: Theme.of(context).textTheme.displayLarge,
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Track your English learning journey',
+            l.t('progress.subtitle'),
             style: Theme.of(
               context,
             ).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
@@ -131,7 +152,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
 
           // Mastery breakdown
           Text(
-            'Mastery Breakdown',
+            l.t('progress.mastery_breakdown'),
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: AppSpacing.md),
@@ -139,7 +160,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
             child: Column(
               children: [
                 _MasteryRow(
-                  label: 'New',
+                  label: l.t('progress.new'),
                   count: stats.newCount,
                   total: stats.totalCorrections,
                   color: AppColors.error,
@@ -165,7 +186,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
 
           // Error types
           if (stats.correctionsByType.isNotEmpty) ...[
-            Text('Error Types', style: Theme.of(context).textTheme.titleLarge),
+            Text(l.t('progress.error_types'), style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: AppSpacing.md),
             GlassCard(
               child: Column(
@@ -199,7 +220,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Text(
-                            entry.key[0].toUpperCase() + entry.key.substring(1),
+                            l.t('progress.error_type.${entry.key}'),
                             style: Theme.of(context).textTheme.bodyLarge,
                           ),
                         ),
@@ -290,11 +311,11 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
           const SizedBox(height: AppSpacing.xl),
 
           // Action button
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () => context.go('/review'),
             icon: const Icon(Icons.refresh),
-            label: const Text('Start Review Session'),
-            style: ElevatedButton.styleFrom(
+            label: Text(l.t('progress.start_review')),
+            style: FilledButton.styleFrom(
               minimumSize: const Size(double.infinity, 56),
             ),
           ),
@@ -315,7 +336,7 @@ class _StatGrid extends StatelessWidget {
     final cards = <_StatCard>[
       _StatCard(
         icon: Icons.chat,
-        label: 'Sessions',
+        label: l.t('progress.sessions'),
         value: '${stats.totalSessions}',
         color: AppColors.accentPrimary,
       ),
@@ -347,6 +368,7 @@ class _StatGrid extends StatelessWidget {
         return Wrap(
           spacing: AppSpacing.md,
           runSpacing: AppSpacing.md,
+          alignment: WrapAlignment.center,
           children: [for (final c in cards) SizedBox(width: cellWidth, child: c)],
         );
       },
@@ -422,10 +444,15 @@ class _MasteryRow extends StatelessWidget {
 
     return Row(
       children: [
-        SizedBox(
-          width: 80,
-          child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        Flexible(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -499,9 +526,15 @@ class _ActivityChart extends StatelessWidget {
         // Legend
         Row(
           children: [
-            _LegendDot(color: AppColors.accentSecondary, label: 'Messages'),
+            _LegendDot(
+              color: AppColors.accentSecondary,
+              label: AppLocalizations.of(context).t('progress.legend_messages'),
+            ),
             const SizedBox(width: AppSpacing.md),
-            _LegendDot(color: AppColors.warning, label: 'Corrections'),
+            _LegendDot(
+              color: AppColors.warning,
+              label: AppLocalizations.of(context).t('progress.legend_corrections'),
+            ),
           ],
         ),
         const SizedBox(height: AppSpacing.md),
@@ -520,7 +553,7 @@ class _ActivityChart extends StatelessWidget {
               .map(
                 (d) => Expanded(
                   child: Text(
-                    _shortWeekday(d.date.weekday),
+                    _shortWeekday(context, d.date),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.textMuted,
@@ -537,7 +570,7 @@ class _ActivityChart extends StatelessWidget {
               .map(
                 (d) => Expanded(
                   child: Text(
-                    '${d.date.day}/${d.date.month}',
+                    DateFormat.Md(Localizations.localeOf(context).toString()).format(d.date),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.textMuted,
@@ -555,10 +588,8 @@ class _ActivityChart extends StatelessWidget {
   String _dayKey(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  String _shortWeekday(int weekday) {
-    // DateTime.weekday: Mon=1..Sun=7
-    const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return names[(weekday - 1) % 7];
+  String _shortWeekday(BuildContext context, DateTime date) {
+    return DateFormat.E(Localizations.localeOf(context).toString()).format(date);
   }
 }
 

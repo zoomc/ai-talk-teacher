@@ -55,11 +55,18 @@ class TutorPromptBuilder {
       buffer.writeln();
       buffer.writeln('## Scenario');
       buffer.writeln('You are role-playing the scenario "${scenario.name}".');
+      buffer.writeln('Category: ${scenario.category}. '
+          'Difficulty: ${scenario.difficulty}.');
+      if (scenario.goal != null && scenario.goal!.trim().isNotEmpty) {
+        buffer.writeln('Learning goal: ${scenario.goal}.');
+      }
       buffer.writeln(scenario.systemPrompt);
       buffer.writeln(
         'Stay in character. Keep the situation grounded; introduce small, '
         'realistic twists (a complication, a follow-up question, a mild '
-        'misunderstanding) so the student has to respond, not just listen.',
+        'misunderstanding) so the student has to respond, not just listen. '
+        'Adapt your language to the "${scenario.difficulty}" difficulty level '
+        'and keep the conversation aligned with the learning goal above.',
       );
     } else if (sessionTopic != null && sessionTopic.trim().isNotEmpty) {
       buffer.writeln();

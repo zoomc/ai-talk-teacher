@@ -26,7 +26,6 @@
 library;
 
 import 'dart:async';
-import 'package:flutter/scheduler.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -462,22 +461,24 @@ class AvatarStageState extends State<AvatarStage>
   /// Plain coloured panel rendered when the placeholder image asset is
   /// missing (e.g. during tests). Keeps the avatar always visible.
   Widget _renderImageFallback() {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            AppColors.bgSecondary,
-            AppColors.bgPrimary,
-          ],
+          colors: isLight
+              ? [AppColors.lightBgSecondary, AppColors.lightBgPrimary]
+              : [AppColors.bgSecondary, AppColors.bgPrimary],
         ),
       ),
       child: Center(
         child: Icon(
           Icons.face,
           size: 96,
-          color: AppColors.accentPrimaryLight,
+          color: isLight
+              ? AppColors.lightAccentPrimary
+              : AppColors.accentPrimaryLight,
         ),
       ),
     );
@@ -576,15 +577,23 @@ class _AvatarStageStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (phase) {
-      AvatarPhase.idle => ('Ready', AppColors.accentPrimary),
+      AvatarPhase.idle => ('Ready', AppColors.success),
       AvatarPhase.listening => ('Listening', AppColors.accentSecondary),
       AvatarPhase.thinking => ('Thinking', AppColors.warning),
-      AvatarPhase.speaking => ('Speaking', AppColors.success),
+      AvatarPhase.speaking => ('Speaking', AppColors.accentPrimary),
     };
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.82),
+        color: Colors.white.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(AppRadius.full),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
+            spreadRadius: -2,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
@@ -595,18 +604,97 @@ class _AvatarStageStatus extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.5),
+                    blurRadius: 6,
+                    spreadRadius: 0,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(width: AppSpacing.xs),
-            Text(
-              '$name · $label',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            Flexible(
+              child: Text(
+                '$name · $label',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.lightTextPrimary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
+            if (phase == AvatarPhase.thinking ||
+                phase == AvatarPhase.listening) ...[
+              const SizedBox(width: AppSpacing.xxs),
+              _ThinkingDots(color: color),
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Subtle three-dot pulse used while the avatar is processing audio or
+/// generating a reply, making the "thinking" / "listening" states visibly
+/// active in static screenshots.
+class _ThinkingDots extends StatefulWidget {
+  final Color color;
+  const _ThinkingDots({required this.color});
+
+  @override
+  State<_ThinkingDots> createState() => _ThinkingDotsState();
+}
+
+class _ThinkingDotsState extends State<_ThinkingDots>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            final t = (_controller.value - i * 0.2) % 1.0;
+            final alpha = 0.3 + 0.7 * (1 - (2 * t - 1).abs());
+            return Container(
+              width: 3,
+              height: 3,
+              margin: const EdgeInsets.symmetric(horizontal: 1),
+              decoration: BoxDecoration(
+                color: widget.color.withValues(alpha: alpha),
+                shape: BoxShape.circle,
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }
