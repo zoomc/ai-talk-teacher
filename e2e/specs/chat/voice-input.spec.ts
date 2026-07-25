@@ -228,7 +228,7 @@ test.describe('M04 — Chat: Voice Input & STT', () => {
       if (box) {
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
         await page.mouse.down();
-        await page.waitForTimeout(400);
+        await page.waitForTimeout(500);
       }
     }
     const toggle = page.getByRole('button', { name: /keyboard|text|type/i }).first();
@@ -262,7 +262,7 @@ test.describe('M04 — Chat: Voice Input & STT', () => {
       await page.waitForTimeout(500);
       const input = page.getByRole('textbox').first();
       await input.click().catch(() => {});
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(500);
     }
     await bridge.setMockSttResult(page, STT_MOCKS.short);
     await pressAndHoldMic(page, 1000);
@@ -317,6 +317,8 @@ test.describe('M04 — Chat: Voice Input & STT', () => {
   });
 
   test('EX-22: STT HTTP 401 → STT auth error snackbar with Configure CTA', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     await mockNetworkError(page, '**/v1/audio/transcriptions*', 401);
     await bridge.setMockSttResult(page, STT_MOCKS.short);
     await pressAndHoldMic(page, 1200);
@@ -327,6 +329,8 @@ test.describe('M04 — Chat: Voice Input & STT', () => {
   });
 
   test('EX-23: STT HTTP 5xx → STT server error with Retry', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     await mockNetworkError(page, '**/v1/audio/transcriptions*', 500);
     await bridge.setMockSttResult(page, STT_MOCKS.short);
     await pressAndHoldMic(page, 1200);
@@ -337,6 +341,8 @@ test.describe('M04 — Chat: Voice Input & STT', () => {
   });
 
   test('EX-24: STT timeout → Transcription timed out snackbar', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     await mockNetworkTimeout(page, '**/v1/audio/transcriptions*');
     await bridge.setMockSttResult(page, STT_MOCKS.short);
     await pressAndHoldMic(page, 1200);
@@ -347,6 +353,8 @@ test.describe('M04 — Chat: Voice Input & STT', () => {
   });
 
   test('EX-25: STT returns malformed JSON → empty transcript; same hint as empty', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     // Route returns invalid JSON body.
     await page.route('**/v1/audio/transcriptions*', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{not json' });

@@ -213,6 +213,8 @@ test.describe('M17 — Voice Health Screen', () => {
 
   test('BR-13: overall banner shows failure when any check fails', async ({ page }) => {
     // Force an STT failure via mock network error.
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     await mockNetworkError(page, '**/v1/audio/transcriptions*', 500);
     await mockNetworkError(page, '**/api.deepgram.com/**', 500);
 
@@ -320,6 +322,8 @@ test.describe('M17 — Voice Health Screen', () => {
   });
 
   test('EX-4: STT HTTP error — STT check fails without crash', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     await mockNetworkError(page, '**/v1/audio/transcriptions*', 500);
     await mockNetworkError(page, '**/api.deepgram.com/**', 500);
 

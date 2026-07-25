@@ -358,6 +358,8 @@ test.describe('M01 — Onboarding Flow', () => {
   });
 
   test('EX-21: HTTP failure during provider model fetch falls back gracefully; Next enabled', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     // Intercept the /models endpoint with a 500; the wizard must still allow Next.
     await mockNetworkError(page, '**/v1/models*', 500);
     await page.getByRole('button', { name: /get started/i }).first().click().catch(() => {});

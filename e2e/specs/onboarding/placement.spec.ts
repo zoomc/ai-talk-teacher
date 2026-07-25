@@ -392,6 +392,8 @@ test.describe('M02 — Placement Test', () => {
   // ---------------- Exception Cases ----------------
 
   test('EX-19: LLM HTTP 401 → typed error banner with Configure CTA', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     await mockNetworkError(page, '**/v1/chat/completions*', 401);
     const start = page.getByRole('button', { name: /start/i }).first();
     if (await start.isVisible({ timeout: 5000 }).catch(() => false)) {
@@ -410,6 +412,8 @@ test.describe('M02 — Placement Test', () => {
   });
 
   test('EX-20: LLM HTTP 429 → Retry CTA + retry-with-backoff runs', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     await mockNetworkError(page, '**/v1/chat/completions*', 429);
     const start = page.getByRole('button', { name: /start/i }).first();
     if (await start.isVisible({ timeout: 5000 }).catch(() => false)) {
@@ -428,6 +432,8 @@ test.describe('M02 — Placement Test', () => {
   });
 
   test('EX-21: LLM timeout → timeout error UI; can retry', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     await mockNetworkTimeout(page, '**/v1/chat/completions*');
     const start = page.getByRole('button', { name: /start/i }).first();
     if (await start.isVisible({ timeout: 5000 }).catch(() => false)) {

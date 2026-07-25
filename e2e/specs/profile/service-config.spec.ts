@@ -465,6 +465,8 @@ test.describe('M16 — Service Config: Active Switching & Delete Guard', () => {
   });
 
   test('EX-4: connection test 5xx — server error snackbar', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     await mockNetworkError(page, '**/v1/chat/completions*', 500);
     await mockNetworkError(page, '**/v1/models*', 500);
 
@@ -479,6 +481,8 @@ test.describe('M16 — Service Config: Active Switching & Delete Guard', () => {
   });
 
   test('EX-5: connection test timeout — timed out snackbar', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     // Simulate a timeout by aborting the request.
     await page.route('**/v1/chat/completions*', (route) => {
       route.abort('timedout');

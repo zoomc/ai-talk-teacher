@@ -7,6 +7,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### E2E test suite — Playwright + Flutter E2E bridge — 2026-07-25
+
+#### Added
+- **Comprehensive Playwright E2E suite** under `e2e/` covering **30 feature
+  points** (sub-feature granularity) with **717 unique test cases** — every
+  feature point has ≥20 cases spanning happy path, branch/edge, and exception
+  scenarios. With the 4-browser project matrix (chromium, firefox, webkit,
+  mobile-chrome) this expands to **2868 test executions**.
+- **Feature-point catalogue** (`docs/e2e-spec.md`) enumerating all 30 modules
+  (M01–M30) — onboarding, placement, chat (text/voice/continuous/corrections/
+  TTS/session/error/tutor-summary), avatar (lip-sync/emotion/idle), home
+  (dashboard/streak/daily-plan/ability-goals), profile (LLM/STT/TTS CRUD,
+  service-config, voice-health), progress (dashboard/pronunciation-history),
+  projects, review (SM2), scenarios, settings (theme-language/app-section),
+  and system (banners/version/connectivity) — each with its spec file path,
+  route, and minimum case count.
+- **Hybrid mocking strategy**: HTTP-layer interception via Playwright's
+  `page.route` for vendor APIs (OpenAI-compatible chat completions, STT, TTS)
+  combined with a Dart-side **Flutter E2E bridge** compiled only with
+  `--dart-define=E2E=true`. The bridge exposes JS hooks
+  (`__e2eBridge.{resetDatabase, seedChatSessions, seedMessages, seedCorrections,
+  setMockMode, setMockLlmResponse, setMockSttTranscript, setMockTtsAudio,
+  getSnapshot, setSetting}`) so tests can reset/seed SQLite and short-circuit
+  services deterministically without real network calls.
+- **E2E bridge modules**:
+  - `lib/core/e2e/e2e_bridge.dart` — conditional export (web → real bridge,
+    otherwise → stub).
+  - `lib/core/e2e/e2e_bridge_stub.dart` — no-op stub for non-web/non-E2E builds.
+  - `lib/core/e2e/e2e_bridge_web.dart` — web implementation registering
+    `window.__e2eBridge` and wiring DatabaseHelper + mock services.
+  - `lib/core/e2e/e2e_mock_services.dart` / `_stub.dart` /
+    `_web.dart` — canned LLM/STT/TTS responses gated on `E2E=true`.
+- **Service-layer E2E guards**:
+  - `lib/features/chat/data/llm_service.dart` short-circuits with
+    `E2eMockServices.cannedLlmReply` when mock mode is on (no HTTP).
+  - STT/TTS services likewise return canned transcripts / silent audio
+    when the E2E flag is set.
+- **Playwright infrastructure** (`e2e/`):
+  - `playwright.config.ts` — 4 projects (chromium 1280×800, firefox, webkit,
+    mobile-chrome Pixel 5), 90s per-test timeout, 20s expect timeout,
+    list + html + junit reporters, trace/screenshot/video on failure.
+  - `start-server.mjs` — Node static server with SPA fallback for the
+    Flutter web build under `build/web/`.
+  - `lib/setup.ts` — `setupE2EApp` / `setupEmptyApp` orchestrators that
+    reset DB, seed baseline fixtures, wait for first Flutter frame, and
+    capture console errors.
+  - `lib/e2e-bridge.ts` — TypeScript wrapper around `window.__e2eBridge`.
+  - `lib/mock.ts` — vendor-API HTTP intercept helpers
+    (`setLlmResponse`, `setSttTranscript`, `setTtsAudio`, `mockNetworkError`,
+    `mockNetworkTimeout`, `resetOverrides`).
+  - `lib/assertions.ts` — `expectVisible`/`expectText`/`expectRoute`/
+    `expectNoException`/`expectElementCount`/`expectMinCount` helpers.
+  - `lib/screenshots.ts` — `capture` / `captureFullPage` for rendering-
+    quality review (PNG under `e2e/test-results/screenshots/`).
+  - `fixtures/fixtures.ts` + `fixtures/mock-data.json` — typed fixture
+    definitions for sessions, messages, corrections, providers, etc.
+- **Coverage matrix**: 30 spec files under `e2e/specs/{avatar,chat,home,
+  onboarding,profile,progress,projects,review,scenarios,settings,system}/`.
+  Every page in the app has at least one screenshot+element-assertion test
+  verifying rendering quality (canvas attached, no console exceptions,
+  key widgets visible).
+
+#### Verified
+- `npx tsc --noEmit` passes with **0 errors** across all 30 spec files +
+  lib + fixtures.
+- `npx playwright test --list` enumerates **2868 tests in 30 files** — all
+  feature points meet the ≥20-case minimum.
+- Mocking is fully deterministic: no real LLM/STT/TTS calls are made when
+  the E2E build is served (vendor HTTP intercepts + Dart-side canned
+  responses).
+
+#### Notes
+- Running the suite requires the E2E Flutter web build:
+  `flutter build web --dart-define=E2E=true` (produces `build/web/`).
+  The Playwright `webServer` then serves it via `node start-server.mjs`.
+- Legacy E2E specs (under `e2e/legacy/`) are retained but excluded from
+  the default `testMatch` — run with `npm run test:legacy` if needed.
+
 ### Code quality & bug fixes — 2026-07-17
 
 #### Fixed

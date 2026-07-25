@@ -113,7 +113,7 @@ test.describe('M23 — Settings: Learning Preferences & App Section', () => {
     await settle(page, 1500);
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     const cs = (snap.settings ?? []).find((s) => s.key === 'correction_strength');
-    expect(cs?.value === 'strict' || true).toBe(true);
+    expect(cs?.value).toBe('strict');
     await expectNoException(page);
     await capture(page, 'm23-br1-correction-strength-persisted');
   });
@@ -124,7 +124,7 @@ test.describe('M23 — Settings: Learning Preferences & App Section', () => {
     await settle(page, 1500);
     const snap = await bridge.getSnapshot<DbSnapshot>(page);
     const speed = (snap.settings ?? []).find((s) => s.key === 'tts_speed');
-    expect(speed?.value === '1.25' || true).toBe(true);
+    expect(speed?.value).toBe('1.25');
     await expectNoException(page);
     await capture(page, 'm23-br2-tts-speed-persisted');
   });

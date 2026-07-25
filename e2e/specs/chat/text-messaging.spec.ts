@@ -46,7 +46,7 @@ async function sendText(page: import('@playwright/test').Page, text: string): Pr
 interface DbSnapshot {
   chat_sessions?: Array<{ id: string; topic: string | null }>;
   messages?: Array<{ id: string; session_id: string; role: string; content: string }>;
-  corrections?: Array<{ id: string; original: string; corrected: string }>;
+  corrections?: Array<{ id: string; original: string; corrected: string; occurrence_count?: number }>;
 }
 
 test.describe('M03 — Chat: Text Messaging', () => {
@@ -145,7 +145,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
     const input = page.getByRole('textbox').first();
     await expect(input).toBeVisible({ timeout: 10000 });
     await input.fill('');
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
     const send = page.getByRole('button', { name: /send/i }).first();
     const visible = await send.isVisible({ timeout: 2000 }).catch(() => false);
     if (visible) {
@@ -235,7 +235,7 @@ test.describe('M03 — Chat: Text Messaging', () => {
     await bridge.setMockLlmResponse(page, 'goes', dupReply);
     await sendText(page, 'I goes');
     await page.waitForTimeout(2500);
-    const snap = await bridge.getSnapshot<DbSnapshot & { corrections?: Array<{ occurrence_count?: number; original?: string; corrected?: string }> }>(page);
+    const snap = await bridge.getSnapshot<DbSnapshot>(page);
     const dup = (snap.corrections ?? []).find((c) => c.original === 'I goes');
     expect(dup === undefined || ((dup.occurrence_count ?? 0) >= 1)).toBe(true);
     await expectNoException(page);
@@ -306,6 +306,8 @@ test.describe('M03 — Chat: Text Messaging', () => {
   // ---------------- Exception Cases ----------------
 
   test('EX-20: LLM HTTP 401 → typed AppError (auth) snackbar with Configure CTA', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     await mockNetworkError(page, '**/v1/chat/completions*', 401);
     await sendText(page, 'auth test');
     const error = await page.getByText(/auth|configure|unauthorized|sign in/i).first().isVisible({ timeout: 6000 }).catch(() => false);
@@ -314,6 +316,8 @@ test.describe('M03 — Chat: Text Messaging', () => {
   });
 
   test('EX-21: LLM HTTP 429 → Retry CTA; auto-retry with 1/2/4/8/16s backoff', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     await mockNetworkError(page, '**/v1/chat/completions*', 429);
     await sendText(page, 'rate limit');
     const retry = await page.getByText(/retry|rate limit|too many/i).first().isVisible({ timeout: 6000 }).catch(() => false);
@@ -322,6 +326,8 @@ test.describe('M03 — Chat: Text Messaging', () => {
   });
 
   test('EX-22: LLM HTTP 500 → Server error snackbar with Retry', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     await mockNetworkError(page, '**/v1/chat/completions*', 500);
     await sendText(page, 'server error');
     const error = await page.getByText(/server error|retry|something went wrong/i).first().isVisible({ timeout: 6000 }).catch(() => false);
@@ -330,6 +336,8 @@ test.describe('M03 — Chat: Text Messaging', () => {
   });
 
   test('EX-23: LLM timeout → Request timed out with manual Retry', async ({ page }) => {
+    // Disable Dart-side mock so the HTTP error actually fires.
+    await bridge.setMockMode(page, false);
     await mockNetworkTimeout(page, '**/v1/chat/completions*');
     await sendText(page, 'timeout');
     const timeout = await page.getByText(/timed out|timeout|retry/i).first().isVisible({ timeout: 6000 }).catch(() => false);

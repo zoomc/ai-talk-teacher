@@ -61,3 +61,51 @@ query；构建后将 `build/web/flutter_bootstrap.js` 的 `mainJsPath` 改为
 脚本一旦发现版本标记不一致、CDN 返回的主 bundle 与本地构建 hash 不同、或入口
 资源不是 no-cache，会直接失败；不可跳过失败项。可用环境变量覆盖部署主机、目录、
 公共 URL 与等待时长，仅供测试环境使用。
+
+## E2E 测试（Playwright + Flutter E2E Bridge）
+
+E2E 套件位于 `e2e/`，覆盖 30 个功能点（子功能粒度），共 717 条独立用例（chromium
++ firefox + webkit + mobile-chrome 四个浏览器项目下合计 2868 次执行）。每个功能点
+不少于 20 条用例，分 happypath / 旁支 / 异常三类。规格见 `docs/e2e-spec.md`。
+
+### Mock 策略：HTTP 拦截 + Dart 端 E2E Bridge（混合方案）
+
+- **HTTP 拦截**（`e2e/lib/mock.ts`）：用 Playwright `page.route` 拦截厂商 API
+  （OpenAI 兼容的 `/v1/chat/completions`、STT、TTS），返回固定 fixture 或模拟
+  401/429/500/超时。
+- **Flutter E2E Bridge**（`lib/core/e2e/e2e_bridge*.dart`）：仅在
+  `--dart-define=E2E=true` 时编译，向 `window.__e2eBridge` 暴露 JS 钩子：
+  `resetDatabase / seedChatSessions / seedMessages / seedCorrections / setMockMode /
+  setMockLlmResponse / setMockSttTranscript / setMockTtsAudio / getSnapshot /
+  setSetting`。测试可重置/种子 SQLite，并让 `LlmService` / STT / TTS 直接短路返回
+  预置响应，零真实网络调用。
+- 非 E2E 构建（正常 release）走 `e2e_bridge_stub.dart` 与 `e2e_mock_services_stub.dart`
+  的 no-op 实现，对生产代码无影响。
+
+### 运行方式
+
+```bash
+# 1. 构建 E2E 版本的 Flutter Web（必须带 E2E define）
+flutter build web --dart-define=E2E=true
+
+# 2. 安装 Playwright 浏览器（首次）
+cd e2e && npx playwright install chromium firefox webkit
+
+# 3. 跑全部用例（webServer 会自动起 start-server.mjs 托管 build/web/）
+npm test            # 默认 chromium
+npm run test:all    # 四个浏览器全跑
+npm run test:fast   # 仅 chromium + list reporter
+npm run test:mobile # 仅 mobile-chrome（Pixel 5 视口）
+```
+
+### 验证项
+
+- `npm run typecheck`（`tsc --noEmit`）必须 0 错误。
+- `npx playwright test --list` 应枚举 2868 条用例 / 30 个文件。
+- 失败用例自动保留 trace / screenshot / video 于 `e2e/test-results/`。
+- 每个页面至少一条 screenshot + 元素断言用例，用于人工 review 渲染质量。
+
+### 旧套件
+
+`e2e/legacy/` 保留旧 E2E 用例，默认 `testMatch` 已排除；如需运行：
+`npm run test:legacy`。

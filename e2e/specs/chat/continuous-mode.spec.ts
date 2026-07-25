@@ -215,7 +215,7 @@ test.describe('M07 — Chat: Continuous Mode & Barge-in', () => {
       if (box) {
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
         await page.mouse.down();
-        await page.waitForTimeout(400);
+        await page.waitForTimeout(500);
         await toggleContinuousChip(page);
         await page.waitForTimeout(600);
         await page.mouse.up();

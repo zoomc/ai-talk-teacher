@@ -193,7 +193,7 @@ test.describe('M22 — Settings: Theme & Language', () => {
     const snapshot = await bridge.getSnapshot<Record<string, unknown[]>>(page);
     const settings = (snapshot.settings ?? []) as Array<{ key: string; value: string }>;
     const theme = settings.find((s) => s.key === 'theme');
-    expect(theme?.value === 'dark' || true).toBe(true);
+    expect(theme?.value).toBe('dark');
     await expectNoException(page);
     await capture(page, 'm22-br3-theme-persisted');
   });
@@ -205,7 +205,7 @@ test.describe('M22 — Settings: Theme & Language', () => {
     const snapshot = await bridge.getSnapshot<Record<string, unknown[]>>(page);
     const settings = (snapshot.settings ?? []) as Array<{ key: string; value: string }>;
     const lang = settings.find((s) => s.key === 'app_language');
-    expect(lang?.value === 'ja' || true).toBe(true);
+    expect(lang?.value).toBe('ja');
     await expectNoException(page);
     await capture(page, 'm22-br4-language-persisted');
   });
