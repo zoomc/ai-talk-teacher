@@ -235,9 +235,9 @@ test.describe('M03 — Chat: Text Messaging', () => {
     await bridge.setMockLlmResponse(page, 'goes', dupReply);
     await sendText(page, 'I goes');
     await page.waitForTimeout(2500);
-    const snap = await bridge.getSnapshot<DbSnapshot & { corrections?: Array<{ occurrence_count?: number }> }>(page);
-    const dup = (snap.corrections ?? []).find((c) => 'I goes' in c && 'corrected' in c);
-    expect(dup === undefined || (dup.occurrence_count ?? 0) >= 1).toBe(true);
+    const snap = await bridge.getSnapshot<DbSnapshot & { corrections?: Array<{ occurrence_count?: number; original?: string; corrected?: string }> }>(page);
+    const dup = (snap.corrections ?? []).find((c) => c.original === 'I goes');
+    expect(dup === undefined || ((dup.occurrence_count ?? 0) >= 1)).toBe(true);
     await expectNoException(page);
   });
 

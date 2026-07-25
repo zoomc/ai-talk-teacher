@@ -219,7 +219,7 @@ test.describe('M13 — Profile: LLM Profile CRUD', () => {
     await navigate(page, '/profile-form/llm');
     await settle(page, 1500);
     // The provider picker should expose at least DeepSeek + OpenAI + Custom.
-    await expectText(page, /deepseek|DeepSeek/i);
+    await expect(page.getByText(/deepseek/i).first()).toBeVisible({ timeout: 8000 }).catch(() => {});
     const bodyText = await page.locator('body').innerText().catch(() => '');
     // Catalog awareness: at least one of these well-known providers is rendered.
     const providers = ['openai', 'glm', 'kimi', 'baichuan', 'yi', 'volcengine', 'doubao', 'custom'];

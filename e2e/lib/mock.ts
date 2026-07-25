@@ -6,15 +6,16 @@
  * primary mocking path is the Dart-side `E2eMockServices` short-circuit
  * (which never issues HTTP at all). Use both together for defense in depth.
  *
- * Vendor endpoints covered:
- *   - OpenAI-compatible: POST **/v1/chat/completions, /v1/audio/speech,
+ * Vendor endpoints covered (patterns use single-asterisk glob form to
+ * avoid clashing with JSDoc comment terminators):
+ *   - OpenAI-compatible: POST {any}/v1/chat/completions, /v1/audio/speech,
  *                       /v1/audio/transcriptions
- *   - Deepgram: POST wss://api.deepgram.com/** (WS — not intercepted
+ *   - Deepgram: POST wss://api.deepgram.com/{any} (WS — not intercepted
  *              here; rely on Dart-side mock)
- *   - Azure STT/TTS: POST **.cognitiveservices.azure.com/**
- *   - Google STT: POST **.googleapis.com/speech/**
- *   - Fish Audio TTS: POST api.fish.audio/**
- *   - ElevenLabs TTS: POST api.elevenlabs.io/**
+ *   - Azure STT/TTS: POST {any}.cognitiveservices.azure.com/{any}
+ *   - Google STT: POST {any}.speech.googleapis.com/speech/{any}
+ *   - Fish Audio TTS: POST api.fish.audio/{any}
+ *   - ElevenLabs TTS: POST api.elevenlabs.io/{any}
  *
  * Per-test overrides: `setLlmResponse(page, promptSubstring, reply)` lets
  * a test inject a specific LLM response keyed on a substring of the prompt.

@@ -299,7 +299,6 @@ test.describe('M04 — Chat: Voice Input & STT', () => {
 
   test('EX-20: mic permission denied → typed AppError (mic-permission) with Open Settings CTA', async ({ page, context }) => {
     await context.clearPermissions().catch(() => {});
-    await context.setPermissions?.([]).catch(() => {});
     await bridge.setMockSttResult(page, STT_MOCKS.short);
     await pressAndHoldMic(page, 1000);
     await page.waitForTimeout(2000);

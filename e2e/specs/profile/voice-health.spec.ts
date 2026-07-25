@@ -306,14 +306,14 @@ test.describe('M17 — Voice Health Screen', () => {
 
   test('EX-3: network offline — network check fails gracefully', async ({ page }) => {
     // Simulate offline by overriding the connectivity context.
-    await page.context.setOffline(true);
+    await page.context().setOffline(true);
     await settle(page, 500);
 
     const runButton = page.getByRole('button').filter({ hasText: /check|run|检查/i }).first();
     await runButton.click({ timeout: 8000 }).catch(() => {});
     await settle(page, 5000);
 
-    await page.context.setOffline(false);
+    await page.context().setOffline(false);
     await settle(page, 1000);
 
     await expectNoException(page);

@@ -316,12 +316,12 @@ test.describe('M06 — Chat: TTS Playback', () => {
 
   test('EX-6: Network offline when TTS requested shows offline banner', async ({ page }) => {
     await bridge.setMockMode(page, false);
-    await page.context.setOffline(true);
+    await page.context().setOffline(true);
     await page.getByRole('textbox').fill('Hello!');
     await page.getByRole('button', { name: /send/i }).click();
     await settle(page, 3000);
     await expect(page.getByText(/offline/i).first()).toBeVisible({ timeout: 15000 }).catch(() => {});
-    await page.context.setOffline(false);
+    await page.context().setOffline(false);
     await expectNoException(page);
   });
 
