@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import '../../../core/e2e/e2e_mock_services.dart';
 import '../../../core/util/openai_endpoint.dart';
 import '../../profile/domain/profile_models.dart';
 import '../../profile/domain/provider_catalog.dart';
@@ -18,6 +19,12 @@ class TtsService {
 
   /// Synthesize text to audio bytes (mp3 unless the vendor picks otherwise).
   Future<Uint8List> synthesize(String text) async {
+    // E2E mock: short-circuit if mock mode is enabled (no HTTP).
+    final canned = E2eMockServices.cannedTtsAudioBase64;
+    if (canned != null) {
+      return Uint8List.fromList(base64Decode(canned));
+    }
+
     switch (profile.kind) {
       case ProviderKind.openaiCompatible:
         return _synthesizeOpenAICompatible(text);

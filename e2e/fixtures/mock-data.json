@@ -1,0 +1,306 @@
+{
+  "empty": {
+    "completeOnboarding": true
+  },
+  "guest": {
+    "completeOnboarding": false,
+    "settings": {},
+    "profiles": []
+  },
+  "onboarded": {
+    "completeOnboarding": true,
+    "settings": {
+      "theme": "system",
+      "app_language": "en",
+      "low_bandwidth": "false"
+    },
+    "profiles": [
+      {
+        "id": "llm-active",
+        "name": "DeepSeek Default",
+        "provider_id": "deepseek",
+        "base_url": "https://api.deepseek.com/v1",
+        "api_key": "sk-e2e-mock-llm-key",
+        "model": "deepseek-chat",
+        "is_active": 1,
+        "created_at": "2026-07-01T10:00:00.000Z",
+        "updated_at": "2026-07-01T10:00:00.000Z"
+      },
+      {
+        "id": "llm-inactive",
+        "name": "OpenAI Backup",
+        "provider_id": "openai",
+        "base_url": "https://api.openai.com/v1",
+        "api_key": "sk-e2e-mock-openai-key",
+        "model": "gpt-4o-mini",
+        "is_active": 0,
+        "created_at": "2026-07-02T10:00:00.000Z",
+        "updated_at": "2026-07-02T10:00:00.000Z"
+      },
+      {
+        "id": "stt-active",
+        "name": "Deepgram Default",
+        "provider_id": "deepgram",
+        "base_url": "https://api.deepgram.com/v1",
+        "api_key": "sk-e2e-mock-stt-key",
+        "model": "nova-2",
+        "language": "en-US",
+        "extra_config": null,
+        "is_active": 1,
+        "created_at": "2026-07-01T10:00:00.000Z",
+        "updated_at": "2026-07-01T10:00:00.000Z"
+      },
+      {
+        "id": "tts-active",
+        "name": "Fish Audio Default",
+        "provider_id": "fish_audio",
+        "base_url": "https://api.fish.audio/v1",
+        "api_key": "sk-e2e-mock-tts-key",
+        "model": "fish-speech-1",
+        "voice_id": "voice-1",
+        "voice_name": "Default Voice",
+        "speed": 1.0,
+        "extra_config": null,
+        "is_active": 1,
+        "created_at": "2026-07-01T10:00:00.000Z",
+        "updated_at": "2026-07-01T10:00:00.000Z"
+      }
+    ],
+    "scenarios": [
+      {
+        "id": "scn-coffee",
+        "title": "Ordering Coffee",
+        "description": "Practice ordering a coffee at a cafe.",
+        "category": "daily",
+        "difficulty": "A2",
+        "goal": "interview",
+        "tags": "[\"daily\",\"cafe\"]",
+        "created_at": "2026-07-01T10:00:00.000Z"
+      },
+      {
+        "id": "scn-interview",
+        "title": "Job Interview",
+        "description": "Practice answering common interview questions.",
+        "category": "business",
+        "difficulty": "B2",
+        "goal": "interview",
+        "tags": "[\"business\",\"interview\"]",
+        "created_at": "2026-07-01T10:00:00.000Z"
+      },
+      {
+        "id": "scn-travel",
+        "title": "Airport Check-in",
+        "description": "Practice checking in at the airport.",
+        "category": "travel",
+        "difficulty": "A2",
+        "goal": "travel",
+        "tags": "[\"travel\",\"airport\"]",
+        "created_at": "2026-07-01T10:00:00.000Z"
+      }
+    ]
+  },
+  "with-projects": {
+    "completeOnboarding": true,
+    "settings": {
+      "theme": "dark",
+      "app_language": "en"
+    },
+    "projects": [
+      {
+        "id": "proj-1",
+        "name": "Daily Conversation Practice",
+        "icon": "Icons.chat_bubble",
+        "color": "#6C5CE7",
+        "description": "Daily free-talk sessions for fluency.",
+        "goal": "daily",
+        "status": "active",
+        "topics": "[\"daily\",\"fluency\"]",
+        "created_at": "2026-07-10T10:00:00.000Z",
+        "updated_at": "2026-07-20T10:00:00.000Z",
+        "last_activity_at": "2026-07-20T10:00:00.000Z"
+      },
+      {
+        "id": "proj-2",
+        "name": "Interview Prep",
+        "icon": "Icons.work",
+        "color": "#00D2FF",
+        "description": "Mock interview scenarios and review.",
+        "goal": "interview",
+        "status": "active",
+        "topics": "[\"interview\",\"business\"]",
+        "created_at": "2026-07-12T10:00:00.000Z",
+        "updated_at": "2026-07-19T10:00:00.000Z",
+        "last_activity_at": "2026-07-19T10:00:00.000Z"
+      },
+      {
+        "id": "proj-3",
+        "name": "Travel Vocabulary",
+        "icon": "Icons.flight",
+        "color": "#FFA94D",
+        "description": "Travel-related scenarios and word lists.",
+        "goal": "travel",
+        "status": "paused",
+        "topics": "[\"travel\",\"vocabulary\"]",
+        "created_at": "2026-06-15T10:00:00.000Z",
+        "updated_at": "2026-07-05T10:00:00.000Z",
+        "last_activity_at": "2026-07-05T10:00:00.000Z"
+      },
+      {
+        "id": "proj-4",
+        "name": "IELTS Speaking",
+        "icon": "Icons.school",
+        "color": "#FF6B6B",
+        "description": "IELTS speaking part 1/2/3 practice.",
+        "goal": "ielts",
+        "status": "active",
+        "topics": "[\"ielts\",\"exam\"]",
+        "created_at": "2026-07-01T10:00:00.000Z",
+        "updated_at": "2026-07-22T10:00:00.000Z",
+        "last_activity_at": "2026-07-22T10:00:00.000Z"
+      },
+      {
+        "id": "proj-5",
+        "name": "Completed Project",
+        "icon": "Icons.check_circle",
+        "color": "#51CF66",
+        "description": "A finished project for archive testing.",
+        "goal": "daily",
+        "status": "archived",
+        "topics": "[]",
+        "created_at": "2026-05-01T10:00:00.000Z",
+        "updated_at": "2026-06-01T10:00:00.000Z",
+        "last_activity_at": "2026-06-01T10:00:00.000Z"
+      }
+    ]
+  },
+  "with-chat-history": {
+    "completeOnboarding": true,
+    "chatSessions": [
+      {
+        "id": "sess-1",
+        "topic": "Coffee shop conversation",
+        "scenario_id": "scn-coffee",
+        "status": "completed",
+        "tutor_id": "tutor-casual",
+        "level_tag": "A2",
+        "is_guest": 0,
+        "created_at": "2026-07-20T10:00:00.000Z",
+        "updated_at": "2026-07-20T10:15:00.000Z",
+        "archived_at": null
+      },
+      {
+        "id": "sess-2",
+        "topic": "Job interview practice",
+        "scenario_id": "scn-interview",
+        "status": "active",
+        "tutor_id": "tutor-strict",
+        "level_tag": "B2",
+        "is_guest": 0,
+        "created_at": "2026-07-21T10:00:00.000Z",
+        "updated_at": "2026-07-21T10:30:00.000Z",
+        "archived_at": null
+      },
+      {
+        "id": "sess-3",
+        "topic": "Free talk",
+        "scenario_id": null,
+        "status": "archived",
+        "tutor_id": "tutor-friendly",
+        "level_tag": "B1",
+        "is_guest": 0,
+        "created_at": "2026-07-15T10:00:00.000Z",
+        "updated_at": "2026-07-15T10:20:00.000Z",
+        "archived_at": "2026-07-16T10:00:00.000Z"
+      },
+      {
+        "id": "sess-guest",
+        "topic": "Guest trial",
+        "scenario_id": null,
+        "status": "completed",
+        "tutor_id": null,
+        "level_tag": null,
+        "is_guest": 1,
+        "created_at": "2026-07-22T10:00:00.000Z",
+        "updated_at": "2026-07-22T10:05:00.000Z",
+        "archived_at": null
+      }
+    ],
+    "messages": [
+      { "id": "msg-1", "session_id": "sess-1", "role": "user", "content": "Hello, can I have a coffee?", "created_at": "2026-07-20T10:00:00.000Z" },
+      { "id": "msg-2", "session_id": "sess-1", "role": "assistant", "content": "Sure! What size would you like?", "created_at": "2026-07-20T10:00:30.000Z" },
+      { "id": "msg-3", "session_id": "sess-1", "role": "user", "content": "A medium, please.", "created_at": "2026-07-20T10:01:00.000Z" },
+      { "id": "msg-4", "session_id": "sess-2", "role": "user", "content": "Tell me about yourself.", "created_at": "2026-07-21T10:00:00.000Z" },
+      { "id": "msg-5", "session_id": "sess-2", "role": "assistant", "content": "I'm a software engineer with 5 years of experience.", "created_at": "2026-07-21T10:00:30.000Z" }
+    ]
+  },
+  "with-corrections": {
+    "completeOnboarding": true,
+    "corrections": [
+      { "id": "cor-1", "session_id": "sess-1", "message_id": "msg-1", "original": "I goes to school", "corrected": "I go to school", "type": "grammar", "severity": "medium", "explanation": "Subject 'I' uses base verb form.", "skill": "grammar", "review_count": 0, "easiness_factor": 2.5, "interval_days": 1, "next_review_at": "2026-07-25T00:00:00.000Z", "occurrence_count": 1, "last_seen_at": "2026-07-20T10:00:00.000Z", "importance": 3, "is_favorite": 0, "created_at": "2026-07-20T10:00:00.000Z", "updated_at": "2026-07-20T10:00:00.000Z" },
+      { "id": "cor-2", "session_id": "sess-1", "message_id": "msg-3", "original": "a apple", "corrected": "an apple", "type": "grammar", "severity": "low", "explanation": "Use 'an' before vowel sounds.", "skill": "grammar", "review_count": 1, "easiness_factor": 2.6, "interval_days": 6, "next_review_at": "2026-07-26T00:00:00.000Z", "occurrence_count": 1, "last_seen_at": "2026-07-20T10:00:00.000Z", "importance": 2, "is_favorite": 1, "created_at": "2026-07-20T10:00:00.000Z", "updated_at": "2026-07-21T10:00:00.000Z" },
+      { "id": "cor-3", "session_id": "sess-2", "message_id": "msg-4", "original": "I am agree", "corrected": "I agree", "type": "grammar", "severity": "medium", "explanation": "'Agree' is a verb, no 'be' needed.", "skill": "grammar", "review_count": 0, "easiness_factor": 2.5, "interval_days": 1, "next_review_at": "2026-07-25T00:00:00.000Z", "occurrence_count": 1, "last_seen_at": "2026-07-21T10:00:00.000Z", "importance": 3, "is_favorite": 0, "created_at": "2026-07-21T10:00:00.000Z", "updated_at": "2026-07-21T10:00:00.000Z" },
+      { "id": "cor-4", "session_id": "sess-2", "message_id": null, "original": "recieve", "corrected": "receive", "type": "spelling", "severity": "low", "explanation": "'i before e except after c'.", "skill": "vocabulary", "review_count": 2, "easiness_factor": 2.7, "interval_days": 12, "next_review_at": "2026-07-27T00:00:00.000Z", "occurrence_count": 2, "last_seen_at": "2026-07-15T10:00:00.000Z", "importance": 2, "is_favorite": 0, "created_at": "2026-07-15T10:00:00.000Z", "updated_at": "2026-07-22T10:00:00.000Z" },
+      { "id": "cor-5", "session_id": "sess-3", "message_id": null, "original": "He don't", "corrected": "He doesn't", "type": "grammar", "severity": "high", "explanation": "Third person singular uses 'doesn't'.", "skill": "grammar", "review_count": 3, "easiness_factor": 2.4, "interval_days": 20, "next_review_at": "2026-07-28T00:00:00.000Z", "occurrence_count": 3, "last_seen_at": "2026-07-08T10:00:00.000Z", "importance": 4, "is_favorite": 1, "created_at": "2026-07-08T10:00:00.000Z", "updated_at": "2026-07-22T10:00:00.000Z" }
+    ],
+    "reviewQueue": [
+      { "id": "rq-1", "correction_id": "cor-1", "interval_days": 1, "repetitions": 0, "ease_factor": 2.5, "due_at": "2026-07-25T00:00:00.000Z", "last_reviewed_at": null },
+      { "id": "rq-2", "correction_id": "cor-2", "interval_days": 6, "repetitions": 1, "ease_factor": 2.6, "due_at": "2026-07-26T00:00:00.000Z", "last_reviewed_at": "2026-07-20T10:00:00.000Z" },
+      { "id": "rq-3", "correction_id": "cor-3", "interval_days": 1, "repetitions": 0, "ease_factor": 2.5, "due_at": "2026-07-25T00:00:00.000Z", "last_reviewed_at": null },
+      { "id": "rq-4", "correction_id": "cor-4", "interval_days": 12, "repetitions": 2, "ease_factor": 2.7, "due_at": "2026-07-27T00:00:00.000Z", "last_reviewed_at": "2026-07-15T10:00:00.000Z" },
+      { "id": "rq-5", "correction_id": "cor-5", "interval_days": 20, "repetitions": 3, "ease_factor": 2.4, "due_at": "2026-07-28T00:00:00.000Z", "last_reviewed_at": "2026-07-08T10:00:00.000Z" }
+    ]
+  },
+  "with-review-queue": {
+    "completeOnboarding": true,
+    "corrections": [
+      { "id": "cor-r1", "session_id": "sess-r", "message_id": null, "original": "I goes", "corrected": "I go", "type": "grammar", "severity": "medium", "explanation": "Base verb after 'I'.", "skill": "grammar", "review_count": 0, "easiness_factor": 2.5, "interval_days": 1, "next_review_at": "2026-07-25T00:00:00.000Z", "occurrence_count": 1, "last_seen_at": "2026-07-24T10:00:00.000Z", "importance": 3, "is_favorite": 0, "created_at": "2026-07-24T10:00:00.000Z", "updated_at": "2026-07-24T10:00:00.000Z" },
+      { "id": "cor-r2", "session_id": "sess-r", "message_id": null, "original": "a apple", "corrected": "an apple", "type": "grammar", "severity": "low", "explanation": "'an' before vowel.", "skill": "grammar", "review_count": 1, "easiness_factor": 2.6, "interval_days": 6, "next_review_at": "2026-07-26T00:00:00.000Z", "occurrence_count": 1, "last_seen_at": "2026-07-20T10:00:00.000Z", "importance": 2, "is_favorite": 1, "created_at": "2026-07-20T10:00:00.000Z", "updated_at": "2026-07-21T10:00:00.000Z" },
+      { "id": "cor-r3", "session_id": "sess-r", "message_id": null, "original": "He don't", "corrected": "He doesn't", "type": "grammar", "severity": "high", "explanation": "Third person singular.", "skill": "grammar", "review_count": 2, "easiness_factor": 2.4, "interval_days": 12, "next_review_at": "2026-07-27T00:00:00.000Z", "occurrence_count": 2, "last_seen_at": "2026-07-15T10:00:00.000Z", "importance": 4, "is_favorite": 0, "created_at": "2026-07-15T10:00:00.000Z", "updated_at": "2026-07-22T10:00:00.000Z" },
+      { "id": "cor-r4", "session_id": "sess-r", "message_id": null, "original": "recieve", "corrected": "receive", "type": "spelling", "severity": "low", "explanation": "i before e.", "skill": "vocabulary", "review_count": 3, "easiness_factor": 2.7, "interval_days": 20, "next_review_at": "2026-07-28T00:00:00.000Z", "occurrence_count": 3, "last_seen_at": "2026-07-08T10:00:00.000Z", "importance": 2, "is_favorite": 0, "created_at": "2026-07-08T10:00:00.000Z", "updated_at": "2026-07-22T10:00:00.000Z" },
+      { "id": "cor-r5", "session_id": "sess-r", "message_id": null, "original": "He are", "corrected": "He is", "type": "grammar", "severity": "high", "explanation": "Singular subject.", "skill": "grammar", "review_count": 4, "easiness_factor": 2.3, "interval_days": 30, "next_review_at": "2026-07-29T00:00:00.000Z", "occurrence_count": 4, "last_seen_at": "2026-07-01T10:00:00.000Z", "importance": 4, "is_favorite": 1, "created_at": "2026-07-01T10:00:00.000Z", "updated_at": "2026-07-22T10:00:00.000Z" }
+    ],
+    "reviewQueue": [
+      { "id": "rq-r1", "correction_id": "cor-r1", "interval_days": 1, "repetitions": 0, "ease_factor": 2.5, "due_at": "2026-07-25T00:00:00.000Z", "last_reviewed_at": null },
+      { "id": "rq-r2", "correction_id": "cor-r2", "interval_days": 6, "repetitions": 1, "ease_factor": 2.6, "due_at": "2026-07-26T00:00:00.000Z", "last_reviewed_at": "2026-07-20T10:00:00.000Z" },
+      { "id": "rq-r3", "correction_id": "cor-r3", "interval_days": 12, "repetitions": 2, "ease_factor": 2.4, "due_at": "2026-07-27T00:00:00.000Z", "last_reviewed_at": "2026-07-15T10:00:00.000Z" },
+      { "id": "rq-r4", "correction_id": "cor-r4", "interval_days": 20, "repetitions": 3, "ease_factor": 2.7, "due_at": "2026-07-28T00:00:00.000Z", "last_reviewed_at": "2026-07-08T10:00:00.000Z" },
+      { "id": "rq-r5", "correction_id": "cor-r5", "interval_days": 30, "repetitions": 4, "ease_factor": 2.3, "due_at": "2026-07-29T00:00:00.000Z", "last_reviewed_at": "2026-07-01T10:00:00.000Z" }
+    ]
+  },
+  "full": {
+    "completeOnboarding": true,
+    "settings": {
+      "theme": "dark",
+      "app_language": "en",
+      "low_bandwidth": "false"
+    },
+    "profiles": [
+      { "id": "llm-active", "name": "DeepSeek Default", "provider_id": "deepseek", "base_url": "https://api.deepseek.com/v1", "api_key": "sk-e2e-mock-llm-key", "model": "deepseek-chat", "is_active": 1, "created_at": "2026-07-01T10:00:00.000Z", "updated_at": "2026-07-01T10:00:00.000Z" },
+      { "id": "stt-active", "name": "Deepgram Default", "provider_id": "deepgram", "base_url": "https://api.deepgram.com/v1", "api_key": "sk-e2e-mock-stt-key", "model": "nova-2", "language": "en-US", "extra_config": null, "is_active": 1, "created_at": "2026-07-01T10:00:00.000Z", "updated_at": "2026-07-01T10:00:00.000Z" },
+      { "id": "tts-active", "name": "Fish Audio Default", "provider_id": "fish_audio", "base_url": "https://api.fish.audio/v1", "api_key": "sk-e2e-mock-tts-key", "model": "fish-speech-1", "voice_id": "voice-1", "voice_name": "Default Voice", "speed": 1.0, "extra_config": null, "is_active": 1, "created_at": "2026-07-01T10:00:00.000Z", "updated_at": "2026-07-01T10:00:00.000Z" }
+    ],
+    "scenarios": [
+      { "id": "scn-coffee", "title": "Ordering Coffee", "description": "Practice ordering a coffee at a cafe.", "category": "daily", "difficulty": "A2", "goal": "interview", "tags": "[\"daily\",\"cafe\"]", "created_at": "2026-07-01T10:00:00.000Z" },
+      { "id": "scn-interview", "title": "Job Interview", "description": "Practice answering common interview questions.", "category": "business", "difficulty": "B2", "goal": "interview", "tags": "[\"business\",\"interview\"]", "created_at": "2026-07-01T10:00:00.000Z" },
+      { "id": "scn-travel", "title": "Airport Check-in", "description": "Practice checking in at the airport.", "category": "travel", "difficulty": "A2", "goal": "travel", "tags": "[\"travel\",\"airport\"]", "created_at": "2026-07-01T10:00:00.000Z" }
+    ],
+    "projects": [
+      { "id": "proj-1", "name": "Daily Conversation Practice", "icon": "Icons.chat_bubble", "color": "#6C5CE7", "description": "Daily free-talk sessions for fluency.", "goal": "daily", "status": "active", "topics": "[\"daily\",\"fluency\"]", "created_at": "2026-07-10T10:00:00.000Z", "updated_at": "2026-07-20T10:00:00.000Z", "last_activity_at": "2026-07-20T10:00:00.000Z" },
+      { "id": "proj-2", "name": "Interview Prep", "icon": "Icons.work", "color": "#00D2FF", "description": "Mock interview scenarios and review.", "goal": "interview", "status": "active", "topics": "[\"interview\",\"business\"]", "created_at": "2026-07-12T10:00:00.000Z", "updated_at": "2026-07-19T10:00:00.000Z", "last_activity_at": "2026-07-19T10:00:00.000Z" }
+    ],
+    "chatSessions": [
+      { "id": "sess-1", "topic": "Coffee shop conversation", "scenario_id": "scn-coffee", "status": "completed", "tutor_id": "tutor-casual", "level_tag": "A2", "is_guest": 0, "created_at": "2026-07-20T10:00:00.000Z", "updated_at": "2026-07-20T10:15:00.000Z", "archived_at": null },
+      { "id": "sess-2", "topic": "Job interview practice", "scenario_id": "scn-interview", "status": "active", "tutor_id": "tutor-strict", "level_tag": "B2", "is_guest": 0, "created_at": "2026-07-21T10:00:00.000Z", "updated_at": "2026-07-21T10:30:00.000Z", "archived_at": null }
+    ],
+    "messages": [
+      { "id": "msg-1", "session_id": "sess-1", "role": "user", "content": "Hello, can I have a coffee?", "created_at": "2026-07-20T10:00:00.000Z" },
+      { "id": "msg-2", "session_id": "sess-1", "role": "assistant", "content": "Sure! What size would you like?", "created_at": "2026-07-20T10:00:30.000Z" }
+    ],
+    "corrections": [
+      { "id": "cor-1", "session_id": "sess-1", "message_id": "msg-1", "original": "I goes to school", "corrected": "I go to school", "type": "grammar", "severity": "medium", "explanation": "Subject 'I' uses base verb form.", "skill": "grammar", "review_count": 0, "easiness_factor": 2.5, "interval_days": 1, "next_review_at": "2026-07-25T00:00:00.000Z", "occurrence_count": 1, "last_seen_at": "2026-07-20T10:00:00.000Z", "importance": 3, "is_favorite": 0, "created_at": "2026-07-20T10:00:00.000Z", "updated_at": "2026-07-20T10:00:00.000Z" }
+    ],
+    "reviewQueue": [
+      { "id": "rq-1", "correction_id": "cor-1", "interval_days": 1, "repetitions": 0, "ease_factor": 2.5, "due_at": "2026-07-25T00:00:00.000Z", "last_reviewed_at": null }
+    ]
+  }
+}

@@ -2,13 +2,23 @@
   "name": "speakflow-e2e",
   "version": "1.0.0",
   "private": true,
+  "description": "Comprehensive Playwright E2E suite for SpeakFlow Flutter web app",
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
-    "start-server": "node start-server.mjs"
+    "test:fast": "playwright test --project=chromium --reporter=list",
+    "test:all": "playwright test --project=chromium --project=firefox --project=webkit --project=mobile-chrome",
+    "test:cross-browser": "playwright test --project=firefox --project=webkit",
+    "test:mobile": "playwright test --project=mobile-chrome",
+    "test:legacy": "playwright test --test-match=legacy/**/*.spec.ts",
+    "test:list": "playwright test --list",
+    "start-server": "node start-server.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1"
+    "@playwright/test": "^1.62.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
   }
 }

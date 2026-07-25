@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../../../core/e2e/e2e_mock_services.dart';
 import '../../../core/util/openai_endpoint.dart';
 import '../../profile/domain/profile_models.dart';
 import '../domain/chat_models.dart';
@@ -18,6 +19,16 @@ class LlmService {
     required String systemPrompt,
     String? userMessage,
   }) async {
+    // E2E mock: short-circuit if mock mode is enabled (no HTTP).
+    final canned = E2eMockServices.cannedLlmReply(userMessage ?? systemPrompt);
+    if (canned != null) {
+      return LlmResponse(
+        content: _cleanResponse(canned),
+        corrections: extractCorrections(canned),
+        usage: null,
+      );
+    }
+
     final messages = _buildMessages(history, systemPrompt, userMessage);
 
     final response = await http
@@ -91,6 +102,14 @@ class LlmService {
     required String systemPrompt,
     String? userMessage,
   }) async* {
+    // E2E mock: short-circuit if mock mode is enabled (no HTTP).
+    final canned = E2eMockServices.cannedLlmReply(userMessage ?? systemPrompt);
+    if (canned != null) {
+      yield StreamChunk(delta: canned);
+      yield const StreamChunk(done: true);
+      return;
+    }
+
     final messages = _buildMessages(history, systemPrompt, userMessage);
     final request = http.Request(
       'POST',

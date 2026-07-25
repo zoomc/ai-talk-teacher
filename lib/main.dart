@@ -7,12 +7,20 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/services/browser_language_bridge_stub.dart'
     if (dart.library.js_interop) 'core/services/browser_language_bridge_web.dart';
+import 'core/e2e/e2e_bridge_stub.dart'
+    if (dart.library.js_interop) 'core/e2e/e2e_bridge_web.dart' as e2e;
 import 'features/profile/data/profile_repository.dart';
 import 'shared/providers.dart';
 import 'shared/widgets/app_banners.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // E2E bridge: no-op unless built with `--dart-define=E2E=true`. When
+  // active, exposes `window.speakflowE2E.*` JS hooks for Playwright to
+  // reset/seed the SQLite database and short-circuit LLM/STT/TTS services.
+  await e2e.E2eBridge.maybeInit();
+  e2e.E2eBridge.exposeHooks();
 
   // D1: Global error handling — catch framework and async errors so they don't
   // silently crash the app without any user-visible feedback.

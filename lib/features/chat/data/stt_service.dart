@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import '../../../core/e2e/e2e_mock_services.dart';
 import '../../../core/util/openai_endpoint.dart';
 import '../../profile/domain/profile_models.dart';
 import '../../profile/domain/provider_catalog.dart';
@@ -17,6 +18,10 @@ class SttService {
 
   /// Transcribe audio (WAV bytes, 16kHz mono recommended) to text.
   Future<String> transcribe(Uint8List audioData) async {
+    // E2E mock: short-circuit if mock mode is enabled (no HTTP).
+    final canned = E2eMockServices.cannedSttTranscript;
+    if (canned != null) return canned;
+
     switch (profile.kind) {
       case ProviderKind.openaiCompatible:
         return _transcribeOpenAICompatible(audioData);
