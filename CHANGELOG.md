@@ -7,6 +7,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### E2E-driven quality improvement — 2026-07-25
+
+#### Overview
+Ran the full Playwright E2E suite (chromium + mobile-chrome, 1476 test
+executions) with dual-viewport screenshot capture. Conducted a comprehensive
+review of business logic, UI/UX, visual design, and E2E coverage gaps,
+producing a unified modification list of 511 items across four categories:
+business logic (103), UI/UX source (53), visual analysis from screenshots
+(225), and E2E coverage gaps (130). Implemented high-priority fixes across
+all categories.
+
+#### Business Logic Fixes
+- **SM-2 / skill mastery**: `lastSeenAt` now updated to `DateTime.now()` on
+  review rating so time-decay weighting in `SkillMasteryService` reflects
+  recent practice rather than original discovery time.
+- **Review queue consistency**: `saveCorrection` now defaults
+  `nextReviewAt` to `DateTime.now()` when null, keeping `corrections` and
+  `review_queue` tables in sync.
+- **Review queue filtering**: `getReviewQueueItems` now accepts
+  `onlyDue` parameter (default `true`) so the home dashboard only shows
+  items due now, not future-scheduled items.
+- **Mastery level consistency**: unified the threshold table between
+  `Sm2Service.getMasteryLevel` and `SkillMasteryService._perItemScore` so
+  the displayed level label matches the radar-chart score.
+- **Daily plan filtering**: `DailyPlanTask` now carries an optional
+  `filterDays` payload; `ReviewScreen` accepts a time-range filter so
+  "recent errors" task opens the correct filtered list.
+- **Chat session robustness**: `ChatScreen._ensureSessionExists()` creates
+  the session row on init if missing, preventing FK errors when deep-linking
+  to `/chat/:sessionId`; `ChatRepository.createSession` accepts an explicit
+  `id` parameter.
+- **LLM mock matching**: `LlmService` now prioritizes `userMessage` for mock
+  response matching, falling back to the latest user message in history.
+
+#### UI/UX & Visual Improvements
+- **Chat bubble**: unified border radius (16px AI / 12px user), minimum
+  width constraint, improved correction card styling, Listen button with
+  consistent icon, hover feedback on interactive elements.
+- **Chat input bar**: consistent height, disabled-state send button, ON/OFF
+  labels on continuous-mode switch, improved voice/text toggle layout,
+  recording timer display.
+- **Chat message list**: rich empty-state with CTA and suggestion chips,
+  thinking indicator with animated dots, consistent message spacing.
+- **Chat header**: bottom separator line, aligned title, improved avatar
+  status indicator.
+- **Avatar stage**: status-color shadow, thinking-state dot animation,
+  improved idle breathing animation.
+- **Theme & design tokens**: unified `AppColors`, `AppTextStyles`,
+  `AppTheme` with consistent spacing/radius/opacity tokens; glassmorphism
+  widgets refactored for reuse; responsive breakpoints enhanced for
+  mobile/desktop dual-viewport.
+- **Glassmorphism widgets**: `GlassCard`, `GlassButton`, `GlassBottomSheet`
+  refactored with consistent blur, border, and shadow treatment.
+- **App banners**: version-update banner and connectivity banner improved
+  with consistent styling and action buttons.
+- **Voice status indicator**: improved visual states for recording /
+  processing / idle.
+- **i18n**: added 40+ new localization keys for empty states, CTAs, and
+  status messages.
+
+#### E2E Test Enhancements
+- **Dual-viewport screenshots**: `screenshots.ts` now appends the Playwright
+  project name to screenshot filenames, preventing overwrites between
+  chromium and mobile-chrome.
+- **Shared chat helpers**: `sendChatMessage` and `enableAccessibility`
+  extracted into `helpers.ts` for reuse across all chat-related specs.
+- **`expectText` robustness**: now falls back to aria-label and body
+  innerText checks when Flutter web places text in semantics groups rather
+  than visible DOM text nodes.
+- **`sendChatMessage` reliability**: waits for the textbox to be enabled
+  before filling, preventing timeout when the input is briefly disabled
+  during loading/thinking states.
+- **E2E bridge schema sync**: `_allTables` and `_seedTable` calls aligned
+  with the actual SQLite schema; fixture data corrected in `mock-data.json`.
+- **FK-safe reset**: `resetDatabase` disables foreign keys during deletion
+  and re-enables after, preventing constraint violations.
+- **New coverage**: 26 additional test cases across 7 specs covering
+  mobile端 routing, input, long-text wrapping, error states, correction
+  cards, dashboard navigation, banner adaptation, avatar rendering, and a
+  cross-module learning-loop journey (Home → Chat → Review → Progress).
+
+#### Infrastructure
+- **E2E bridge compilation**: fixed `dart:js_interop` errors — replaced
+  direct `globalContext` assignment with `@JS('window.speakflowE2E')`
+  external setter; changed function parameters to `JSFunction`.
+- **Service config screen**: added missing `dart:convert` import for
+  `utf8` usage.
+- **Code analysis**: `dart analyze` passes with 0 errors (warnings are
+  pre-existing `override_on_non_overriding_member` from Flutter codegen).
+
 ### E2E test suite — Playwright + Flutter E2E bridge — 2026-07-25
 
 #### Added

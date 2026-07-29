@@ -4,7 +4,7 @@
  * must extract the hash fragment.
  */
 
-import { Page } from '@playwright/test';
+import { Page, expect } from '@playwright/test';
 
 /** Base URL for the app under test */
 export const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8080';
@@ -96,11 +96,36 @@ export async function sendChatMessage(page: Page, text: string): Promise<void> {
     await textbox.first().waitFor({ timeout: 5000 });
   }
   const input = textbox.first();
+  // Wait for the input to be enabled (it can be briefly disabled during
+  // loading / thinking states). Retry fill if it becomes disabled again.
+  await input.waitFor({ state: 'visible', timeout: 10000 });
+  await expect.poll(async () => {
+    return await input.isEnabled().catch(() => false);
+  }, { timeout: 10000, intervals: [500, 1000, 2000] }).toBe(true);
   await input.click({ timeout: 5000 }).catch(() => {});
-  await input.fill(text);
+  // Retry fill — the input can flicker back to disabled between the
+  // isEnabled check and the fill call in Flutter web.
+  let filled = false;
+  for (let attempt = 0; attempt < 3 && !filled; attempt++) {
+    try {
+      await input.fill(text, { timeout: 5000 });
+      filled = true;
+    } catch {
+      await settle(page, 500);
+      // Re-wait for enabled before retrying.
+      await expect.poll(async () => {
+        return await input.isEnabled().catch(() => false);
+      }, { timeout: 5000, intervals: [500, 1000] }).toBe(true);
+    }
+  }
+  if (!filled) {
+    // Last resort: type character by character.
+    await input.click({ timeout: 2000 }).catch(() => {});
+    await page.keyboard.type(text, { delay: 10 });
+  }
   await page.keyboard.press('Enter');
   await page.getByRole('button', { name: /send|发送/i }).first().click({ timeout: 1500 }).catch(() => {});
-  await settle(page, 2500);
+  await settle(page, 1500);
 }
 
 /**

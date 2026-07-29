@@ -31,16 +31,42 @@ export async function expectNotVisible(page: Page, selector: string): Promise<vo
 
 /**
  * Assert that `text` appears somewhere in the page body.
- * Uses `getByText` with `exact: false` so partial matches work.
+ *
+ * Flutter web with semantics enabled often places text inside aria-labels
+ * on semantic groups rather than as visible DOM text nodes. We use a
+ * unified polling approach that checks all three sources in parallel:
+ *   1. `getByText` visible DOM text nodes.
+ *   2. Any element whose aria-label contains the text.
+ *   3. The body's innerText (semantics tree text).
  */
 export async function expectText(
   page: Page,
   text: string,
   options: { exact?: boolean } = {},
 ): Promise<Locator> {
-  const loc = page.getByText(text, { exact: options.exact ?? false }).first();
-  await expect(loc).toBeVisible({ timeout: VISIBLE_TIMEOUT });
-  return loc;
+  const exact = options.exact ?? false;
+  const loc = page.getByText(text, { exact }).first();
+  const ariaLoc = page.locator(`[aria-label*="${text}"]`).first();
+
+  try {
+    await expect.poll(async () => {
+      // Check visible text nodes.
+      const textVisible = await loc.isVisible().catch(() => false);
+      if (textVisible) return true;
+      // Check aria-labels.
+      const ariaVisible = await ariaLoc.isVisible().catch(() => false);
+      if (ariaVisible) return true;
+      // Check body innerText.
+      const bodyText = await page.locator('body').innerText().catch(() => '');
+      return bodyText.includes(text);
+    }, { timeout: VISIBLE_TIMEOUT, intervals: [500, 1000, 2000, 3000] }).toBe(true);
+    return loc;
+  } catch {
+    // If all fallbacks fail, re-run the original assertion so the error
+    // message matches what the test author expects to see.
+    await expect(loc).toBeVisible({ timeout: VISIBLE_TIMEOUT });
+    return loc;
+  }
 }
 
 /**

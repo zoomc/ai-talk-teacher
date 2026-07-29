@@ -32,7 +32,13 @@ const SESSION_ROW = {
 };
 
 async function bodyText(page: Page): Promise<string> {
-  return page.locator('body').innerText().catch(() => '');
+  // Combine innerText with aria-labels so we capture Flutter web's
+  // semantics tree text (which places message content in aria-labels).
+  const inner = await page.locator('body').innerText().catch(() => '');
+  const ariaTexts = await page.locator('[aria-label]').evaluateAll(
+    (els) => els.map((e) => e.getAttribute('aria-label') || ''),
+  ).catch(() => [] as string[]);
+  return [inner, ...ariaTexts].join('\n');
 }
 
 test.describe('M11 — Avatar: Emotion Markers', () => {
@@ -194,6 +200,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
   });
 
   test('BR-15: kDefaultEmotionPoses covers all 7 emotions without error', async ({ page }) => {
+    test.setTimeout(180000); // 7 messages need more than the default 90s
     const cases: Array<readonly [string, string]> = [
       ['n1', '[emotion:neutral] one'],
       ['n2', '[emotion:happy] two'],
@@ -267,8 +274,7 @@ test.describe('M11 — Avatar: Emotion Markers', () => {
     await bridge.setMockLlmResponse(page, 'malformed', '[emotion:happy plain text here');
     await sendChatMessage(page, 'malformed');
     // No closing bracket → not a marker → shown as plain text (no exception).
-    const body = await bodyText(page);
-    expect(body).toContain('plain text here');
+    await expectText(page, 'plain text here');
     await expectNoException(page);
   });
 

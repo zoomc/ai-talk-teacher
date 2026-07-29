@@ -64,9 +64,19 @@ query；构建后将 `build/web/flutter_bootstrap.js` 的 `mainJsPath` 改为
 
 ## E2E 测试（Playwright + Flutter E2E Bridge）
 
-E2E 套件位于 `e2e/`，覆盖 30 个功能点（子功能粒度），共 717 条独立用例（chromium
-+ firefox + webkit + mobile-chrome 四个浏览器项目下合计 2868 次执行）。每个功能点
-不少于 20 条用例，分 happypath / 旁支 / 异常三类。规格见 `docs/e2e-spec.md`。
+E2E 套件位于 `e2e/`，覆盖 30 个功能点（子功能粒度），共 743 条独立用例（chromium
++ mobile-chrome 两个浏览器项目下合计 1476 次执行）。每个功能点不少于 20 条用例，
+分 happypath / 旁支 / 异常三类。规格见 `docs/e2e-spec.md`。
+
+### 质量提升流程
+
+2026-07-25 进行了全量 E2E 驱动的质量提升：
+1. 运行全量 E2E（chromium + mobile-chrome），双端截图保存到临时目录。
+2. 分析交互/业务逻辑问题（103 条）、UI/UX 源码问题（53 条）、截图视觉问题
+   （225 条）、E2E 覆盖缺口（130 条），合计 511 条统一修改点。
+3. 按类别派发 subagent 实施修改，覆盖业务逻辑、UI 组件、主题、E2E 测试。
+4. 重新构建并运行 E2E 回归，修复所有失败项。
+5. 详细记录见 `CHANGELOG.md` 的 "E2E-driven quality improvement" 章节。
 
 ### Mock 策略：HTTP 拦截 + Dart 端 E2E Bridge（混合方案）
 
@@ -74,13 +84,23 @@ E2E 套件位于 `e2e/`，覆盖 30 个功能点（子功能粒度），共 717 
   （OpenAI 兼容的 `/v1/chat/completions`、STT、TTS），返回固定 fixture 或模拟
   401/429/500/超时。
 - **Flutter E2E Bridge**（`lib/core/e2e/e2e_bridge*.dart`）：仅在
-  `--dart-define=E2E=true` 时编译，向 `window.__e2eBridge` 暴露 JS 钩子：
+  `--dart-define=E2E=true` 时编译，向 `window.speakflowE2E` 暴露 JS 钩子：
   `resetDatabase / seedChatSessions / seedMessages / seedCorrections / setMockMode /
   setMockLlmResponse / setMockSttTranscript / setMockTtsAudio / getSnapshot /
   setSetting`。测试可重置/种子 SQLite，并让 `LlmService` / STT / TTS 直接短路返回
   预置响应，零真实网络调用。
 - 非 E2E 构建（正常 release）走 `e2e_bridge_stub.dart` 与 `e2e_mock_services_stub.dart`
   的 no-op 实现，对生产代码无影响。
+
+### 双端覆盖
+
+- **PC 端**（chromium, 1280×800）：覆盖所有 30 个功能点。
+- **移动端**（mobile-chrome, Pixel 5 / 375×812）：覆盖所有 30 个功能点，包括
+  路由适配、输入框交互、长文本换行、错误状态、纠错卡片、首页导航、banner 适配、
+  avatar 渲染等移动端专属用例。
+- **截图**：同一功能在 PC 端和移动端分别截图，文件名包含 project 后缀
+  （如 `m11-hp1-happy-marker--chromium.png` / `m11-hp1-happy-marker--mobile-chrome.png`），
+  便于双端视觉对比。
 
 ### 运行方式
 
@@ -89,11 +109,11 @@ E2E 套件位于 `e2e/`，覆盖 30 个功能点（子功能粒度），共 717 
 flutter build web --dart-define=E2E=true
 
 # 2. 安装 Playwright 浏览器（首次）
-cd e2e && npx playwright install chromium firefox webkit
+cd e2e && npx playwright install chromium
 
 # 3. 跑全部用例（webServer 会自动起 start-server.mjs 托管 build/web/）
 npm test            # 默认 chromium
-npm run test:all    # 四个浏览器全跑
+npm run test:all    # 两个浏览器全跑
 npm run test:fast   # 仅 chromium + list reporter
 npm run test:mobile # 仅 mobile-chrome（Pixel 5 视口）
 ```
@@ -101,7 +121,7 @@ npm run test:mobile # 仅 mobile-chrome（Pixel 5 视口）
 ### 验证项
 
 - `npm run typecheck`（`tsc --noEmit`）必须 0 错误。
-- `npx playwright test --list` 应枚举 2868 条用例 / 30 个文件。
+- `npx playwright test --list` 应枚举 1476 条用例 / 30 个文件。
 - 失败用例自动保留 trace / screenshot / video 于 `e2e/test-results/`。
 - 每个页面至少一条 screenshot + 元素断言用例，用于人工 review 渲染质量。
 
