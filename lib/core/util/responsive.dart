@@ -186,7 +186,11 @@ class Responsive {
   static double contentMaxWidth(BuildContext context) {
     switch (breakpointOf(context)) {
       case Breakpoint.compact:
-        return double.infinity;
+        // A `ConstrainedBox` inside `Center` needs a finite upper bound.
+        // `double.infinity` lets Center pass unbounded horizontal
+        // constraints to scrollable children on phones, which in turn makes
+        // controls such as TextButton fail layout.
+        return MediaQuery.sizeOf(context).width;
       case Breakpoint.medium:
         return 880;
       case Breakpoint.expanded:
