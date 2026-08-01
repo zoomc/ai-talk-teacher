@@ -41,6 +41,7 @@ import '../../../chat/domain/tutor_emotion.dart';
 import '../../../../shared/voice_phase.dart';
 import '../../../../shared/widgets/virtual_character.dart'
     show CharacterState, Viseme, VirtualCharacter;
+import '../../../../shared/widgets/virtual_character_3d.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 
@@ -126,9 +127,11 @@ enum AvatarPhase {
 class AvatarStage extends StatefulWidget {
   final AvatarPhase phase;
   final TutorEmotion emotion;
+  final String tutorAvatar;
   final String? speakingText;
   final Stream<double>? amplitudeStream;
   final String tutorName;
+  final bool prefer3d;
 
   /// Optional: fixed-size box the avatar renders inside. When `null`,
   /// the stage fills its parent.
@@ -139,9 +142,11 @@ class AvatarStage extends StatefulWidget {
     super.key,
     required this.phase,
     required this.tutorName,
+    this.tutorAvatar = '👩‍🏫',
     this.emotion = TutorEmotion.neutral,
     this.speakingText,
     this.amplitudeStream,
+    this.prefer3d = true,
     this.panelWidth,
     this.panelHeight,
   });
@@ -193,8 +198,8 @@ class AvatarStageState extends State<AvatarStage>
     _emotion = EmotionController();
     _visemePlayer = VisemeTimelinePlayer(VisemeTimeline.empty);
     _ticker = createTicker(_onTick);
-    _ticker.start();
-    _probeForLive2DModel();
+    if (!widget.prefer3d) _ticker.start();
+    if (!widget.prefer3d) _probeForLive2DModel();
     _subscribeAmplitude();
     if (widget.phase == AvatarPhase.speaking) {
       _speakingStartedAt = Duration.zero;
@@ -226,6 +231,14 @@ class AvatarStageState extends State<AvatarStage>
         _visemePlayer.stop();
       }
     }
+    if (oldWidget.prefer3d != widget.prefer3d) {
+      if (widget.prefer3d) {
+        _ticker.stop();
+      } else if (!_ticker.isActive) {
+        _ticker.start();
+        _probeForLive2DModel();
+      }
+    }
   }
 
   @override
@@ -237,6 +250,7 @@ class AvatarStageState extends State<AvatarStage>
   }
 
   void _onTick(Duration elapsed) {
+    if (widget.prefer3d) return;
     _elapsed = elapsed;
     _recompute();
   }
@@ -275,9 +289,10 @@ class AvatarStageState extends State<AvatarStage>
       // during TTS playback.
       merged[Live2DParamId.mouthOpenY] = visemeFrame.mouthShape.mouthOpenY;
       // mouthForm is blended: viseme provides a base, emotion biases it.
-      final blendedForm = (visemeFrame.mouthShape.mouthForm +
-              (emotionFrame.value(Live2DParamId.mouthForm) * 0.3))
-          .clamp(-1.0, 1.0);
+      final blendedForm =
+          (visemeFrame.mouthShape.mouthForm +
+                  (emotionFrame.value(Live2DParamId.mouthForm) * 0.3))
+              .clamp(-1.0, 1.0);
       merged[Live2DParamId.mouthForm] = blendedForm;
     } else if (isSpeaking) {
       // No Rhubarb timeline available — drive mouthOpenY from the
@@ -364,13 +379,42 @@ class AvatarStageState extends State<AvatarStage>
   }
 
   Widget _buildStageContent() {
-    if (_live2dModel != null) {
-      // Future: native Cubism binding drives the model with `_merged`.
-      // For now fall through to the placeholder renderer — the framework
-      // is in place so flipping the switch later is a one-line change.
-      return _renderFallback();
-    }
+    if (widget.prefer3d) return _render3d();
     return _renderFallback();
+  }
+
+  Widget _render3d() {
+    final state = switch (widget.phase) {
+      AvatarPhase.idle => CharacterState.idle,
+      AvatarPhase.listening => CharacterState.listening,
+      AvatarPhase.thinking => CharacterState.thinking,
+      AvatarPhase.speaking => CharacterState.speaking,
+    };
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final dimensions = [
+          constraints.maxWidth,
+          constraints.maxHeight,
+        ].where((value) => value.isFinite && value > 0);
+        final available = dimensions.isEmpty
+            ? 320.0
+            : dimensions.reduce(
+                (smallest, value) => smallest < value ? smallest : value,
+              );
+        final size = available.clamp(160.0, 360.0).toDouble();
+        return Center(
+          child: VirtualCharacter3D(
+            tutorName: widget.tutorName,
+            tutorAvatar: widget.tutorAvatar,
+            state: state,
+            size: size,
+            showLabel: false,
+            speakingText: widget.speakingText,
+            audioLevelStream: widget.amplitudeStream,
+          ),
+        );
+      },
+    );
   }
 
   Widget _renderFallback() {
@@ -383,7 +427,8 @@ class AvatarStageState extends State<AvatarStage>
     final text = widget.speakingText ?? '';
     final hasSpeech = isSpeaking && text.isNotEmpty;
 
-    final mouthOpenY = _merged[Live2DParamId.mouthOpenY] ??
+    final mouthOpenY =
+        _merged[Live2DParamId.mouthOpenY] ??
         (isSpeaking ? _latestAmplitude : 0.0);
     final mouthForm = _merged[Live2DParamId.mouthForm] ?? 0.0;
 
@@ -404,8 +449,10 @@ class AvatarStageState extends State<AvatarStage>
       if (rhubarbViseme != null) {
         painterViseme = rhubarbViseme;
       } else {
-        painterViseme =
-            VirtualCharacter.visemeForChar(text, _legacyVisemeIndex(text));
+        painterViseme = VirtualCharacter.visemeForChar(
+          text,
+          _legacyVisemeIndex(text),
+        );
       }
     } else {
       painterViseme = Viseme.closed;
@@ -558,8 +605,7 @@ class _ParameterisedMouthOverlay extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: const Color(0xFF9B3F58)
-            .withValues(alpha: open ? 0.75 : 0.5),
+        color: const Color(0xFF9B3F58).withValues(alpha: open ? 0.75 : 0.5),
         borderRadius: BorderRadius.circular(AppRadius.full),
         border: Border.all(
           color: const Color(0xFFE997AD).withValues(alpha: 0.45),

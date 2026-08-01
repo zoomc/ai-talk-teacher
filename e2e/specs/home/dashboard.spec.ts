@@ -4,7 +4,7 @@
  * Six sections: streak, quick actions, today's tasks, ability radar, review
  * queue, goal. Pull-to-refresh invalidates all dashboard providers.
  *
- * Route: /
+ * Route: /dashboard (the focused practice page now owns /)
  * Screen: lib/features/home/presentation/screens/home_page.dart
  */
 import { test, expect } from '@playwright/test';
@@ -38,7 +38,7 @@ const IPHONE_SE = { width: 320, height: 568 };
 
 test.describe('M18 — Home: Dashboard Shell & Quick Actions', () => {
   test.beforeEach(async ({ page }) => {
-    await setupE2EApp(page, 'onboarded', { route: '/' });
+    await setupE2EApp(page, 'onboarded', { route: '/dashboard' });
   });
 
   test.afterEach(async ({ page }) => {
@@ -48,7 +48,7 @@ test.describe('M18 — Home: Dashboard Shell & Quick Actions', () => {
   // ── Happy Path (HP-1 .. HP-7) ──────────────────────────────────────────
 
   test('HP-1: onboarding complete — / renders HomePage', async ({ page }) => {
-    await expectRoute(page, '/');
+    await expectRoute(page, '/dashboard');
     await expectVisible(page, 'canvas');
     await expectNoException(page);
     await capture(page, 'm18-hp1-home-render');
@@ -140,7 +140,7 @@ test.describe('M18 — Home: Dashboard Shell & Quick Actions', () => {
     await page.reload();
     await settle(page, 2500);
 
-    await expectRoute(page, '/');
+    await expectRoute(page, '/dashboard');
     await expectNoException(page);
     await capture(page, 'm18-br4-pull-refresh');
   });
@@ -158,10 +158,10 @@ test.describe('M18 — Home: Dashboard Shell & Quick Actions', () => {
 
   test('BR-6: empty state — sections render with empty-state copy', async ({ page }) => {
     // Use the empty fixture (no corrections, no sessions).
-    await setupEmptyApp(page, { route: '/' });
+    await setupEmptyApp(page, { route: '/dashboard' });
     await settle(page, 2000);
 
-    await expectRoute(page, '/');
+    await expectRoute(page, '/dashboard');
     await expectNoException(page);
     await capture(page, 'm18-br6-empty-state');
   });
@@ -194,7 +194,7 @@ test.describe('M18 — Home: Dashboard Shell & Quick Actions', () => {
   test('BR-11: active persona badge visible when content enabled', async ({ page }) => {
     // The structured content section shows an active persona badge.
     await bridge.setSetting(page, 'content_enabled', 'true');
-    await navigate(page, '/');
+    await navigate(page, '/dashboard');
     await settle(page, 2000);
 
     await expectNoException(page);
@@ -203,7 +203,7 @@ test.describe('M18 — Home: Dashboard Shell & Quick Actions', () => {
 
   test('BR-12: recommended scenarios strip visible when content enabled', async ({ page }) => {
     await bridge.setSetting(page, 'content_enabled', 'true');
-    await navigate(page, '/');
+    await navigate(page, '/dashboard');
     await settle(page, 2000);
 
     await expectNoException(page);
@@ -234,14 +234,14 @@ test.describe('M18 — Home: Dashboard Shell & Quick Actions', () => {
     await page.reload();
     await settle(page, 2500);
 
-    await expectRoute(page, '/');
+    await expectRoute(page, '/dashboard');
     await expectNoException(page);
     await capture(page, 'm18-ex3-refresh-retry');
   });
 
   test('EX-4: goal section with no goal — Set a goal prompt', async ({ page }) => {
     // Use empty fixture — no user_goals row → "no goal" prompt.
-    await setupEmptyApp(page, { route: '/' });
+    await setupEmptyApp(page, { route: '/dashboard' });
     await settle(page, 2000);
 
     await expectNoException(page);
@@ -260,7 +260,7 @@ test.describe('M18 — Home: Dashboard Shell & Quick Actions', () => {
 
   test('HP-8: mobile viewport — Start Conversation navigates to /chat/:id', async ({ page }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await navigate(page, '/');
+    await navigate(page, '/dashboard');
     await bridge.setMockLlmResponse(page, 'hello', LLM_MOCKS.greeting);
 
     const convButton = page.getByRole('button').filter({ hasText: /conversation|对话|开始/i }).first();
@@ -275,8 +275,8 @@ test.describe('M18 — Home: Dashboard Shell & Quick Actions', () => {
 
   test('HP-9: mobile viewport — dashboard six sections render without horizontal overflow', async ({ page }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await navigate(page, '/');
-    await expectRoute(page, '/');
+    await navigate(page, '/dashboard');
+    await expectRoute(page, '/dashboard');
     await expectVisible(page, 'canvas');
 
     const canvas = page.locator('canvas').first();
@@ -292,7 +292,7 @@ test.describe('M18 — Home: Dashboard Shell & Quick Actions', () => {
   // ---------------- Dual-viewport comparison (gap 59) ----------------
 
   test('HP-10: dashboard renders on both desktop and mobile viewports', async ({ page }) => {
-    await navigate(page, '/');
+    await navigate(page, '/dashboard');
     const { desktop, mobile } = await captureDesktopAndMobile(page, 'm18-hp10-home-render-dual');
     expect(desktop.length).toBeGreaterThan(0);
     expect(mobile.length).toBeGreaterThan(0);

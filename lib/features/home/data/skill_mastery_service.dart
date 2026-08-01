@@ -33,8 +33,10 @@ class SkillMasteryService {
   /// Returns the persisted [SkillMastery]. [now] is injectable for tests.
   Future<SkillMastery> recompute(String skillId, {DateTime? now}) async {
     final referenceTime = now ?? DateTime.now();
-    final corrections =
-        await _repo.getRecentCorrectionsBySkill(skillId, limit: 20);
+    final corrections = await _repo.getRecentCorrectionsBySkill(
+      skillId,
+      limit: 20,
+    );
     final score = computeScore(corrections, referenceTime: referenceTime);
     final level = SkillMastery.levelFromScore(score);
     final mastery = SkillMastery(
@@ -59,15 +61,16 @@ class SkillMasteryService {
     final results = <SkillMastery>[];
     for (final s in skills) {
       if (s.trim().isEmpty) continue;
-      final corrections =
-          await _repo.getRecentCorrectionsBySkill(s, limit: 20);
+      final corrections = await _repo.getRecentCorrectionsBySkill(s, limit: 20);
       final score = computeScore(corrections, referenceTime: referenceTime);
-      results.add(SkillMastery(
-        skillId: s,
-        score: score,
-        level: SkillMastery.levelFromScore(score),
-        updatedAt: referenceTime,
-      ));
+      results.add(
+        SkillMastery(
+          skillId: s,
+          score: score,
+          level: SkillMastery.levelFromScore(score),
+          updatedAt: referenceTime,
+        ),
+      );
     }
     await _repo.upsertSkillMasteryBatch(results);
     return results;
@@ -124,6 +127,7 @@ class SkillMasteryService {
     if (c.easinessFactor < 1.5) return 30; // struggling
     if (c.reviewCount < 3) return 50; // learning
     if (c.reviewCount < 5) return 70; // familiar
+    if (c.reviewCount < 8) return 90; // nearly mastered
     return 100; // mastered
   }
 }

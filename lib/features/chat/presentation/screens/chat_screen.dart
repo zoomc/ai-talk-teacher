@@ -21,6 +21,7 @@ import '../../data/recording_service.dart';
 import '../../data/tts_playback_service.dart';
 import '../../domain/app_error.dart';
 import '../../domain/chat_models.dart';
+import '../../domain/conversation_state.dart';
 import '../../domain/phoneme_score.dart';
 import '../../domain/tutor.dart';
 import '../../domain/tutor_prompts.dart';
@@ -58,6 +59,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// Phase 3 — key into the avatar stage so we can push viseme timelines
   /// produced by Rhubarb into the live widget.
   final GlobalKey<AvatarStageState> _avatarKey = GlobalKey<AvatarStageState>();
+  final ConversationStateMachine _conversation = ConversationStateMachine();
 
   /// Phase 3 — Rhubarb Lip Sync service. Lazily probed; when the binary
   /// isn't installed the avatar stage silently falls back to the
@@ -70,6 +72,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   String? _playingMessageId;
   CharacterState _characterState = CharacterState.idle;
   StreamSubscription? _playerStateSub;
+  int _playbackToken = 0;
 
   String? _speakingText;
 
@@ -171,7 +174,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final repo = ref.read(chatRepoProvider);
       final hasSnapshot = await _hasSessionSnapshot(repo, widget.sessionId);
       if (!hasSnapshot) return;
-      debugPrint('Crash recovery: recovered snapshot for session ${widget.sessionId}');
+      debugPrint(
+        'Crash recovery: recovered snapshot for session ${widget.sessionId}',
+      );
       // Clear the snapshot so a subsequent crash during this session
       // starts fresh instead of re-playing recovery.
       await repo.deleteSessionSnapshot(widget.sessionId);
@@ -181,13 +186,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   /// Convenience: check if a session has a recoverable snapshot.
-  Future<bool> _hasSessionSnapshot(ChatRepository repo, String sessionId) async {
+  Future<bool> _hasSessionSnapshot(
+    ChatRepository repo,
+    String sessionId,
+  ) async {
     final snapshot = await repo.getSessionSnapshot(sessionId);
     return snapshot != null;
   }
 
   @override
   void dispose() {
+    _conversation.interrupt();
+    _playbackToken++;
     _guestTimer?.cancel();
     _playerStateSub?.cancel();
     _amplitudeSub?.cancel();
@@ -307,6 +317,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _setCharacterState(CharacterState state) {
     if (!mounted) return;
+    _conversation.transition(switch (state) {
+      CharacterState.idle => ConversationState.idle,
+      CharacterState.listening => ConversationState.recording,
+      CharacterState.thinking => ConversationState.generating,
+      CharacterState.speaking => ConversationState.speaking,
+    });
     setState(() => _characterState = state);
     // E7 — start/stop thinking filler audio loop.
     if (state == CharacterState.thinking) {
@@ -342,9 +358,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         // Phase 3 — best-effort viseme analysis. Fillers are short so the
         // timeline may arrive after playback finished; the avatar stage
         // handles that gracefully by ignoring stale timelines.
-        unawaited(
-          _maybeAnalyzeVisemes(text: filler, audioBytes: bytes),
-        );
+        unawaited(_maybeAnalyzeVisemes(text: filler, audioBytes: bytes));
       } catch (_) {
         // Best-effort — filler is non-critical.
       }
@@ -458,6 +472,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       state: _characterState,
                       tutorName: _tutorName,
                       tutorAvatar: _tutorAvatar,
+                      prefer3d: !lowBandwidth,
                       speakingText: _speakingText,
                       emotion: _tutorEmotion,
                       panelWidth: Responsive.sidePanelWidth(context),
@@ -479,6 +494,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       state: _characterState,
                       tutorName: _tutorName,
                       tutorAvatar: _tutorAvatar,
+                      prefer3d: !lowBandwidth,
                       speakingText: _speakingText,
                       emotion: _tutorEmotion,
                       panelHeight: Responsive.characterPanelHeight(context),
@@ -527,27 +543,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Expanded(
                       child: Text(
                         l.t('chat.voice_not_configured'),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: warningColor,
-                        ),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(color: warningColor),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Icon(
-                      Icons.chevron_right,
-                      size: 16,
-                      color: warningColor,
-                    ),
+                    Icon(Icons.chevron_right, size: 16, color: warningColor),
                   ],
                 ),
               ),
             ),
           ),
         if (_isGuestSession && !_guestTrialEnded)
-          _GuestTimerBar(
-            secondsLeft: _guestSecondsLeft,
-          ),
+          _GuestTimerBar(secondsLeft: _guestSecondsLeft),
         Expanded(
           child: Center(
             child: ConstrainedBox(
@@ -597,6 +607,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _handleSend({bool fromVoice = false}) async {
     final text = _messageController.text.trim();
     if (text.isEmpty || _isLoading) return;
+    final turnToken = _conversation.beginTurn(ConversationState.generating);
 
     setState(() {
       _isLoading = true;
@@ -690,6 +701,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             systemPrompt: systemPrompt,
           );
           await for (final chunk in stream) {
+            if (!_conversation.isCurrent(turnToken)) break;
             if (chunk.isDelta && mounted) {
               fullContent += chunk.delta;
               setState(() => _streamingText = fullContent);
@@ -718,6 +730,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
 
       if (mounted) setState(() => _retryHint = null);
+      if (!_conversation.isCurrent(turnToken)) return;
 
       // Clean the streamed content (strip corrections block).
       final cleanedContent = cleanStreamedReply(fullContent);
@@ -730,6 +743,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final displayContent = stripEmotionMarkers(cleanedContent);
 
       // Save AI response
+      if (!_conversation.isCurrent(turnToken)) return;
       final aiResponse = ChatMessage(
         sessionId: widget.sessionId,
         role: MessageRole.assistant,
@@ -780,8 +794,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             content: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.check_circle,
-                    color: AppColors.success, size: 18),
+                const Icon(
+                  Icons.check_circle,
+                  color: AppColors.success,
+                  size: 18,
+                ),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
                   feedbackL.tArg('chat.corrections_saved', {
@@ -812,6 +829,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         });
       }
 
+      _conversation.transition(ConversationState.synthesizing);
       // Auto-play TTS for the full AI reply. Uses the marker-stripped
       // `displayContent` so the TTS engine never speaks the marker aloud.
       _autoplayTts(aiResponse.id, displayContent);
@@ -834,7 +852,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _showAppError(e);
       }
     } finally {
-      if (mounted) {
+      if (mounted && _conversation.isCurrent(turnToken)) {
         setState(() => _isLoading = false);
         if (_characterState == CharacterState.thinking) {
           _setCharacterState(CharacterState.idle);
@@ -860,11 +878,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _handleRecordToggle() async {
+    // The primary voice control is also the barge-in control: a user can
+    // stop the tutor immediately before starting the next recording.
+    if (_playingMessageId != null) {
+      await _interruptPlayback();
+      return;
+    }
     if (_isLoading) return;
 
     if (_isRecording) {
       setState(() => _isRecording = false);
       _setCharacterState(CharacterState.thinking);
+      _conversation.transition(ConversationState.transcribing);
 
       try {
         final audioData = await _recordingService.stopRecording();
@@ -962,11 +987,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  Future<void> _interruptPlayback() async {
+    _playbackToken++;
+    await _ttsPlaybackService.stop();
+    await _playerStateSub?.cancel();
+    _playerStateSub = null;
+    _amplitudeSub?.cancel();
+    _amplitudeSub = null;
+    _avatarKey.currentState?.clearVisemeTimeline();
+    if (!mounted) return;
+    setState(() {
+      _playingMessageId = null;
+      _speakingText = null;
+    });
+    if (_characterState == CharacterState.speaking) {
+      _setCharacterState(CharacterState.idle);
+    }
+  }
+
   Future<void> _autoplayTts(String messageId, String text) async {
+    final playbackToken = ++_playbackToken;
     try {
       final profileRepo = ref.read(profileRepoProvider);
       final ttsProfile = await profileRepo.getActiveTtsProfile();
-      if (ttsProfile == null) return;
+      if (!mounted || playbackToken != _playbackToken || ttsProfile == null) {
+        return;
+      }
 
       _setCharacterState(CharacterState.speaking);
       if (mounted) {
@@ -977,10 +1023,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
 
       final ttsService = TtsService(ttsProfile);
-      _attachPlayerStateListener(messageId);
+      _attachPlayerStateListener(messageId, playbackToken);
       _subscribeAmplitude();
       _updateEmotionFromText(text);
 
+      if (!mounted || playbackToken != _playbackToken) return;
       final bytes = await _ttsPlaybackService.playCached(
         text,
         () => ttsService.synthesize(text),
@@ -991,7 +1038,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       unawaited(_maybeAnalyzeVisemes(text: text, audioBytes: bytes));
     } catch (e) {
       debugPrint('Auto TTS failed: $e');
-      if (mounted) {
+      if (mounted && playbackToken == _playbackToken) {
         setState(() {
           _playingMessageId = null;
           _speakingText = null;
@@ -1006,19 +1053,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _playTts(String messageId, String text) async {
     if (_playingMessageId == messageId) {
-      await _ttsPlaybackService.stop();
-      if (mounted) {
-        setState(() {
-          _playingMessageId = null;
-          _speakingText = null;
-        });
-      }
-      if (_characterState == CharacterState.speaking) {
-        _setCharacterState(CharacterState.idle);
-      }
+      await _interruptPlayback();
       return;
     }
 
+    final playbackToken = ++_playbackToken;
     try {
       setState(() {
         _playingMessageId = messageId;
@@ -1031,24 +1070,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final ttsProfile = await profileRepo.getActiveTtsProfile();
 
       if (ttsProfile == null) {
-        if (mounted) {
+        if (mounted && playbackToken == _playbackToken) {
           final l = AppLocalizations.of(context);
           _showConfigNeeded(
             l.t('chat.config_needed_tts_title'),
             l.t('chat.config_needed_tts_body'),
           );
+          setState(() {
+            _playingMessageId = null;
+            _speakingText = null;
+          });
+          _setCharacterState(CharacterState.idle);
         }
-        setState(() {
-          _playingMessageId = null;
-          _speakingText = null;
-        });
-        _setCharacterState(CharacterState.idle);
         return;
       }
 
+      if (!mounted || playbackToken != _playbackToken) return;
+
       final ttsService = TtsService(ttsProfile);
 
-      _attachPlayerStateListener(messageId);
+      _attachPlayerStateListener(messageId, playbackToken);
       _subscribeAmplitude();
       _updateEmotionFromText(text);
 
@@ -1077,7 +1118,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         // it doesn't delay the retry loop. Best-effort.
         unawaited(_maybeAnalyzeVisemes(text: text, audioBytes: bytes));
       } on RetryExhausted catch (e) {
-        if (mounted) {
+        if (mounted && playbackToken == _playbackToken) {
           setState(() {
             _retryHint = null;
             _ttsFailedMessageIds.add(messageId);
@@ -1090,7 +1131,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && playbackToken == _playbackToken) {
         _showAppError(e);
         setState(() {
           _playingMessageId = null;
@@ -1108,13 +1149,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     await _playTts(messageId, text);
   }
 
-  void _attachPlayerStateListener(String messageId) {
+  void _attachPlayerStateListener(String messageId, int playbackToken) {
     _playerStateSub?.cancel();
     _playerStateSub = _ttsPlaybackService.player.playerStateStream.listen((
       state,
     ) {
       if (state.processingState == ProcessingState.completed) {
-        if (!mounted) return;
+        if (!mounted || playbackToken != _playbackToken) return;
         setState(() {
           _playingMessageId = null;
           _speakingText = null;
@@ -1314,6 +1355,7 @@ class _CharacterPanel extends StatelessWidget {
   final double? panelWidth;
   final double? panelHeight;
   final bool compact;
+  final bool prefer3d;
 
   /// P1 task 5 — emotion drives a subtle accent color shift on the panel.
   final TutorEmotion emotion;
@@ -1336,6 +1378,7 @@ class _CharacterPanel extends StatelessWidget {
     this.panelWidth,
     this.panelHeight,
     this.compact = false,
+    this.prefer3d = true,
     this.emotion = TutorEmotion.neutral,
     this.avatarKey,
     this.amplitudeStream,
@@ -1360,10 +1403,12 @@ class _CharacterPanel extends StatelessWidget {
     final child = AvatarStage(
       key: avatarKey,
       tutorName: tutorName,
+      tutorAvatar: tutorAvatar,
       phase: AvatarPhase.fromCharacterState(state),
       emotion: emotion,
       speakingText: speakingText,
       amplitudeStream: amplitudeStream,
+      prefer3d: prefer3d,
       panelWidth: panelWidth,
       panelHeight: panelHeight,
     );
@@ -1492,4 +1537,3 @@ class _GuestTimerBar extends StatelessWidget {
     );
   }
 }
-

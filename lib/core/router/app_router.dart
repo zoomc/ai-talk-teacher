@@ -7,6 +7,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/util/responsive.dart';
 import '../../features/home/presentation/screens/home_page.dart';
+import '../../features/home/presentation/screens/practice_home_page.dart';
 import '../../features/home/presentation/screens/pronunciation_detail_screen.dart';
 import '../../features/chat/presentation/screens/chat_screen.dart';
 import '../../features/chat/presentation/screens/scenarios_screen.dart';
@@ -92,6 +93,11 @@ class AppRouter {
           GoRoute(
             path: '/',
             pageBuilder: (context, state) =>
+                _fadeTransitionPage(context, const PracticeHomePage()),
+          ),
+          GoRoute(
+            path: '/dashboard',
+            pageBuilder: (context, state) =>
                 _fadeTransitionPage(context, const HomePage()),
           ),
           GoRoute(
@@ -103,10 +109,7 @@ class AppRouter {
             path: '/review',
             pageBuilder: (context, state) {
               final filter = state.uri.queryParameters['filter'];
-              return _fadeTransitionPage(
-                context,
-                ReviewScreen(filter: filter),
-              );
+              return _fadeTransitionPage(context, ReviewScreen(filter: filter));
             },
           ),
           GoRoute(
@@ -125,9 +128,7 @@ class AppRouter {
         path: '/project/:projectId',
         pageBuilder: (context, state) => _slideTransitionPage(
           context,
-          ProjectDetailScreen(
-            projectId: state.pathParameters['projectId']!,
-          ),
+          ProjectDetailScreen(projectId: state.pathParameters['projectId']!),
         ),
       ),
       GoRoute(
@@ -156,9 +157,7 @@ class AppRouter {
         path: '/summary/:sessionId',
         pageBuilder: (context, state) => _slideTransitionPage(
           context,
-          SessionSummaryScreen(
-            sessionId: state.pathParameters['sessionId']!,
-          ),
+          SessionSummaryScreen(sessionId: state.pathParameters['sessionId']!),
         ),
       ),
       GoRoute(
@@ -294,19 +293,9 @@ class MainShell extends StatelessWidget {
             label: AppLocalizations.of(context).t('nav.practice'),
           ),
           NavigationDestination(
-            icon: const Icon(Icons.grid_view_outlined),
-            selectedIcon: const Icon(Icons.grid_view),
-            label: AppLocalizations.of(context).t('nav.scenarios'),
-          ),
-          NavigationDestination(
             icon: const Icon(Icons.refresh_outlined),
             selectedIcon: const Icon(Icons.refresh),
             label: AppLocalizations.of(context).t('nav.review'),
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.folder_outlined),
-            selectedIcon: const Icon(Icons.folder),
-            label: AppLocalizations.of(context).t('nav.projects'),
           ),
           NavigationDestination(
             icon: const Icon(Icons.settings_outlined),
@@ -321,12 +310,18 @@ class MainShell extends StatelessWidget {
   int _calculateSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
     if (location == '/' || location.startsWith('/chat/')) return 0;
-    if (location.startsWith('/scenarios')) return 1;
-    if (location.startsWith('/review')) return 2;
-    if (location.startsWith('/projects') || location.startsWith('/project/')) {
-      return 3;
+    if (location.startsWith('/review')) return 1;
+    if (location.startsWith('/settings') ||
+        location.startsWith('/service-config') ||
+        location.startsWith('/voice-health') ||
+        location.startsWith('/history') ||
+        location.startsWith('/progress') ||
+        location.startsWith('/projects') ||
+        location.startsWith('/project/') ||
+        location.startsWith('/tutor-selection') ||
+        location.startsWith('/profile-form/')) {
+      return 2;
     }
-    if (location.startsWith('/settings')) return 4;
     return 0;
   }
 
@@ -336,15 +331,9 @@ class MainShell extends StatelessWidget {
         context.go('/');
         break;
       case 1:
-        context.go('/scenarios');
-        break;
-      case 2:
         context.go('/review');
         break;
-      case 3:
-        context.go('/projects');
-        break;
-      case 4:
+      case 2:
         context.go('/settings');
         break;
     }
@@ -373,19 +362,9 @@ class _SideNavRail extends StatelessWidget {
         label: l.t('nav.practice'),
       ),
       _NavItem(
-        icon: Icons.grid_view_outlined,
-        activeIcon: Icons.grid_view,
-        label: l.t('nav.scenarios'),
-      ),
-      _NavItem(
         icon: Icons.refresh_outlined,
         activeIcon: Icons.refresh,
         label: l.t('nav.review'),
-      ),
-      _NavItem(
-        icon: Icons.folder_outlined,
-        activeIcon: Icons.folder,
-        label: l.t('nav.projects'),
       ),
       _NavItem(
         icon: Icons.settings_outlined,
@@ -402,78 +381,85 @@ class _SideNavRail extends StatelessWidget {
       // the last nav item clear of the home indicator.
       child: ClipRRect(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: AppColors.glassBlur, sigmaY: AppColors.glassBlur),
+          filter: ImageFilter.blur(
+            sigmaX: AppColors.glassBlur,
+            sigmaY: AppColors.glassBlur,
+          ),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
             decoration: BoxDecoration(
               // Liquid-glass rail so the page gradient shows through
               // while keeping labels readable (UX-048).
-              color: isLight
-                  ? AppColors.lightGlassBg
-                  : AppColors.glassBg,
+              color: isLight ? AppColors.lightGlassBg : AppColors.glassBg,
               border: Border(
                 right: BorderSide(
-                  color: isLight ? AppColors.lightGlassBorder : AppColors.glassBorder,
+                  color: isLight
+                      ? AppColors.lightGlassBorder
+                      : AppColors.glassBorder,
                 ),
               ),
             ),
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
             width: extended ? 200 : 72,
             child: Column(
-          children: [
-            // Brand mark at the top of the rail.
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.gradientPrimary,
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                    ),
-                    child: const Icon(Icons.mic, color: Colors.white, size: 20),
-                  ),
-                  if (extended) ...[
-                    const SizedBox(width: AppSpacing.sm),
-                    Flexible(
-                      child: Text(
-                        'SpeakFlow',
-                        style: Theme.of(context).textTheme.titleMedium,
-                        overflow: TextOverflow.ellipsis,
+              children: [
+                // Brand mark at the top of the rail.
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          gradient: AppColors.gradientPrimary,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                        ),
+                        child: const Icon(
+                          Icons.mic,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: List.generate(items.length, (i) {
-                    final item = items[i];
-                    final selected = i == selectedIndex;
-                    return _SideNavItem(
-                      item: item,
-                      selected: selected,
-                      extended: extended,
-                      onTap: () => onItemTapped(i),
-                    );
-                  }),
+                      if (extended) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        Flexible(
+                          child: Text(
+                            'SpeakFlow',
+                            style: Theme.of(context).textTheme.titleMedium,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: AppSpacing.lg),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: List.generate(items.length, (i) {
+                        final item = items[i];
+                        final selected = i == selectedIndex;
+                        return _SideNavItem(
+                          item: item,
+                          selected: selected,
+                          extended: extended,
+                          onTap: () => onItemTapped(i),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
-    ),
-  ),
-);
+    );
   }
 }
 

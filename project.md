@@ -13,6 +13,8 @@ SpeakFlow 是一个 Flutter 多端 AI 英语口语练习应用，支持 Web、iO
 - 3D 外教为 Three.js + Ready Player Me GLB：Web 使用同源 iframe，移动/桌面
   使用 `webview_flutter`，TTS 振幅驱动口型；失败时回退到 Flutter 绘制角色。
 - 界面语言的优先级：用户设置 > 浏览器语言（Web）> 系统语言 > 中文。
+- 默认入口 `/` 是聚焦式练习准备页：展示当前 AI 老师、自由对话主题和一次主操作；旧学习仪表盘保留在 `/dashboard`，场景、历史、项目等保留为二级路由。
+- 主导航收敛为练习、复习、设置三项；设置承载“我的”下的 Provider、人物、语音健康、进度、项目和数据管理入口。
 
 ## 3D 方案与性能策略
 
@@ -22,9 +24,12 @@ SpeakFlow 是一个 Flutter 多端 AI 英语口语练习应用，支持 Web、iO
 降低渲染频率。后续如需要用户自定义角色，可接 Ready Player Me Avatar Creator，
 持久化其 GLB URL。
 
-目前手机端优先展示高保真教师原画，并以轻微浮动作为稳定的过渡动效；生产级
-Live2D 需要定稿原画的分层 PSD 和 Cubism 绑定产物（`.moc3` / motions）。
-Live2D 方案可继续沿用现有 TTS 振幅流驱动口型。
+当前默认优先展示 3D 教师，低带宽模式或加载失败时回退到 Flutter painter；生产级
+Live2D 仍需要定稿原画的分层 PSD 和 Cubism 绑定产物（`.moc3` / motions）。
+现有 TTS 振幅流与 Rhubarb 时间线接口可继续复用。
+
+浏览器端直连 Provider 仍受 CORS、HTTPS 和密钥暴露风险约束；README 与安全威胁
+模型不把“OpenAI-compatible”解释为所有服务都能从浏览器直接调用。
 
 ## 发布（阿里云）
 
@@ -64,8 +69,8 @@ query；构建后将 `build/web/flutter_bootstrap.js` 的 `mainJsPath` 改为
 
 ## E2E 测试（Playwright + Flutter E2E Bridge）
 
-E2E 套件位于 `e2e/`，覆盖 30 个功能点（子功能粒度），共 743 条独立用例（chromium
-+ mobile-chrome 两个浏览器项目下合计 1476 次执行）。每个功能点不少于 20 条用例，
+E2E 套件位于 `e2e/`，覆盖 30 个功能点（子功能粒度）；当前 `npx playwright test --list`
+ 可枚举 2972 条测试执行项，分布在 32 个 spec 文件和四个浏览器项目。每个功能点不少于 20 条用例，
 分 happypath / 旁支 / 异常三类。规格见 `docs/e2e-spec.md`。
 
 ### 质量提升流程

@@ -75,9 +75,11 @@ export async function expectText(
  */
 export async function expectRoute(page: Page, route: string): Promise<void> {
   const url = page.url();
-  const hash = new URL(url).hash.replace(/^#/, '') || '/';
-  expect(hash === route || hash.startsWith(route + '/') || hash.startsWith(route + '?'),
-    `expected route to be ${route}, got ${hash}`).toBeTruthy();
+  const parsed = new URL(url);
+  const hash = parsed.hash.replace(/^#/, '');
+  const current = hash || parsed.pathname || '/';
+  expect(current === route || current.startsWith(route + '/') || current.startsWith(route + '?'),
+    `expected route to be ${route}, got ${current}`).toBeTruthy();
 }
 
 /**

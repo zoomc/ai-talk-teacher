@@ -66,10 +66,10 @@ void main() {
       // The newest (0) should drag the score below 50 because it has the
       // highest weight.
       final corrections = [
-        corr(reviewCount: 8, ef: 2.5, lastSeenAt: now.subtract(const Duration(days: 10))),
+        corr(reviewCount: 8, ef: 2.5, lastSeenAt: now.subtract(const Duration(days: 1))),
         corr(reviewCount: 0, ef: 2.5, lastSeenAt: now),
       ];
-      final score = svc.computeScore(corrections);
+      final score = svc.computeScore(corrections, referenceTime: now);
       // Weighted: w0=1.0 (newest, score=0), w1=0.85 (oldest, score=100)
       // avg = (1*0 + 0.85*100) / (1 + 0.85) = 85/1.85 ≈ 45.9 → 46
       expect(score, lessThan(50));

@@ -7,12 +7,12 @@
 ## 特性
 
 - 🌍 **跨平台** — Flutter 构建，一套代码运行在 macOS / Web / iOS / Android
-- 🤖 **多 AI 提供商** — 兼容所有 OpenAI 协议的 LLM 服务（DeepSeek、GLM、Kimi、Ollama 等）
+- 🤖 **多 AI 提供商** — 支持常见 OpenAI-compatible LLM 服务（DeepSeek、GLM、Kimi、Ollama 等；浏览器端服务商仍需允许 CORS）
 - 🎙️ **语音对话** — 语音输入 + TTS 语音输出，自然对话体验
 - 💬 **智能纠正** — AI 在对话中自然纠正错误，不打断交流节奏
 - 📝 **错误跟踪** — 自动记录所有错误，支持间隔重复复习
-- 🎭 **虚拟外教** — Live2D 角色 + 唇形同步动画
-- 🔒 **隐私优先** — 用户自带 API Key，数据全部本地存储
+- 🎭 **虚拟外教** — Three.js + GLB 3D 角色、振幅/Rhubarb 唇形同步，失败时回退 Flutter 绘制角色
+- 🔒 **隐私优先** — 用户自带 API Key，SQLite 学习数据默认本地保存；Web 端 Key 仍受浏览器存储与 XSS 风险约束
 
 ## 技术栈
 
@@ -22,7 +22,7 @@
 | AI 对话 | OpenAI 兼容协议（用户自选提供商） |
 | STT | SenseVoice / faster-whisper（本地）/ Deepgram（云端） |
 | TTS | Kokoro TTS（本地）/ Fish Audio（云端） |
-| 虚拟人物 | Live2D + Rhubarb Lip Sync |
+| 虚拟人物 | Three.js + GLB + Rhubarb Lip Sync（painter fallback） |
 | 数据库 | SQLite |
 | 状态管理 | Riverpod |
 

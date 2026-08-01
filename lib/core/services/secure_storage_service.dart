@@ -4,7 +4,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// Uses platform-specific secure storage:
 /// - iOS/macOS: Keychain
 /// - Android: EncryptedSharedPreferences
-/// - Web: Encrypted localStorage
+/// - Web: browser storage provided by the plugin. This is not equivalent to
+///   iOS Keychain or Android Keystore; browser XSS and profile compromise are
+///   part of the web threat model, so users should prefer scoped keys or a
+///   self-hosted relay when that risk is unacceptable.
 class SecureStorageService {
   static const _storage = FlutterSecureStorage();
   static const _keyPrefix = 'speakflow_key_';

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Focused practice loop — 2026-08-01
+
+- Changed `/` to a focused AI-tutor practice entry point; kept the learning
+  dashboard at `/dashboard` and preserved all existing deep-link routes.
+- Reduced primary navigation to Practice, Review, and Settings; scenarios,
+  history, projects, and progress remain available as secondary routes.
+- Connected `AvatarStage` to the existing Three.js + GLB 3D host with
+  low-bandwidth and painter fallback paths.
+- Added conversation turn tokens and playback tokens so stale STT/LLM/TTS
+  callbacks cannot overwrite a newer turn; the record control can interrupt
+  active playback.
+- Fixed the 5–7 review mastery score and documented the Web/PWA key threat
+  model, cache boundaries, and avatar technology decision.
+
 ### E2E-driven quality improvement — 2026-07-25
 
 #### Overview

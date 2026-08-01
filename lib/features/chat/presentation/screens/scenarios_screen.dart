@@ -49,7 +49,9 @@ class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
       if (mounted) {
         final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.tArg('scenarios.stats_error', {'error': '$e'}))),
+          SnackBar(
+            content: Text(l.tArg('scenarios.stats_error', {'error': '$e'})),
+          ),
         );
       }
     }
@@ -67,13 +69,15 @@ class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
         levelTag: scenario.difficulty,
       );
       if (mounted) {
-        context.push('/chat/${session.id}');
+        context.go('/chat/${session.id}');
       }
     } catch (e) {
       if (mounted) {
         final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.tArg('scenarios.start_error', {'error': '$e'}))),
+          SnackBar(
+            content: Text(l.tArg('scenarios.start_error', {'error': '$e'})),
+          ),
         );
       }
     }
@@ -87,10 +91,10 @@ class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-            gradient:
-                Theme.of(context).brightness == Brightness.light
-                    ? AppColors.lightGradientBg
-                    : AppColors.gradientBg),
+          gradient: Theme.of(context).brightness == Brightness.light
+              ? AppColors.lightGradientBg
+              : AppColors.gradientBg,
+        ),
         child: SafeArea(
           child: scenarios.when(
             data: (list) {
@@ -164,10 +168,16 @@ class _ScenariosScreenState extends ConsumerState<ScenariosScreen> {
                                       contentId: scenario.id,
                                     );
                                     if (linked && context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text(
-                                            AppLocalizations.of(context)
-                                                .t('projects.join.title'))),
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            ).t('projects.join.title'),
+                                          ),
+                                        ),
                                       );
                                     }
                                   },
@@ -330,7 +340,11 @@ class _ScenarioCard extends StatelessWidget {
                     Flexible(
                       child: Text(
                         l.tArg('scenarios.last_practiced', {
-                          'when': _relativeTime(context, l, stats!.lastPracticedAt),
+                          'when': _relativeTime(
+                            context,
+                            l,
+                            stats!.lastPracticedAt,
+                          ),
                         }),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textMuted,

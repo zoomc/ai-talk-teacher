@@ -1,9 +1,18 @@
 # SpeakFlow — AI 口语练习应用
 
 > 跨平台 AI 英语口语练习应用
-> 更新日期：2026-07-08
+> 更新日期：2026-08-01
 > 技术栈：Flutter（Dart）
 > 目标平台：macOS · Web · iOS · Android
+
+### 2026-08-01 产品收敛与验证
+
+- 默认入口已从仪表盘改为 `PracticeHomePage`：AI 老师、当前主题和开始练习按钮位于首屏；原仪表盘保留为 `/dashboard`。
+- 一级导航收敛为练习、复习、设置；场景、历史、项目仍保留路由和数据，只降为二级入口。
+- `AvatarStage` 默认接入 `VirtualCharacter3D`，使用 Three.js + GLB/WebView 管线，低带宽、WebGL 不可用或模型失败时回退 painter。
+- 对话新增单调 turn token 与 TTS playback token，旧的 STT/LLM/TTS 异步回调不能覆盖新一轮状态；录音按钮可优先打断播放。
+- 修复 `SkillMasteryService` 的 5–7 次复习评分期望，并完成远端同步后的 analyze/test/build 验证记录。
+- Web 端 API Key 风险、PWA 缓存边界与 Avatar 技术选型见 `docs/architecture/`、`docs/research/`。
 
 ---
 
