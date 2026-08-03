@@ -7,18 +7,30 @@
 import { test, expect } from '@playwright/test';
 import { setupE2EApp, setupEmptyApp } from '../../lib/setup';
 import { expectNoException, expectRoute } from '../../lib/assertions';
-import { settle } from '../../helpers';
+import { enableAccessibility, settle } from '../../helpers';
 import * as bridge from '../../lib/e2e-bridge';
 
 // CanvasKit does not expose Flutter text as ordinary DOM nodes in every
 // headless Chromium build. These coordinates target the stable primary/secondary
 // controls in the responsive layout while still exercising real pointer input.
 async function clickPrimaryCta(page: import('@playwright/test').Page) {
+  await enableAccessibility(page);
+  const button = page.getByRole('button', { name: /start conversation/i }).first();
+  if (await button.count() > 0 && await button.isVisible().catch(() => false)) {
+    await button.click();
+    return;
+  }
   const viewport = page.viewportSize()!;
   await page.mouse.click(viewport.width / 2, 678);
 }
 
 async function clickScenarios(page: import('@playwright/test').Page) {
+  await enableAccessibility(page);
+  const button = page.getByRole('button', { name: /scenarios/i }).first();
+  if (await button.count() > 0 && await button.isVisible().catch(() => false)) {
+    await button.click();
+    return;
+  }
   const viewport = page.viewportSize()!;
   await page.mouse.click(viewport.width / 2, Math.min(735, viewport.height - 72));
 }

@@ -9,6 +9,7 @@ void main() {
 
     expect(machine.state, ConversationState.generating);
     expect(machine.isCurrent(token), isTrue);
+    expect(machine.isBusy, isTrue);
   });
 
   test('interrupt invalidates the current turn', () {
@@ -18,6 +19,7 @@ void main() {
     machine.interrupt();
 
     expect(machine.state, ConversationState.interrupted);
+    expect(machine.isBusy, isFalse);
     expect(machine.isCurrent(token), isFalse);
   });
 
@@ -29,5 +31,31 @@ void main() {
     expect(machine.isCurrent(first), isFalse);
     expect(machine.isCurrent(second), isTrue);
     expect(machine.state, ConversationState.recording);
+  });
+
+  test('completion is terminal for the current turn but allows a new turn', () {
+    final machine = ConversationStateMachine();
+    final first = machine.beginTurn(ConversationState.speaking);
+
+    machine.complete();
+
+    expect(machine.state, ConversationState.completed);
+    expect(machine.isBusy, isFalse);
+    expect(machine.isCurrent(first), isTrue);
+
+    final second = machine.beginTurn(ConversationState.recording);
+    expect(machine.isCurrent(first), isFalse);
+    expect(machine.isCurrent(second), isTrue);
+    expect(machine.isBusy, isTrue);
+  });
+
+  test('permission and recoverable error states are not treated as busy', () {
+    final machine = ConversationStateMachine();
+
+    machine.beginTurn(ConversationState.permissionRequired);
+    expect(machine.isBusy, isFalse);
+
+    machine.transition(ConversationState.recoverableError);
+    expect(machine.isBusy, isFalse);
   });
 }

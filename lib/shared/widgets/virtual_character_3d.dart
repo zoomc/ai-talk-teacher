@@ -91,10 +91,7 @@ class _VirtualCharacter3DState extends State<VirtualCharacter3D> {
     super.initState();
     try {
       _host = platform.AvatarHost();
-      _host.init(
-        avatarUrl: widget.avatarUrl,
-        onError: _onHostError,
-      );
+      _host.init(avatarUrl: widget.avatarUrl, onError: _onHostError);
       if (!_host.isSupported) {
         _mode = _AvatarMode.fallback;
       } else {
@@ -152,6 +149,9 @@ class _VirtualCharacter3DState extends State<VirtualCharacter3D> {
   void _applyState() {
     final s = widget.state;
     final text = widget.speakingText ?? '';
+    // Send the semantic state first so each host can reset stale gesture and
+    // mouth state, then apply the more precise text/audio inputs below.
+    _host.setState(s.name);
     switch (s) {
       case CharacterState.idle:
         _host.setGesture('idle');
@@ -303,10 +303,10 @@ class _VirtualCharacter3DState extends State<VirtualCharacter3D> {
             Text(
               widget.tutorName,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? AppColors.lightTextPrimary
-                        : AppColors.textPrimary,
-                  ),
+                color: Theme.of(context).brightness == Brightness.light
+                    ? AppColors.lightTextPrimary
+                    : AppColors.textPrimary,
+              ),
             ),
             const SizedBox(height: AppSpacing.xs),
             _buildStatePill(),

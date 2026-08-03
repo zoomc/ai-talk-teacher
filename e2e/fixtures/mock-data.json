@@ -230,6 +230,16 @@
   },
   "with-corrections": {
     "completeOnboarding": true,
+    "chatSessions": [
+      { "id": "sess-1", "topic": "Coffee practice", "scenario_id": null, "status": "active", "level_tag": "A2", "is_guest": 0, "created_at": "2026-07-20T10:00:00.000Z", "updated_at": "2026-07-20T10:10:00.000Z" },
+      { "id": "sess-2", "topic": "Interview practice", "scenario_id": null, "status": "active", "level_tag": "B1", "is_guest": 0, "created_at": "2026-07-21T10:00:00.000Z", "updated_at": "2026-07-21T10:10:00.000Z" },
+      { "id": "sess-3", "topic": "Grammar practice", "scenario_id": null, "status": "active", "level_tag": "B1", "is_guest": 0, "created_at": "2026-07-22T10:00:00.000Z", "updated_at": "2026-07-22T10:10:00.000Z" }
+    ],
+    "messages": [
+      { "id": "msg-1", "session_id": "sess-1", "role": "user", "content": "I goes to school", "audio_path": null, "created_at": "2026-07-20T10:00:00.000Z" },
+      { "id": "msg-3", "session_id": "sess-1", "role": "user", "content": "a apple", "audio_path": null, "created_at": "2026-07-20T10:01:00.000Z" },
+      { "id": "msg-4", "session_id": "sess-2", "role": "user", "content": "I am agree", "audio_path": null, "created_at": "2026-07-21T10:00:00.000Z" }
+    ],
     "corrections": [
       { "id": "cor-1", "session_id": "sess-1", "message_id": "msg-1", "original": "I goes to school", "corrected": "I go to school", "type": "grammar", "explanation": "Subject 'I' uses base verb form.", "skill": "grammar", "review_count": 0, "easiness_factor": 2.5, "interval_days": 1, "next_review_at": "2026-07-25T00:00:00.000Z", "occurrence_count": 1, "last_seen_at": "2026-07-20T10:00:00.000Z", "importance": 3, "is_favorite": 0, "favorite_at": null, "created_at": "2026-07-20T10:00:00.000Z" },
       { "id": "cor-2", "session_id": "sess-1", "message_id": "msg-3", "original": "a apple", "corrected": "an apple", "type": "grammar", "explanation": "Use 'an' before vowel sounds.", "skill": "grammar", "review_count": 1, "easiness_factor": 2.6, "interval_days": 6, "next_review_at": "2026-07-26T00:00:00.000Z", "occurrence_count": 1, "last_seen_at": "2026-07-20T10:00:00.000Z", "importance": 2, "is_favorite": 1, "favorite_at": "2026-07-21T10:00:00.000Z", "created_at": "2026-07-20T10:00:00.000Z" },
@@ -247,6 +257,9 @@
   },
   "with-review-queue": {
     "completeOnboarding": true,
+    "chatSessions": [
+      { "id": "sess-r", "topic": "Review practice", "scenario_id": null, "status": "active", "level_tag": "B1", "is_guest": 0, "created_at": "2026-07-24T10:00:00.000Z", "updated_at": "2026-07-24T10:10:00.000Z" }
+    ],
     "corrections": [
       { "id": "cor-r1", "session_id": "sess-r", "message_id": null, "original": "I goes", "corrected": "I go", "type": "grammar", "explanation": "Base verb after 'I'.", "skill": "grammar", "review_count": 0, "easiness_factor": 2.5, "interval_days": 1, "next_review_at": "2026-07-25T00:00:00.000Z", "occurrence_count": 1, "last_seen_at": "2026-07-24T10:00:00.000Z", "importance": 3, "is_favorite": 0, "favorite_at": null, "created_at": "2026-07-24T10:00:00.000Z" },
       { "id": "cor-r2", "session_id": "sess-r", "message_id": null, "original": "a apple", "corrected": "an apple", "type": "grammar", "explanation": "'an' before vowel.", "skill": "grammar", "review_count": 1, "easiness_factor": 2.6, "interval_days": 6, "next_review_at": "2026-07-26T00:00:00.000Z", "occurrence_count": 1, "last_seen_at": "2026-07-20T10:00:00.000Z", "importance": 2, "is_favorite": 1, "favorite_at": "2026-07-21T10:00:00.000Z", "created_at": "2026-07-20T10:00:00.000Z" },

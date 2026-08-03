@@ -26,6 +26,18 @@ class ConversationStateMachine {
   ConversationState get state => _state;
   int get turn => _turn;
 
+  /// Whether a turn currently owns the voice/AI pipeline. `completed`,
+  /// `interrupted`, and recoverable errors are terminal UI states for the
+  /// current turn and may be replaced by a new user action.
+  bool get isBusy => switch (_state) {
+    ConversationState.recording ||
+    ConversationState.transcribing ||
+    ConversationState.generating ||
+    ConversationState.synthesizing ||
+    ConversationState.speaking => true,
+    _ => false,
+  };
+
   /// Starts a new logical turn and returns its cancellation token.
   int beginTurn(ConversationState initial) {
     _turn++;

@@ -30,6 +30,15 @@
 
 - [projects.md](projects.md) — 项目式样、功能规格、开发计划
 - [agent.md](agent.md) — Agent 协作工作流和开发约定
+- [docs/audit/current-product-baseline.md](docs/audit/current-product-baseline.md) — 当前产品/路由/数据基线
+- [docs/architecture/target-product-architecture.md](docs/architecture/target-product-architecture.md) — 状态、Provider、Avatar 与安全架构
+- [docs/architecture/data-migration.md](docs/architecture/data-migration.md) — SQLite/IndexedDB schema v10 兼容与迁移
+- [docs/architecture/responsive-design.md](docs/architecture/responsive-design.md) — 手机/桌面/PWA 响应式策略
+- [docs/research/avatar-technology-selection.md](docs/research/avatar-technology-selection.md) — Avatar 技术研究与 Spike
+- [docs/qa/test-and-performance-report.md](docs/qa/test-and-performance-report.md) — 测试证据与性能边界
+- [docs/qa/independent-review.md](docs/qa/independent-review.md) — 第二遍独立验收记录
+- [docs/qa/known-limitations-and-backlog.md](docs/qa/known-limitations-and-backlog.md) — 已知限制与后续工作
+- [docs/qa/dependency-license-inventory.md](docs/qa/dependency-license-inventory.md) — 依赖、模型与资产许可证检查
 
 ## 开发阶段
 

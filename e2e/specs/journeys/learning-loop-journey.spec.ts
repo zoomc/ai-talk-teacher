@@ -13,7 +13,7 @@ import { test, expect } from '@playwright/test';
 import { setupE2EApp, navigate, MOBILE_VIEWPORT } from '../../lib/setup';
 import { capture } from '../../lib/screenshots';
 import { expectVisible, expectRoute, expectNoException } from '../../lib/assertions';
-import { settle, sendChatMessage } from '../../helpers';
+import { enableAccessibility, settle, sendChatMessage } from '../../helpers';
 import * as bridge from '../../lib/e2e-bridge';
 import { resetOverrides } from '../../lib/mock';
 import { LLM_MOCKS, TTS_MOCKS } from '../../fixtures/fixtures';
@@ -25,6 +25,7 @@ interface LoopSnapshot {
 test.describe('J01 — Learning Loop Journey', () => {
   test.beforeEach(async ({ page }) => {
     await setupE2EApp(page, 'with-review-queue', { route: '/' });
+    await enableAccessibility(page);
     await bridge.setMockTtsAudio(page, TTS_MOCKS.silent);
   });
 
@@ -34,7 +35,7 @@ test.describe('J01 — Learning Loop Journey', () => {
 
   test('HP-1: Home → Chat → Review → Progress completes without crash', async ({ page }) => {
     // 1) Start a conversation from the dashboard.
-    const convButton = page.getByRole('button').filter({ hasText: /conversation|对话|开始/i }).first();
+    const convButton = page.getByRole('button', { name: /start conversation|conversation|对话|开始/i }).first();
     await convButton.click({ timeout: 8000 }).catch(() => {});
     await settle(page, 2000);
     expect(page.url()).toContain('chat');
@@ -75,7 +76,7 @@ test.describe('J01 — Learning Loop Journey', () => {
     await page.setViewportSize(MOBILE_VIEWPORT);
     await navigate(page, '/');
 
-    const convButton = page.getByRole('button').filter({ hasText: /conversation|对话|开始/i }).first();
+    const convButton = page.getByRole('button', { name: /start conversation|conversation|对话|开始/i }).first();
     await convButton.click({ timeout: 8000 }).catch(() => {});
     await settle(page, 2000);
     expect(page.url()).toContain('chat');

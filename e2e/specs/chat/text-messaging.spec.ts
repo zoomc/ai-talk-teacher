@@ -137,6 +137,24 @@ test.describe('M03 — Chat: Text Messaging', () => {
     await capture(page, 'm03-hp8-loading-cleared');
   });
 
+  test('BR-9: processing voice control stays available to cancel a stalled LLM turn', async ({ page }) => {
+    await bridge.setMockMode(page, false);
+    await mockNetworkTimeout(page, '**/v1/chat/completions*');
+
+    const input = page.getByRole('textbox').first();
+    await input.fill('cancel this slow turn');
+    await page.getByRole('button', { name: /send/i }).first().click();
+    const switchToVoice = page.getByRole('button', { name: /switch to voice input/i }).first();
+    await switchToVoice.click();
+
+    // The voice surface is deliberately available while the LLM retry loop is
+    // waiting, so users never lose the ability to interrupt a slow provider.
+    const cancel = page.getByRole('button', { name: /cancel/i }).first();
+    await expect(cancel).toBeVisible({ timeout: 5000 });
+    await cancel.click();
+    await expectNoException(page);
+  });
+
   // ---------------- Branch / Edge Cases ----------------
 
   test('BR-9: empty input → send button disabled / not actionable', async ({ page }) => {

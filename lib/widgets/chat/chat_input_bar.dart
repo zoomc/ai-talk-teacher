@@ -104,7 +104,9 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _recordingStartedAt == null) return;
       setState(() {
-        _recordingSeconds = DateTime.now().difference(_recordingStartedAt!).inSeconds;
+        _recordingSeconds = DateTime.now()
+            .difference(_recordingStartedAt!)
+            .inSeconds;
       });
     });
   }
@@ -226,10 +228,18 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
   Widget _buildVoiceInput(AppLocalizations l) {
     final isRecording = widget.isRecording;
     final isLoading = widget.isLoading;
+    // Keep the primary control available while the tutor is processing. A
+    // user must be able to cancel a slow STT/LLM turn instead of waiting for
+    // an opaque request to finish before they can speak again.
+    final actionLabel = isLoading
+        ? l.t('common.cancel')
+        : (isRecording ? l.t('chat.stop_recording') : l.t('chat.start_voice'));
     final isLight = Theme.of(context).brightness == Brightness.light;
     final color = isRecording
         ? (isLight ? AppColors.lightError : AppColors.error)
-        : (isLight ? AppColors.lightAccentSecondary : AppColors.accentSecondary);
+        : (isLight
+              ? AppColors.lightAccentSecondary
+              : AppColors.accentSecondary);
     final screenWidth = MediaQuery.of(context).size.width;
     final buttonWidth = (screenWidth - AppSpacing.xl).clamp(224.0, 320.0);
     return Padding(
@@ -239,36 +249,31 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
         children: [
           Semantics(
             button: true,
-            enabled: !isLoading,
-            label: isRecording
-                ? l.t('chat.stop_recording')
-                : l.t('chat.start_voice'),
+            enabled: true,
+            label: actionLabel,
             child: Tooltip(
-              message: isRecording
-                  ? l.t('chat.stop_recording')
-                  : l.t('chat.tap_to_record'),
+              message: isLoading ? l.t('common.cancel') : actionLabel,
               child: Listener(
-                onPointerDown: isLoading || isRecording
+                onPointerDown: isRecording
                     ? null
                     : (_) async {
+                        final wasLoading = widget.isLoading;
                         _voicePointerDown = true;
                         await widget.onRecordToggle();
-                        if (!_voicePointerDown && mounted) {
+                        // A pointer-up that happens while cancellation is in
+                        // flight must not immediately start a new recording.
+                        if (!wasLoading && !_voicePointerDown && mounted) {
                           await widget.onRecordToggle();
                         }
                       },
-                onPointerUp: isLoading
-                    ? null
-                    : (_) async {
-                        _voicePointerDown = false;
-                        if (widget.isRecording) await widget.onRecordToggle();
-                      },
-                onPointerCancel: isLoading
-                    ? null
-                    : (_) async {
-                        _voicePointerDown = false;
-                        if (widget.isRecording) await widget.onRecordToggle();
-                      },
+                onPointerUp: (_) async {
+                  _voicePointerDown = false;
+                  if (widget.isRecording) await widget.onRecordToggle();
+                },
+                onPointerCancel: (_) async {
+                  _voicePointerDown = false;
+                  if (widget.isRecording) await widget.onRecordToggle();
+                },
                 child: AnimatedBuilder(
                   animation: _pulseScale,
                   builder: (context, _) {
@@ -296,7 +301,9 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              isRecording ? Icons.stop : Icons.mic,
+                              isLoading
+                                  ? Icons.cancel_outlined
+                                  : (isRecording ? Icons.stop : Icons.mic),
                               color: Colors.white,
                               size: 26,
                             ),
@@ -305,9 +312,11 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
                               child: FittedBox(
                                 fit: BoxFit.scaleDown,
                                 child: Text(
-                                  isRecording
-                                      ? l.t('chat.stop_recording')
-                                      : l.t('chat.hold_to_talk'),
+                                  isLoading
+                                      ? l.t('common.cancel')
+                                      : (isRecording
+                                            ? l.t('chat.stop_recording')
+                                            : l.t('chat.hold_to_talk')),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 17,
@@ -464,9 +473,9 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
                     color: canSend
                         ? null
                         : (isLight
-                            ? AppColors.lightDisabled
-                            : AppColors.disabled)
-                            .withValues(alpha: 0.5),
+                                  ? AppColors.lightDisabled
+                                  : AppColors.disabled)
+                              .withValues(alpha: 0.5),
                     gradient: canSend ? AppColors.gradientPrimary : null,
                   ),
                   child: IconButton(
@@ -475,8 +484,8 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
                       color: canSend
                           ? Colors.white
                           : (isLight
-                              ? AppColors.lightTextDisabled
-                              : AppColors.textDisabled),
+                                ? AppColors.lightTextDisabled
+                                : AppColors.textDisabled),
                       size: 24,
                     ),
                     onPressed: canSend ? widget.onSend : null,
@@ -518,10 +527,9 @@ class _OfflineHint extends StatelessWidget {
           Expanded(
             child: Text(
               l.t('chat.offline_hint'),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: color,
-                    height: 1.3,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: color, height: 1.3),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
@@ -555,9 +563,10 @@ class _RecordButtonState extends State<_RecordButton>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
-    _pulse = Tween<double>(begin: 0.25, end: 0.55).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _pulse = Tween<double>(
+      begin: 0.25,
+      end: 0.55,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     if (widget.isRecording) _controller.repeat(reverse: true);
   }
 
@@ -584,7 +593,9 @@ class _RecordButtonState extends State<_RecordButton>
     final isLight = Theme.of(context).brightness == Brightness.light;
     final color = widget.isRecording
         ? (isLight ? AppColors.lightError : AppColors.error)
-        : (isLight ? AppColors.lightAccentSecondary : AppColors.accentSecondary);
+        : (isLight
+              ? AppColors.lightAccentSecondary
+              : AppColors.accentSecondary);
     final baseGlow = widget.isRecording ? 0.4 : 0.25;
 
     return GestureDetector(
@@ -715,14 +726,13 @@ class _ContinuousToggle extends StatelessWidget {
               Text(
                 l.t('chat.continuous_mode'),
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: enabled
-                          ? AppColors.accentPrimary
-                          : (isLight
-                              ? AppColors.lightTextSecondary
-                              : AppColors.textSecondary),
-                      fontWeight:
-                          enabled ? FontWeight.w600 : FontWeight.normal,
-                    ),
+                  color: enabled
+                      ? AppColors.accentPrimary
+                      : (isLight
+                            ? AppColors.lightTextSecondary
+                            : AppColors.textSecondary),
+                  fontWeight: enabled ? FontWeight.w600 : FontWeight.normal,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -735,23 +745,21 @@ class _ContinuousToggle extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: enabled
                       ? AppColors.accentPrimary.withValues(alpha: 0.15)
-                      : (isLight
-                          ? AppColors.lightDisabled
-                          : AppColors.disabled)
-                          .withValues(alpha: 0.3),
+                      : (isLight ? AppColors.lightDisabled : AppColors.disabled)
+                            .withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),
                 child: Text(
                   enabled ? 'ON' : 'OFF',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: enabled
-                            ? AppColors.accentPrimary
-                            : (isLight
-                                ? AppColors.lightTextMuted
-                                : AppColors.textMuted),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    color: enabled
+                        ? AppColors.accentPrimary
+                        : (isLight
+                              ? AppColors.lightTextMuted
+                              : AppColors.textMuted),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],

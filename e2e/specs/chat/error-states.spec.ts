@@ -152,12 +152,12 @@ test.describe('M09 — Chat: Error States & Recovery', () => {
       await route.fulfill({
         status: 500,
         contentType: 'application/json',
-        body: JSON.stringify({ error: { message: 'Bearer sk-leaked-key-123456 rejected' } }),
+        body: JSON.stringify({ error: { message: 'Bearer TEST_REDACTED_TOKEN rejected' } }),
       });
     });
     await sendChatMessage(page, 'redact test');
     await page.waitForTimeout(2000);
-    const leaked = await page.getByText(/sk-leaked-key-123456|Bearer\s+sk-/i).first().isVisible({ timeout: 3000 }).catch(() => false);
+    const leaked = await page.getByText(/TEST_REDACTED_TOKEN|Bearer\s+TEST_REDACTED_TOKEN/i).first().isVisible({ timeout: 3000 }).catch(() => false);
     expect(leaked).toBe(false);
     await expectNoException(page);
     await capture(page, 'm09-hp6-redacted');

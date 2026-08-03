@@ -1,16 +1,18 @@
 # 当前产品基线
 
-核查日期：2026-08-01
-代码基线：`main` / `9bb9da0`（与 `origin/main` 一致）
+核查日期：2026-08-04
+代码基线：`main` / `9cb74e2`（与 `origin/main` 一致；本轮中断与生命周期修复尚未提交）
 
 ## 结论摘要
 
-- 远端同步后代码基线为 `9bb9da0`；`flutter analyze` 0 errors，剩余问题均为既有兼容性/弃用提示。
+- 远端同步后代码基线为 `9cb74e2`；`flutter analyze` 0 errors，剩余问题均为既有兼容性/弃用提示。
 - 基线的 2 个 `SkillMasteryService` 评分失败已修复：reviewCount 5–7 使用 90 分，reviewCount ≥8 才是 100 分，时间衰减测试也恢复通过。
 - 当前默认路径是 `/` → `PracticeHomePage`：直接展示 AI 老师、当前人物、自由对话主题和开始按钮；原 `HomePage` 仪表盘保留在 `/dashboard`。
 - 当前主导航收敛为 3 项：练习、复习、设置（“我的”由设置及其二级入口承载）；场景/历史/项目保留为二级入口。
 - 当前真实 Avatar 主流程是 `PracticeHomePage/ChatScreen → AvatarStage → VirtualCharacter3D → painter fallback`。`assets/3d/avatar.html` 是 Three.js + GLB iframe/WebView 管线，低带宽或加载失败时不阻塞练习。
 - API Key 的 SQLite 字段只写入 `***stored***`，真实值由 `flutter_secure_storage` 保存；Web 端仍属于浏览器端密钥，不能等同于原生 Keychain。
+- 本轮补强了处理态取消、turn token 的持久化边界、filler TTS 生命周期、permission/completed
+  语义和 Three.js Avatar 姿态复位；最终提交以测试报告中的 commit 为准。
 
 ## 路由与页面地图
 

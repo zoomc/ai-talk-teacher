@@ -134,7 +134,12 @@ function bone(name, x, y, z) {
   if (b) b.rotation.set(x || 0, y || 0, z || 0);
 }
 const GESTURES = {
-  idle:        () => {},
+  // A low-frequency idle pose keeps the model alive without the distracting
+  // constant waving/large gestures that make a tutor feel synthetic.
+  idle:        (t) => {
+    bone('mixamorigHead', Math.sin(t*0.6)*0.03, Math.sin(t*0.45)*0.06, Math.sin(t*0.3)*0.02);
+    if (model) model.position.y = Math.sin(t*1.4)*0.008;
+  },
   wave:        (t) => bone('mixamorigRightArm', 0, 0, -1.2 + Math.sin(t*6)*0.3),
   nod:         (t) => bone('mixamorigHead', Math.sin(t*4)*0.15, 0, 0),
   tiltHead:    (t) => bone('mixamorigHead', 0, 0, Math.sin(t*2)*0.3),
@@ -158,6 +163,44 @@ const GESTURES = {
 let currentGesture = 'idle';
 function setGesture(name) { currentGesture = name || 'idle'; }
 
+// Gestures are applied every frame, so reset the small set of bones touched
+// by the semantic presets before applying the next pose. Without this reset,
+// a thinking/encouraging pose could remain stuck after returning to idle.
+function resetPose() {
+  ['mixamorigHead','mixamorigSpine','mixamorigLeftArm','mixamorigRightArm',
+   'mixamorigLeftForeArm','mixamorigRightForeArm'].forEach((name) => bone(name, 0, 0, 0));
+  if (model) model.position.y = 0;
+}
+
+function setState(name) {
+  const state = String(name || 'idle').toLowerCase();
+  switch (state) {
+    case 'listening':
+    case 'recording':
+      setGesture('nod');
+      applyViseme('slightOpen');
+      break;
+    case 'thinking':
+    case 'generating':
+    case 'transcribing':
+      setGesture('thinkPose');
+      applyViseme('biteLip');
+      break;
+    case 'speaking':
+    case 'synthesizing':
+      setGesture('idle');
+      applyViseme('mediumOpen');
+      break;
+    case 'interrupted':
+    case 'completed':
+    case 'idle':
+    default:
+      setGesture('idle');
+      applyViseme('closed');
+      break;
+  }
+}
+
 // ── Render loop with idle frame-rate reduction ──────────────────────────
 const clock = new THREE.Clock();
 let frameSkip = 0;
@@ -178,6 +221,7 @@ function animate() {
   if (!active && frameSkip % 2 === 0) { resize(); return; }
   resize();
   controls.update();
+  resetPose();
   applyMorphs();
   const g = GESTURES[currentGesture];
   if (g) g(t);
@@ -191,7 +235,7 @@ window.addEventListener('resize', resize);
 // ── JS bridge for Dart (HtmlElementView on web; webview_flutter on mobile)
 // Dart calls these via js_interop (web) or runJavaScript (mobile). ─────────
 window.speakflowAvatar = {
-  setState:        (_s)  => { /* state drives gesture/viseme via the setters */ },
+  setState:        (s)   => setState(s),
   setViseme:       (n)   => applyViseme(n),
   setGesture:      (n)   => setGesture(n),
   setAudioLevel:   (lv)  => { audioLevel = Math.max(0, Math.min(1, Number(lv) || 0)); },
@@ -199,7 +243,6 @@ window.speakflowAvatar = {
   isReady:         ()    => !!model,
   _onError:        null,
 };
-statusEl.textContent = 'Ready';
 </script>
 </body>
 </html>

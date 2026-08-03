@@ -1,6 +1,6 @@
 # Avatar 技术选型与 Spike
 
-核查日期：2026-08-01。以下版本、许可证和浏览器判断以官方仓库/文档为证据；模型、贴图、动画素材仍需单独核查其授权，不能因渲染器许可证宽松而自动获得素材授权。
+核查日期：2026-08-04。以下版本、许可证和浏览器判断以官方仓库/文档为证据；模型、贴图、动画素材仍需单独核查其授权，不能因渲染器许可证宽松而自动获得素材授权。
 
 ## 需求与非目标
 
@@ -48,6 +48,17 @@ Ready Player Me 官方说明：Avatar Creator 产出的头像非商业使用按 
 隔离入口：`assets/3d/avatar.html`。代码核查确认：GLTFLoader 加载合法 GLB URL；模型加载后收集 Mixamo bones 和 ARKit morph dictionary；`setGesture`、`setViseme`、`setAudioLevel` bridge 可驱动状态；idle 状态跳帧到约 30fps；GLB 失败调用 `_onError`。
 
 在 Flutter 集成中，`VirtualCharacter3D` 已验证 loading → ready3d → painter fallback 三态；`AvatarStage` 现接入该 3D 路径，并保留 Flutter painter fallback。Spike 的明确限制是模型来自远端 CDN，当前环境未把该 GLB 下载进仓库，无法把远端可用性写成稳定离线证据。
+
+## 可复现 Spike 入口
+
+| Spike | 入口 | 已验证 | 未验证 |
+|---|---|---|---|
+| A：Three.js/GLB | `assets/3d/avatar.html`、`VirtualCharacter3D`、`AvatarStage` | iframe/canvas fallback、idle/语义姿态、resize、destroy/清理路径 | 固定许可资产、真实移动 FPS/内存、离线 CDN |
+| B：Flutter painter | `VirtualCharacter`、`AvatarStage`、`RhubarbService` | 无 3D/低带宽 fallback、振幅口型、可选 viseme timeline | Web native Rhubarb binary、真实音频口型质量 |
+
+执行入口：`flutter test`、`flutter build web --release --base-href /talk/`、以及
+`cd e2e && npx playwright test specs/home/practice-home.spec.ts --project=chromium --workers=1`。
+Spike 失败不应阻塞主对话；回滚开关是 low-bandwidth/fallback 路径和移除 3D iframe 的部署配置。
 
 ### Spike B：当前 Flutter painter + Rhubarb timeline
 
