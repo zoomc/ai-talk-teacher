@@ -105,7 +105,7 @@ jobs:
         run: flutter pub get
 
       - name: Build E2E simulation web
-        run: flutter build web --release \
+        run: flutter build web --release --no-wasm-dry-run \
           --dart-define=APP_MODE=e2e \
           --dart-define=E2E=true
 
