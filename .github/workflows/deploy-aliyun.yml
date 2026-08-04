@@ -22,7 +22,7 @@ env:
   PROD_BASE_HREF: /talk/
   PROD_URL: https://zoomlab.top/talk
   PROD_TARGET: /opt/ai-talk-teacher
-  RELEASE_ROOT: /home/admin/ai-talk-teacher-releases
+  RELEASE_ROOT: /opt/ai-talk-teacher-releases
 
 jobs:
   build:
@@ -123,7 +123,7 @@ jobs:
             : "${RELEASE_ROOT:?release root is required}"
             archive="/tmp/ai-talk-teacher-web.tgz"
             test -s "$archive"
-            mkdir -p "$RELEASE_ROOT"
+            sudo -n install -d -o admin -g admin -m 755 "$RELEASE_ROOT"
             release_dir="$RELEASE_ROOT/$RELEASE_SHA"
             rm -rf "$release_dir"
             mkdir -p "$release_dir"

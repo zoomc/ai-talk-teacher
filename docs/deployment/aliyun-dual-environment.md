@@ -22,7 +22,7 @@ The current server layout used by the workflow is:
 
 - Public URL: `https://zoomlab.top/talk/`
 - Nginx Web root: `/opt/ai-talk-teacher`
-- Immutable release root: `/home/admin/ai-talk-teacher-releases`
+- Immutable release root: `/opt/ai-talk-teacher-releases` (created by the workflow with sudo and readable by nginx)
 
 The workflow must not be considered successful unless the remote nginx test and
 public version/deep-link checks pass. Local builds or a manual rsync are not
