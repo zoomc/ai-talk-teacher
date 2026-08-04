@@ -133,11 +133,11 @@ jobs:
 
             previous_target="$RELEASE_ROOT/previous-production"
             if [ -e "$PROD_TARGET" ] || [ -L "$PROD_TARGET" ]; then
-              mv -Tf "$PROD_TARGET" "${previous_target}.next"
-              mv -Tf "${previous_target}.next" "$previous_target"
+              sudo -n mv -Tf "$PROD_TARGET" "${previous_target}.next"
+              sudo -n mv -Tf "${previous_target}.next" "$previous_target"
             fi
-            ln -s "$web_root" "${PROD_TARGET}.next"
-            mv -Tf "${PROD_TARGET}.next" "$PROD_TARGET"
+            sudo -n ln -s "$web_root" "${PROD_TARGET}.next"
+            sudo -n mv -Tf "${PROD_TARGET}.next" "$PROD_TARGET"
             sudo -n nginx -t
             sudo -n systemctl reload nginx
 
@@ -177,9 +177,9 @@ jobs:
             previous_target="$RELEASE_ROOT/previous-production"
             if [ -e "$previous_target" ] || [ -L "$previous_target" ]; then
               if [ -e "$PROD_TARGET" ] || [ -L "$PROD_TARGET" ]; then
-                mv -Tf "$PROD_TARGET" "$RELEASE_ROOT/failed-production"
+                sudo -n mv -Tf "$PROD_TARGET" "$RELEASE_ROOT/failed-production"
               fi
-              mv -Tf "$previous_target" "$PROD_TARGET"
+              sudo -n mv -Tf "$previous_target" "$PROD_TARGET"
               sudo -n nginx -t
               sudo -n systemctl reload nginx
             fi
