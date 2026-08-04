@@ -153,10 +153,14 @@ jobs:
       - name: Report failed simulation tests
         if: steps.simulation.outcome == 'failure'
         run: |
-          names="$(grep -o 'classname="[^"]*"[^>]*name="[^"]*"' e2e/test-results/junit.xml \
-            | sed -E 's/classname="([^"]*)"[^>]*name="([^"]*)"/\1 :: \2/' \
-            | tr '\n' ';' | sed 's/%/%25/g; s/\r/%0D/g')"
-          echo "::error title=Simulation test failures::$names"
+          names="$(find e2e/test-results -type f \
+            \( -name 'test-failed-*.png' -o -name 'error-context.md' -o -name 'trace.zip' \) \
+            -print 2>/dev/null | tr '\n' ';' | sed 's/%/%25/g; s/\r/%0D/g')"
+          if [ -n "$names" ]; then
+            echo "::error title=Simulation test failure artifacts::$names"
+          else
+            echo '::error title=Simulation test failures::failure artifacts were not enumerated'
+          fi
 
       - name: Fail if simulation smoke failed
         if: steps.simulation.outcome == 'failure'
