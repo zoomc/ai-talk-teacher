@@ -105,7 +105,7 @@ jobs:
         run: flutter pub get
 
       - name: Build E2E simulation web
-        run: flutter build web --release --pwa-strategy=none \
+        run: flutter build web --release \
           --no-web-resources-cdn \
           --dart-define=APP_MODE=e2e \
           --dart-define=APP_BASE_PATH=/ \
