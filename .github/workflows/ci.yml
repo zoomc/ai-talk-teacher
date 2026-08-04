@@ -106,11 +106,8 @@ jobs:
 
       - name: Build E2E simulation web
         run: flutter build web --release \
-          --no-web-resources-cdn \
           --dart-define=APP_MODE=e2e \
-          --dart-define=APP_BASE_PATH=/ \
-          --dart-define=E2E=true \
-          --base-href=/
+          --dart-define=E2E=true
 
       - name: Stamp E2E artifact
         run: bash scripts/stamp_web_release.sh build/web "$GITHUB_SHA" e2e
