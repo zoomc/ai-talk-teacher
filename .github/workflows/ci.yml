@@ -57,6 +57,7 @@ jobs:
       - name: Build production web
         run: |
           flutter build web --release --pwa-strategy=offline-first \
+            --no-web-resources-cdn \
             --dart-define=APP_MODE=production \
             --dart-define=APP_BASE_PATH=/talk/ \
             --base-href=/talk/
@@ -66,6 +67,7 @@ jobs:
       - name: Build Demo web
         run: |
           flutter build web --release --pwa-strategy=offline-first \
+            --no-web-resources-cdn \
             --dart-define=APP_MODE=demo \
             --dart-define=APP_BASE_PATH=/talk-demo/ \
             --base-href=/talk-demo/
@@ -104,6 +106,7 @@ jobs:
 
       - name: Build E2E simulation web
         run: flutter build web --release --pwa-strategy=none \
+          --no-web-resources-cdn \
           --dart-define=APP_MODE=e2e \
           --dart-define=APP_BASE_PATH=/ \
           --dart-define=E2E=true \

@@ -66,6 +66,7 @@ jobs:
       - name: Build production distribution
         run: |
           flutter build web --release --pwa-strategy=offline-first \
+            --no-web-resources-cdn \
             --dart-define=APP_MODE=production \
             --dart-define=APP_BASE_PATH="$PROD_BASE_HREF" \
             --base-href="$PROD_BASE_HREF"
@@ -78,6 +79,7 @@ jobs:
       - name: Build Demo distribution
         run: |
           flutter build web --release --pwa-strategy=offline-first \
+            --no-web-resources-cdn \
             --dart-define=APP_MODE=demo \
             --dart-define=APP_BASE_PATH="$DEMO_BASE_HREF" \
             --base-href="$DEMO_BASE_HREF"
