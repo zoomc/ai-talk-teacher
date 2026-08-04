@@ -123,8 +123,19 @@ export async function sendChatMessage(page: Page, text: string): Promise<void> {
     await input.click({ timeout: 2000 }).catch(() => {});
     await page.keyboard.type(text, { delay: 10 });
   }
-  await page.keyboard.press('Enter');
-  await page.getByRole('button', { name: /send|发送/i }).first().click({ timeout: 1500 }).catch(() => {});
+  // Clicking the semantic Send button is more deterministic for Flutter Web
+  // than relying on a platform-specific Enter/onSubmitted event. Keep Enter
+  // as a fallback for older semantics trees.
+  const send = page.getByRole('button', { name: /send|发送/i }).first();
+  try {
+    await expect.poll(async () => send.isEnabled().catch(() => false), {
+      timeout: 5000,
+      intervals: [250, 500, 1000],
+    }).toBe(true);
+    await send.click({ timeout: 5000 });
+  } catch {
+    await page.keyboard.press('Enter');
+  }
   await settle(page, 1500);
 }
 

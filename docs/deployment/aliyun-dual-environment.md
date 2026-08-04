@@ -4,12 +4,27 @@
 from the same commit:
 
 - Production: `APP_MODE=production`, base path `/talk/`.
-- Demo: `APP_MODE=demo`, base path `/talk-demo/`, protected by nginx Basic Auth.
+- Demo: `APP_MODE=demo`, base path from the repository variable `DEMO_PATH`,
+  protected by nginx Basic Auth. The workflow normalizes the value as a single
+  path segment; it does not silently choose a public default.
 
 The workflow uploads one tarball, extracts it under a commit-specific release
 directory, checks both `index.html` files, then atomically swaps the two nginx
 document-root symlinks and reloads nginx only after `nginx -t` succeeds. It keeps
-old release directories so rollback does not require rebuilding.
+old release directories and `previous-production` / `previous-demo` symlinks so
+rollback does not require rebuilding. A manual run accepts a commit, tag, or
+branch through the `ref` input.
+
+Each artifact contains a stamped `version.json` with the resolved commit SHA and
+runtime mode. Health checks verify the production entry, version, deep-link
+fallback, Demo's unauthenticated `401`, authenticated entry/version, `noindex`
+header, nginx config, and reload. Any failure after activation runs the rollback
+step; this workflow does not claim success when SSH or server configuration is
+missing.
+
+Required repository variable:
+
+- `DEMO_PATH` — the controlled Demo path segment, for example `talk-demo`.
 
 ## Required GitHub environment secrets
 

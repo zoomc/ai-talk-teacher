@@ -24,6 +24,8 @@ void main() {
       expect(content, contains('went to the park'));
       expect(corrections, hasLength(1));
       expect(corrections.single.importance, 90);
+      expect(chunks.last.emotionId, 'encouraging');
+      expect(chunks.last.gestureId, 'gentle_nod');
       expect(runtime.turnIndex, 0);
     },
   );

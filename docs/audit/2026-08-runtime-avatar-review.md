@@ -16,8 +16,10 @@ provider services, PWA files, E2E bridge, and deployment configuration.
 | E2E | bridge initialization happened before first frame | hooks are exposed from a post-frame callback; `APP_MODE=e2e` is supported |
 | Avatar | single-image fallback was not truly layered | asset-free upper-body 2D painter now separates body, arms, hair, eyes, brows, cheeks and mouth |
 | Avatar default | 3D was selected from normal chat paths | 2D is the default; 3D remains an explicit experimental Lab toggle |
-| QA | fixture catalog was narrow and mostly service-level | twelve business fixtures and manifests cover happy, failure, interruption, review and summary loops |
-| Release | no repository CI or dual environment workflow | GitHub Actions CI and Aliyun atomic dual-environment workflow added; real server evidence is still required |
+| QA | fixture catalog was narrow and mostly service-level | twelve business fixtures and manifests cover happy, failure, interruption, review and summary loops; Playwright now proves the happy path through persistence and summary, with provider-request and responsive screenshot evidence |
+| PWA | base-href and app runtime could disagree; E2E could inherit a worker | `APP_BASE_PATH` is compile-time checked against each base path; Production/Demo use explicit offline-first workers and E2E disables the worker |
+| Avatar | mouth fallback ignored the text viseme and semantic gesture cues were absent | text-driven visemes now affect the mouth; gesture output is a bounded whitelist and drives subtle head/arm poses |
+| Release | no repository CI or dual environment workflow | GitHub Actions CI and Aliyun atomic dual-environment workflow added with immutable stamping, health checks, manual ref, concurrency, and rollback; real server evidence is still required |
 
 ## Deliberate limits
 

@@ -21,6 +21,7 @@ class _AvatarLabScreenState extends State<AvatarLabScreen> {
   late final TextEditingController _sampleController;
   AvatarPhase _phase = AvatarPhase.idle;
   TutorEmotion _emotion = TutorEmotion.neutral;
+  TutorGestureCue _gesture = TutorGestureCue.idle;
   bool _prefer3d = false;
   bool _reduceMotion = false;
 
@@ -61,6 +62,7 @@ class _AvatarLabScreenState extends State<AvatarLabScreen> {
                 key: _avatarKey,
                 phase: _phase,
                 emotion: _emotion,
+                gesture: _gesture,
                 tutorName: 'Maya',
                 speakingText: _phase == AvatarPhase.speaking
                     ? _sampleController.text
@@ -121,6 +123,18 @@ class _AvatarLabScreenState extends State<AvatarLabScreen> {
               ],
               onChanged: (value) {
                 if (value != null) setState(() => _emotion = value);
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            DropdownButtonFormField<TutorGestureCue>(
+              initialValue: _gesture,
+              decoration: const InputDecoration(labelText: 'Gesture cue'),
+              items: [
+                for (final gesture in TutorGestureCue.values)
+                  DropdownMenuItem(value: gesture, child: Text(gesture.id)),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _gesture = value);
               },
             ),
             const SizedBox(height: AppSpacing.sm),

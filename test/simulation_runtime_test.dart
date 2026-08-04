@@ -43,6 +43,10 @@ void main() {
     expect(bytes, isA<Uint8List>());
     expect(String.fromCharCodes(bytes.sublist(0, 4)), 'RIFF');
     expect(String.fromCharCodes(bytes.sublist(8, 12)), 'WAVE');
+    final header = ByteData.sublistView(bytes);
+    final sampleRate = header.getUint32(24, Endian.little);
+    final dataBytes = header.getUint32(40, Endian.little);
+    expect(dataBytes / (sampleRate * 2), greaterThanOrEqualTo(2.0));
     final timeline = simulationVisemesFor('hello');
     expect(timeline.duration, greaterThan(0));
     expect(timeline.cues, isNotEmpty);

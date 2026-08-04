@@ -39,11 +39,18 @@ class StreamChunk {
   /// `stream_options.include_usage` is set). Null when not provided.
   final Map<String, dynamic>? usage;
 
+  /// Optional high-level semantic cues. Production providers may leave these
+  /// null; Simulation fixtures use them to exercise the same renderer path.
+  final String? emotionId;
+  final String? gestureId;
+
   const StreamChunk({
     this.delta = '',
     this.done = false,
     this.correctionsJson,
     this.usage,
+    this.emotionId,
+    this.gestureId,
   });
 
   bool get isDelta => delta.isNotEmpty;
@@ -140,10 +147,7 @@ StreamChunk? _parseDataLine(String payload, StringBuffer buffer) {
 StreamChunk _finalChunk(StringBuffer buffer) {
   final full = buffer.toString();
   final correctionsJson = _extractCorrectionsJson(full);
-  return StreamChunk(
-    done: true,
-    correctionsJson: correctionsJson,
-  );
+  return StreamChunk(done: true, correctionsJson: correctionsJson);
 }
 
 /// Pull the trailing ```corrections\n...\n``` block out of the accumulated
@@ -162,13 +166,7 @@ String? _extractCorrectionsJson(String content) {
 /// method.
 String cleanStreamedReply(String content) {
   var cleaned = content;
-  cleaned = cleaned.replaceAll(
-    RegExp(r'```corrections\s*\n[\s\S]*?\n```'),
-    '',
-  );
-  cleaned = cleaned.replaceAll(
-    RegExp(r'```placement\s*\n[\s\S]*?\n```'),
-    '',
-  );
+  cleaned = cleaned.replaceAll(RegExp(r'```corrections\s*\n[\s\S]*?\n```'), '');
+  cleaned = cleaned.replaceAll(RegExp(r'```placement\s*\n[\s\S]*?\n```'), '');
   return cleaned.trim();
 }

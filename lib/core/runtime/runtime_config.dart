@@ -10,6 +10,14 @@ const _compiledAppMode = String.fromEnvironment(
   defaultValue: 'production',
 );
 
+/// The URL path is supplied alongside the Flutter `--base-href` flag by the
+/// release workflows. Keeping it in the compile-time config lets the app and
+/// the deployment verifier agree on the Service Worker boundary.
+const _compiledAppBasePath = String.fromEnvironment(
+  'APP_BASE_PATH',
+  defaultValue: '/',
+);
+
 AppRuntimeMode _parseAppMode(String value) {
   switch (value.trim().toLowerCase()) {
     case 'demo':
@@ -47,7 +55,21 @@ final class RuntimeConfig {
     AppRuntimeMode.e2e => 'e2e',
   };
 
-  static String get serviceWorkerScope => isProduction ? '/' : '/';
+  /// Normalised path used as the PWA and Service Worker boundary.
+  ///
+  /// Production and Demo are intentionally built under separate paths (the
+  /// production release currently uses `/talk/`; Demo uses a controlled
+  /// deployment variable). A root-scoped worker would otherwise be allowed
+  /// to answer requests for the other environment.
+  static String get serviceWorkerScope {
+    var path = _compiledAppBasePath.trim();
+    if (path.isEmpty) path = '/';
+    if (!path.startsWith('/')) path = '/$path';
+    if (!path.endsWith('/')) path = '$path/';
+    return path;
+  }
+
+  static String get appBasePath => serviceWorkerScope;
 
   /// Demo/E2E never contact user-configured or remote AI providers.
   static bool get externalNetworkAllowed => isProduction;

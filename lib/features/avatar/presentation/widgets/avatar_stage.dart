@@ -127,6 +127,7 @@ enum AvatarPhase {
 class AvatarStage extends StatefulWidget {
   final AvatarPhase phase;
   final TutorEmotion emotion;
+  final TutorGestureCue gesture;
   final String tutorAvatar;
   final String? speakingText;
   final Stream<double>? amplitudeStream;
@@ -145,6 +146,7 @@ class AvatarStage extends StatefulWidget {
     required this.tutorName,
     this.tutorAvatar = '👩‍🏫',
     this.emotion = TutorEmotion.neutral,
+    this.gesture = TutorGestureCue.idle,
     this.speakingText,
     this.amplitudeStream,
     this.prefer3d = false,
@@ -464,6 +466,7 @@ class AvatarStageState extends State<AvatarStage>
             AvatarPhase.speaking => LayeredTutorState.speaking,
           },
           emotion: widget.emotion,
+          gesture: widget.gesture,
           viseme: painterViseme,
           reduceMotion:
               widget.reduceMotion ?? MediaQuery.disableAnimationsOf(context),

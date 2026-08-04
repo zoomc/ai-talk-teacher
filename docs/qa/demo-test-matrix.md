@@ -23,11 +23,22 @@ tested.
 
 ```bash
 flutter test
-flutter build web --release --dart-define=APP_MODE=demo --base-href=/talk-demo/
-flutter build web --release --dart-define=APP_MODE=e2e
+flutter build web --release --pwa-strategy=offline-first \
+  --dart-define=APP_MODE=demo --dart-define=APP_BASE_PATH=/talk-demo/ \
+  --base-href=/talk-demo/
+bash scripts/stamp_web_release.sh build/web "$(git rev-parse HEAD)" demo
+bash scripts/verify_web_artifact.sh build/web /talk-demo/ demo "$(git rev-parse HEAD)"
+flutter build web --release --pwa-strategy=none \
+  --dart-define=APP_MODE=e2e --dart-define=APP_BASE_PATH=/ \
+  --dart-define=E2E=true
+bash scripts/stamp_web_release.sh build/web "$(git rev-parse HEAD)" e2e
+bash scripts/verify_web_artifact.sh build/web / e2e "$(git rev-parse HEAD)"
 cd e2e && npm ci && npm run typecheck
-npx playwright test specs/runtime/simulation.spec.ts --project=chromium --workers=1
+npm run test:simulation:responsive
 ```
 
-The full browser suite additionally requires a local browser and is intentionally
-not represented as passing unless its command produces a real report.
+The Simulation smoke now proves the UI → simulation gateway → repository/SQLite
+message persistence → summary path, asserts no non-local provider request, and
+captures Chromium/mobile Avatar Lab screenshots. The full browser suite
+additionally requires a local browser and is intentionally not represented as
+passing unless its command produces a real report.

@@ -40,22 +40,32 @@ void main() {
 
   group('parseEmotionMarker', () {
     test('parses a bracketed [emotion:id] marker', () {
-      expect(parseEmotionMarker('Hello [emotion:happy] world'),
-          TutorEmotion.happy);
-      expect(parseEmotionMarker('[emotion:thinking] Hmm...'),
-          TutorEmotion.thinking);
-      expect(parseEmotionMarker('Reply [emotion:waiting]'),
-          TutorEmotion.waiting);
+      expect(
+        parseEmotionMarker('Hello [emotion:happy] world'),
+        TutorEmotion.happy,
+      );
+      expect(
+        parseEmotionMarker('[emotion:thinking] Hmm...'),
+        TutorEmotion.thinking,
+      );
+      expect(
+        parseEmotionMarker('Reply [emotion:waiting]'),
+        TutorEmotion.waiting,
+      );
     });
 
     test('parses a parenthesised (emotion:id) marker', () {
-      expect(parseEmotionMarker('Hi (emotion:encouraging)!'),
-          TutorEmotion.encouraging);
+      expect(
+        parseEmotionMarker('Hi (emotion:encouraging)!'),
+        TutorEmotion.encouraging,
+      );
     });
 
     test('returns the first marker when multiple are present', () {
-      expect(parseEmotionMarker('[emotion:happy] then [emotion:thinking]'),
-          TutorEmotion.happy);
+      expect(
+        parseEmotionMarker('[emotion:happy] then [emotion:thinking]'),
+        TutorEmotion.happy,
+      );
     });
 
     test('is case-insensitive on the keyword and id', () {
@@ -65,8 +75,7 @@ void main() {
 
     test('tolerates whitespace inside the marker', () {
       expect(parseEmotionMarker('[emotion: happy ]'), TutorEmotion.happy);
-      expect(parseEmotionMarker('[ emotion : focused ]'),
-          TutorEmotion.focused);
+      expect(parseEmotionMarker('[ emotion : focused ]'), TutorEmotion.focused);
     });
 
     test('returns null when no marker is present', () {
@@ -87,8 +96,10 @@ void main() {
     });
 
     test('removes multiple markers', () {
-      expect(stripEmotionMarkers('[emotion:happy]A [emotion:thinking]B'),
-          'A B');
+      expect(
+        stripEmotionMarkers('[emotion:happy]A [emotion:thinking]B'),
+        'A B',
+      );
     });
 
     test('removes both bracket and paren forms', () {
@@ -137,25 +148,52 @@ void main() {
 
   group('emotionFromAmplitude', () {
     test('overrides neutral→happy on high amplitude', () {
-      expect(emotionFromAmplitude(0.9, TutorEmotion.neutral),
-          TutorEmotion.happy);
+      expect(
+        emotionFromAmplitude(0.9, TutorEmotion.neutral),
+        TutorEmotion.happy,
+      );
     });
 
     test('overrides neutral→thinking on low amplitude', () {
-      expect(emotionFromAmplitude(0.05, TutorEmotion.neutral),
-          TutorEmotion.thinking);
+      expect(
+        emotionFromAmplitude(0.05, TutorEmotion.neutral),
+        TutorEmotion.thinking,
+      );
     });
 
     test('preserves non-neutral base regardless of amplitude', () {
-      expect(emotionFromAmplitude(0.9, TutorEmotion.happy),
-          TutorEmotion.happy);
-      expect(emotionFromAmplitude(0.05, TutorEmotion.encouraging),
-          TutorEmotion.encouraging);
+      expect(emotionFromAmplitude(0.9, TutorEmotion.happy), TutorEmotion.happy);
+      expect(
+        emotionFromAmplitude(0.05, TutorEmotion.encouraging),
+        TutorEmotion.encouraging,
+      );
     });
 
     test('keeps neutral in the mid-range', () {
-      expect(emotionFromAmplitude(0.4, TutorEmotion.neutral),
-          TutorEmotion.neutral);
+      expect(
+        emotionFromAmplitude(0.4, TutorEmotion.neutral),
+        TutorEmotion.neutral,
+      );
+    });
+  });
+
+  group('TutorGestureCue', () {
+    test('round-trips the whitelisted ids', () {
+      for (final cue in TutorGestureCue.values) {
+        expect(TutorGestureCueX.fromId(cue.id), cue);
+      }
+    });
+
+    test('rejects unknown provider animation ids', () {
+      expect(TutorGestureCueX.fromId('wave_bone_17'), isNull);
+      expect(TutorGestureCueX.fromId(''), isNull);
+    });
+
+    test('uses conservative text fallback cues', () {
+      expect(gestureFromText('Great job!'), TutorGestureCue.thumbsUp);
+      expect(gestureFromText('Let me explain this.'), TutorGestureCue.explain);
+      expect(gestureFromText('Hello there.'), TutorGestureCue.greeting);
+      expect(gestureFromText('A neutral answer.'), TutorGestureCue.gentleNod);
     });
   });
 
@@ -164,8 +202,11 @@ void main() {
       final emotions = kDefaultEmotionMappings.map((m) => m.emotion).toSet();
       for (final e in TutorEmotion.values) {
         if (e == TutorEmotion.neutral || e == TutorEmotion.waiting) continue;
-        expect(emotions, contains(e),
-            reason: '$e should have at least one keyword mapping');
+        expect(
+          emotions,
+          contains(e),
+          reason: '$e should have at least one keyword mapping',
+        );
       }
     });
   });

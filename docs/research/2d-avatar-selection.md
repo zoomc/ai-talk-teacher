@@ -9,7 +9,10 @@ parts for body, shirt/collar, arms, neck/head, hair, eyes/iris/lids, brows, chee
 and mouth. `AvatarStage` merges idle, emotion, gesture, and viseme parameters before
 painting. When Rhubarb data is absent, amplitude or text-driven viseme fallback
 still animates the mouth. When a timeline exists, its cues are mapped through the
-shared Rhubarb table.
+shared Rhubarb table. Semantic gesture cues are restricted to the explicit
+whitelist (`idle`, `gentle_nod`, `shake_head`, `explain`, `open_hand`, `thumbs_up`,
+`confused`, `greeting`, and `goodbye`), so provider output cannot trigger arbitrary
+animation code. No external avatar asset or unverified license is needed.
 
 ## Comparison
 

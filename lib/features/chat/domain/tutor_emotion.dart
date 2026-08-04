@@ -24,16 +24,22 @@ library;
 enum TutorEmotion {
   /// Default — gentle smile, relaxed posture.
   neutral,
+
   /// Praising / celebrating a correct answer.
   happy,
+
   /// Considering the user's reply before responding.
   thinking,
+
   /// Encouraging the user to keep going after a mistake.
   encouraging,
+
   /// Didn't catch or understand the user — asks for clarification.
   confused,
+
   /// Deep focus on a hard correction or pronunciation breakdown.
   focused,
+
   /// Phase 3 — waiting for the user to reply / take their turn. Subtly
   /// different from `neutral`: head slightly tilted, expectant smile, gentle
   /// blink cadence. Used while the user is composing a spoken reply.
@@ -80,6 +86,75 @@ extension TutorEmotionX on TutorEmotion {
       'waiting': TutorEmotion.waiting,
     }[id.toLowerCase()];
   }
+}
+
+/// High-level, whitelisted body-language cues. Gateways may provide an id,
+/// but the renderer only accepts this enum and never exposes raw animation or
+/// bone names to an LLM/provider.
+enum TutorGestureCue {
+  idle,
+  gentleNod,
+  shakeHead,
+  explain,
+  openHand,
+  thumbsUp,
+  confused,
+  greeting,
+  goodbye,
+}
+
+extension TutorGestureCueX on TutorGestureCue {
+  String get id => switch (this) {
+    TutorGestureCue.idle => 'idle',
+    TutorGestureCue.gentleNod => 'gentle_nod',
+    TutorGestureCue.shakeHead => 'shake_head',
+    TutorGestureCue.explain => 'explain',
+    TutorGestureCue.openHand => 'open_hand',
+    TutorGestureCue.thumbsUp => 'thumbs_up',
+    TutorGestureCue.confused => 'confused',
+    TutorGestureCue.greeting => 'greeting',
+    TutorGestureCue.goodbye => 'goodbye',
+  };
+
+  static TutorGestureCue? fromId(String id) => const {
+    'idle': TutorGestureCue.idle,
+    'gentle_nod': TutorGestureCue.gentleNod,
+    'shake_head': TutorGestureCue.shakeHead,
+    'explain': TutorGestureCue.explain,
+    'open_hand': TutorGestureCue.openHand,
+    'thumbs_up': TutorGestureCue.thumbsUp,
+    'confused': TutorGestureCue.confused,
+    'greeting': TutorGestureCue.greeting,
+    'goodbye': TutorGestureCue.goodbye,
+  }[id.trim().toLowerCase()];
+}
+
+/// Conservative text fallback used when a production provider does not send
+/// an explicit semantic cue. Unknown text always degrades to a small nod.
+TutorGestureCue gestureFromText(String text) {
+  final lower = text.toLowerCase();
+  if (lower.contains('hello') || lower.contains('welcome')) {
+    return TutorGestureCue.greeting;
+  }
+  if (lower.contains('goodbye') || lower.contains('see you')) {
+    return TutorGestureCue.goodbye;
+  }
+  if (lower.contains('great') ||
+      lower.contains('excellent') ||
+      lower.contains('well done')) {
+    return TutorGestureCue.thumbsUp;
+  }
+  if (lower.contains('correct') ||
+      lower.contains('more natural') ||
+      lower.contains('explain')) {
+    return TutorGestureCue.explain;
+  }
+  if (lower.contains('confused') ||
+      lower.contains('not sure') ||
+      lower.contains("didn't catch")) {
+    return TutorGestureCue.confused;
+  }
+  return TutorGestureCue.gentleNod;
 }
 
 /// A single keyword → emotion rule. The first matching rule (in declaration

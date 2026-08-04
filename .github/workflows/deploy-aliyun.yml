@@ -2,53 +2,104 @@ name: Deploy Aliyun dual environment
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit, tag, or branch to deploy
+        required: true
+        default: main
+        type: string
   push:
     branches: [main]
+
+concurrency:
+  group: ai-talk-teacher-production
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
 env:
-  RELEASE_SHA: ${{ github.sha }}
+  # Production is kept under its own path so a root-scoped worker can never
+  # take over the controlled Demo path. Demo's path is a repository variable.
   PROD_BASE_HREF: /talk/
-  DEMO_BASE_HREF: /talk-demo/
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout requested release
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Resolve release metadata
+        run: |
+          set -euo pipefail
+          echo "RELEASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Resolve controlled Demo path
+        env:
+          DEMO_PATH_VALUE: ${{ vars.DEMO_PATH }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DEMO_PATH_VALUE" ]; then
+            echo 'Repository variable DEMO_PATH is required for the Demo build.' >&2
+            exit 1
+          fi
+          demo_path="${DEMO_PATH_VALUE#/}"
+          demo_path="${demo_path%/}"
+          if [ -z "$demo_path" ]; then
+            echo 'DEMO_PATH must contain a non-empty path segment.' >&2
+            exit 1
+          fi
+          echo "DEMO_BASE_HREF=/$demo_path/" >> "$GITHUB_ENV"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: '3.44.4'
           cache: true
 
       - name: Install Flutter packages
         run: flutter pub get
 
       - name: Build production distribution
-        run: flutter build web --release --dart-define=APP_MODE=production --base-href="$PROD_BASE_HREF"
+        run: |
+          flutter build web --release --pwa-strategy=offline-first \
+            --dart-define=APP_MODE=production \
+            --dart-define=APP_BASE_PATH="$PROD_BASE_HREF" \
+            --base-href="$PROD_BASE_HREF"
+          bash scripts/stamp_web_release.sh build/web "$RELEASE_SHA" production
+          bash scripts/verify_web_artifact.sh build/web "$PROD_BASE_HREF" production "$RELEASE_SHA"
 
       - name: Package production distribution
         run: mkdir -p release-payload/prod && cp -a build/web/. release-payload/prod/
 
       - name: Build Demo distribution
-        run: flutter build web --release --dart-define=APP_MODE=demo --base-href="$DEMO_BASE_HREF"
+        run: |
+          flutter build web --release --pwa-strategy=offline-first \
+            --dart-define=APP_MODE=demo \
+            --dart-define=APP_BASE_PATH="$DEMO_BASE_HREF" \
+            --base-href="$DEMO_BASE_HREF"
+          bash scripts/stamp_web_release.sh build/web "$RELEASE_SHA" demo
+          bash scripts/verify_web_artifact.sh build/web "$DEMO_BASE_HREF" demo "$RELEASE_SHA"
 
       - name: Package Demo distribution
         run: mkdir -p release-payload/demo && cp -a build/web/. release-payload/demo/
 
       - name: Package immutable release
-        run: tar -czf ai-talk-teacher-${RELEASE_SHA}.tgz release-payload
+        run: |
+          set -euo pipefail
+          test -s release-payload/prod/index.html
+          test -s release-payload/demo/index.html
+          printf '%s\n' "$RELEASE_SHA" > release-sha.txt
+          tar -czf ai-talk-teacher-release.tgz release-payload release-sha.txt
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ai-talk-teacher-${{ github.sha }}
-          path: ai-talk-teacher-${{ github.sha }}.tgz
+          name: ai-talk-teacher-release
+          path: ai-talk-teacher-release.tgz
           if-no-files-found: error
           retention-days: 14
 
@@ -61,7 +112,16 @@ jobs:
       - name: Download release artifact
         uses: actions/download-artifact@v4
         with:
-          name: ai-talk-teacher-${{ github.sha }}
+          name: ai-talk-teacher-release
+
+      - name: Resolve release SHA
+        id: resolve_release
+        run: |
+          set -euo pipefail
+          test -s release-sha.txt
+          release_sha="$(tr -d '\r\n' < release-sha.txt)"
+          echo "RELEASE_SHA=$release_sha" >> "$GITHUB_ENV"
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
 
       - name: Copy immutable release to Aliyun
         uses: appleboy/scp-action@v0.1.7
@@ -70,13 +130,13 @@ jobs:
           username: ${{ secrets.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: ${{ secrets.ALIYUN_SSH_PORT || 22 }}
-          source: ai-talk-teacher-${{ github.sha }}.tgz
+          source: ai-talk-teacher-release.tgz
           target: /tmp
 
       - name: Atomically activate production and Demo
         uses: appleboy/ssh-action@v1.0.3
         env:
-          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_SHA: ${{ steps.resolve_release.outputs.release_sha }}
           PROD_TARGET: ${{ secrets.ALIYUN_PROD_TARGET }}
           DEMO_TARGET: ${{ secrets.ALIYUN_DEMO_TARGET }}
           RELEASE_ROOT: ${{ secrets.ALIYUN_RELEASE_ROOT }}
@@ -92,24 +152,41 @@ jobs:
             : "${PROD_TARGET:?ALIYUN_PROD_TARGET is required}"
             : "${DEMO_TARGET:?ALIYUN_DEMO_TARGET is required}"
             : "${RELEASE_ROOT:?ALIYUN_RELEASE_ROOT is required}"
-            archive="/tmp/ai-talk-teacher-${RELEASE_SHA}.tgz"
+            archive="/tmp/ai-talk-teacher-release.tgz"
             test -s "$archive"
             release_dir="$RELEASE_ROOT/$RELEASE_SHA"
             mkdir -p "$release_dir"
             tar -xzf "$archive" -C "$release_dir"
-            test -f "$release_dir/release-payload/prod/index.html"
-            test -f "$release_dir/release-payload/demo/index.html"
-            ln -sfn "$release_dir/release-payload/prod" "${PROD_TARGET}.next"
+            prod_root="$release_dir/release-payload/prod"
+            demo_root="$release_dir/release-payload/demo"
+            test -f "$prod_root/index.html"
+            test -f "$demo_root/index.html"
+            mkdir -p "$(dirname "$PROD_TARGET")" "$(dirname "$DEMO_TARGET")"
+
+            previous_prod=''
+            previous_demo=''
+            if [ -L "$PROD_TARGET" ]; then previous_prod="$(readlink "$PROD_TARGET")"; fi
+            if [ -L "$DEMO_TARGET" ]; then previous_demo="$(readlink "$DEMO_TARGET")"; fi
+            if [ -n "$previous_prod" ]; then
+              ln -sfn "$previous_prod" "$RELEASE_ROOT/previous-production.next"
+              mv -Tf "$RELEASE_ROOT/previous-production.next" "$RELEASE_ROOT/previous-production"
+            fi
+            if [ -n "$previous_demo" ]; then
+              ln -sfn "$previous_demo" "$RELEASE_ROOT/previous-demo.next"
+              mv -Tf "$RELEASE_ROOT/previous-demo.next" "$RELEASE_ROOT/previous-demo"
+            fi
+
+            ln -sfn "$prod_root" "${PROD_TARGET}.next"
             mv -Tf "${PROD_TARGET}.next" "$PROD_TARGET"
-            ln -sfn "$release_dir/release-payload/demo" "${DEMO_TARGET}.next"
+            ln -sfn "$demo_root" "${DEMO_TARGET}.next"
             mv -Tf "${DEMO_TARGET}.next" "$DEMO_TARGET"
             sudo -n nginx -t
             sudo -n systemctl reload nginx
-            rm -f "$archive"
 
       - name: Verify nginx and both public entry points
         uses: appleboy/ssh-action@v1.0.3
         env:
+          RELEASE_SHA: ${{ steps.resolve_release.outputs.release_sha }}
           PROD_URL: ${{ secrets.ALIYUN_PROD_URL }}
           DEMO_URL: ${{ secrets.ALIYUN_DEMO_URL }}
           DEMO_BASIC_AUTH_USER: ${{ secrets.DEMO_BASIC_AUTH_USER }}
@@ -119,11 +196,47 @@ jobs:
           username: ${{ secrets.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: ${{ secrets.ALIYUN_SSH_PORT || 22 }}
-          envs: PROD_URL,DEMO_URL,DEMO_BASIC_AUTH_USER,DEMO_BASIC_AUTH_PASSWORD
+          envs: RELEASE_SHA,PROD_URL,DEMO_URL,DEMO_BASIC_AUTH_USER,DEMO_BASIC_AUTH_PASSWORD
           script_stop: true
           script: |
             set -euo pipefail
             sudo -n nginx -t
             sudo -n nginx -T 2>/dev/null | grep -q 'auth_basic'
-            test -n "$PROD_URL" && curl -fsS "$PROD_URL/" | grep -q 'flutter_bootstrap.js'
-            test -n "$DEMO_URL" && curl -fsS -u "${DEMO_BASIC_AUTH_USER:?}:${DEMO_BASIC_AUTH_PASSWORD:?}" "$DEMO_URL/" | grep -q 'flutter_bootstrap.js'
+            test -n "$PROD_URL"
+            test -n "$DEMO_URL"
+            curl -fsS "$PROD_URL/" | grep -q 'flutter_bootstrap.js'
+            curl -fsS "$PROD_URL/version.json" | grep -q "$RELEASE_SHA"
+            curl -fsS "$PROD_URL/#/health-check" | grep -q 'flutter_bootstrap.js'
+            test "$(curl -sS -o /dev/null -w '%{http_code}' "$DEMO_URL/")" = 401
+            curl -fsS -u "${DEMO_BASIC_AUTH_USER:?}:${DEMO_BASIC_AUTH_PASSWORD:?}" "$DEMO_URL/" | grep -q 'flutter_bootstrap.js'
+            curl -fsS -u "${DEMO_BASIC_AUTH_USER:?}:${DEMO_BASIC_AUTH_PASSWORD:?}" "$DEMO_URL/version.json" | grep -q "$RELEASE_SHA"
+            curl -fsSI -u "${DEMO_BASIC_AUTH_USER:?}:${DEMO_BASIC_AUTH_PASSWORD:?}" "$DEMO_URL/" | grep -qi 'X-Robots-Tag:.*noindex'
+
+      - name: Roll back activated release after any deployment failure
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          PROD_TARGET: ${{ secrets.ALIYUN_PROD_TARGET }}
+          DEMO_TARGET: ${{ secrets.ALIYUN_DEMO_TARGET }}
+          RELEASE_ROOT: ${{ secrets.ALIYUN_RELEASE_ROOT }}
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          port: ${{ secrets.ALIYUN_SSH_PORT || 22 }}
+          envs: PROD_TARGET,DEMO_TARGET,RELEASE_ROOT
+          script_stop: true
+          script: |
+            set -euo pipefail
+            restore_link() {
+              local target="$1"
+              local previous="$2"
+              if [ -L "$previous" ]; then
+                ln -sfn "$(readlink "$previous")" "${target}.rollback"
+                mv -Tf "${target}.rollback" "$target"
+              fi
+            }
+            restore_link "$PROD_TARGET" "$RELEASE_ROOT/previous-production"
+            restore_link "$DEMO_TARGET" "$RELEASE_ROOT/previous-demo"
+            sudo -n nginx -t
+            sudo -n systemctl reload nginx

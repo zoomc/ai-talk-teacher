@@ -114,6 +114,8 @@ class SimulationLlmGateway implements LlmGateway {
       correctionsJson: turn.corrections.isEmpty
           ? null
           : _encodeCorrections(turn.corrections),
+      emotionId: turn.emotion,
+      gestureId: turn.gesture,
     );
     runtime.advanceTurn();
   }

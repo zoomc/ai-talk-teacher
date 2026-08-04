@@ -2,10 +2,46 @@
   "id": "summary_loop",
   "turns": [
     {
-      "stt": {"text": "I want to improve my confidence."},
+      "stt": {
+        "text": "I want to become more confident at work."
+      },
       "llm": {
-        "chunks": ["You made a clear start. ", "Keep adding one detail at a time."],
-        "corrections": []
+        "chunks": [
+          "That is a useful goal. ",
+          "What situation feels hardest?"
+        ]
+      }
+    },
+    {
+      "stt": {
+        "text": "Speaking up in meetings is the hardest part."
+      },
+      "llm": {
+        "chunks": [
+          "Try preparing one sentence in advance. ",
+          "What could you say first?"
+        ]
+      }
+    },
+    {
+      "stt": {
+        "text": "I could share one small update before asking a question."
+      },
+      "llm": {
+        "chunks": [
+          "That is a strong plan. ",
+          "Small, repeatable steps build confidence."
+        ],
+        "corrections": [
+          {
+            "type": "fluency",
+            "original": "I could share one small update before asking a question.",
+            "corrected": "I could share a small update before asking a question.",
+            "explanation": "The article is optional here, so the shorter phrasing sounds more natural.",
+            "importance": 45,
+            "skill": "natural-phrasing"
+          }
+        ]
       }
     }
   ],

@@ -1,5 +1,5 @@
 {
-    "id": "/",
+    "id": "./",
     "name": "SpeakFlow — AI English Speaking Practice",
     "short_name": "SpeakFlow",
     "description": "Practice spoken English with an AI tutor. Offline-friendly notebook-style PWA with spaced-repetition review.",
@@ -45,21 +45,21 @@
             "name": "Free Talk",
             "short_name": "Talk",
             "description": "Jump straight into a free conversation with your AI tutor",
-            "url": "/?action=free-talk",
+            "url": "./?action=free-talk",
             "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
         },
         {
             "name": "Review",
             "short_name": "Review",
             "description": "Spaced-repetition review of your saved corrections",
-            "url": "/?action=review",
+            "url": "./?action=review",
             "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
         },
         {
             "name": "Scenarios",
             "short_name": "Scenarios",
             "description": "Browse conversation scenarios",
-            "url": "/?action=scenarios",
+            "url": "./?action=scenarios",
             "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
         }
     ]

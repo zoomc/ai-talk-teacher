@@ -323,7 +323,9 @@ abstract final class SimulationFixtures {
 /// This is a real playable audio asset synthesized locally for Demo runs.
 Uint8List simulationWavFor(String text) {
   const sampleRate = 16000;
-  final seconds = (1.4 + text.length / 55).clamp(1.4, 4.5);
+  // Keep fixtures long enough to exercise actual playback and viseme reset;
+  // sub-second placeholder WAVs are not useful for browser QA.
+  final seconds = (2.0 + text.length / 55).clamp(2.0, 6.0);
   final sampleCount = (sampleRate * seconds).round();
   final dataSize = sampleCount * 2;
   final bytes = ByteData(44 + dataSize);
@@ -361,7 +363,7 @@ Uint8List simulationWavFor(String text) {
 }
 
 VisemeTimeline simulationVisemesFor(String text) {
-  final duration = (1.4 + text.length / 55).clamp(1.4, 4.5).toDouble();
+  final duration = (2.0 + text.length / 55).clamp(2.0, 6.0).toDouble();
   final codes = <RhubarbViseme>[
     RhubarbViseme.x,
     RhubarbViseme.f,

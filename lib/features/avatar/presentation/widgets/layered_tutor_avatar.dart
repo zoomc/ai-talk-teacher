@@ -17,6 +17,7 @@ class LayeredTutorAvatar extends StatelessWidget {
   final Map<String, double> parameters;
   final LayeredTutorState state;
   final TutorEmotion emotion;
+  final TutorGestureCue gesture;
   final Viseme viseme;
   final bool reduceMotion;
 
@@ -25,6 +26,7 @@ class LayeredTutorAvatar extends StatelessWidget {
     required this.parameters,
     required this.state,
     required this.emotion,
+    this.gesture = TutorGestureCue.idle,
     required this.viseme,
     this.reduceMotion = false,
   });
@@ -36,6 +38,7 @@ class LayeredTutorAvatar extends StatelessWidget {
         parameters: parameters,
         state: state,
         emotion: emotion,
+        gesture: gesture,
         viseme: viseme,
         reduceMotion: reduceMotion,
       ),
@@ -48,6 +51,7 @@ class _LayeredTutorPainter extends CustomPainter {
   final Map<String, double> parameters;
   final LayeredTutorState state;
   final TutorEmotion emotion;
+  final TutorGestureCue gesture;
   final Viseme viseme;
   final bool reduceMotion;
 
@@ -55,6 +59,7 @@ class _LayeredTutorPainter extends CustomPainter {
     required this.parameters,
     required this.state,
     required this.emotion,
+    required this.gesture,
     required this.viseme,
     required this.reduceMotion,
   });
@@ -80,8 +85,16 @@ class _LayeredTutorPainter extends CustomPainter {
     _paintBody(canvas, chestLift, sway);
     _paintArms(canvas, chestLift, sway);
     canvas.save();
-    canvas.translate(headYaw, chestLift * 0.35);
-    canvas.rotate(headRoll);
+    final gestureRoll = switch (gesture) {
+      TutorGestureCue.confused => 0.08,
+      TutorGestureCue.greeting => -0.03,
+      _ => 0.0,
+    };
+    final gestureYaw = gesture == TutorGestureCue.shakeHead
+        ? math.sin(_p('ParamAngleX') * math.pi) * 4
+        : 0.0;
+    canvas.translate(headYaw + gestureYaw, chestLift * 0.35);
+    canvas.rotate(headRoll + gestureRoll);
     _paintNeckAndHead(canvas);
     _paintHairBack(canvas);
     _paintFace(canvas);
@@ -145,6 +158,18 @@ class _LayeredTutorPainter extends CustomPainter {
       canvas.drawLine(const Offset(92, 320), const Offset(126, 226), sleeve);
       canvas.drawLine(const Offset(126, 226), const Offset(137, 198), skin);
       canvas.drawLine(const Offset(228, 320), const Offset(202, 286), sleeve);
+    } else if (state == LayeredTutorState.speaking &&
+        gesture == TutorGestureCue.thumbsUp) {
+      canvas.drawLine(const Offset(92, 320), const Offset(74, 350), sleeve);
+      canvas.drawLine(const Offset(229, 318), const Offset(258, 252), sleeve);
+      canvas.drawLine(const Offset(258, 252), const Offset(264, 224), skin);
+    } else if (state == LayeredTutorState.speaking &&
+        (gesture == TutorGestureCue.explain ||
+            gesture == TutorGestureCue.openHand ||
+            gesture == TutorGestureCue.greeting)) {
+      canvas.drawLine(const Offset(92, 320), const Offset(58, 265), sleeve);
+      canvas.drawLine(const Offset(58, 265), const Offset(38, 242), skin);
+      canvas.drawLine(const Offset(229, 318), const Offset(246, 350), sleeve);
     } else if (state == LayeredTutorState.speaking &&
         (emotion == TutorEmotion.encouraging ||
             emotion == TutorEmotion.happy)) {
@@ -320,8 +345,17 @@ class _LayeredTutorPainter extends CustomPainter {
   }
 
   void _paintMouth(Canvas canvas) {
-    final open = _p('ParamMouthOpenY').clamp(0.0, 1.0);
-    final form = _p('ParamMouthForm').clamp(-1.0, 1.0);
+    // A timeline or amplitude parameter wins when it is available. The
+    // text-driven viseme passed by AvatarStage remains the last-resort
+    // fallback for providers that expose neither, so the default 2D teacher
+    // never silently becomes a static closed-mouth portrait.
+    final parameterOpen = _p('ParamMouthOpenY').clamp(0.0, 1.0);
+    final parameterForm = _p('ParamMouthForm').clamp(-1.0, 1.0);
+    final fallback = _fallbackMouthShape(viseme);
+    final open = math.max(parameterOpen, fallback.$1).clamp(0.0, 1.0);
+    final form = parameterOpen > 0.02
+        ? parameterForm
+        : ((parameterForm * 0.35) + (fallback.$2 * 0.65)).clamp(-1.0, 1.0);
     final mouth = Paint()..color = const Color(0xFF9B3F58);
     final lip = Paint()
       ..color = const Color(0xFFE997AD)
@@ -354,6 +388,29 @@ class _LayeredTutorPainter extends CustomPainter {
     canvas.drawArc(rect.inflate(1), math.pi * 0.08, math.pi * 0.84, false, lip);
   }
 
+  (double, double) _fallbackMouthShape(Viseme value) => switch (value) {
+    Viseme.closed => (0.0, 0.0),
+    Viseme.slightOpen => (0.12, 0.0),
+    Viseme.smallOpen => (0.25, 0.0),
+    Viseme.mediumOpen => (0.42, -0.05),
+    Viseme.wideOpen => (0.86, 0.0),
+    Viseme.roundedSmall => (0.30, -0.55),
+    Viseme.roundedLarge => (0.68, -0.45),
+    Viseme.wide => (0.22, 0.75),
+    Viseme.flat => (0.10, -0.25),
+    Viseme.smile => (0.04, 0.75),
+    Viseme.smileOpen => (0.38, 0.85),
+    Viseme.frown => (0.05, -0.75),
+    Viseme.pucker => (0.27, -0.85),
+    Viseme.teeth => (0.22, 0.55),
+    Viseme.tongueUp => (0.18, 0.0),
+    Viseme.tongueOut => (0.42, 0.0),
+    Viseme.biteLip => (0.28, 0.45),
+    Viseme.openTeeth => (0.58, 0.55),
+    Viseme.oval => (0.60, -0.30),
+    Viseme.wideFlat => (0.30, 0.65),
+  };
+
   void _paintHairFront(Canvas canvas) {
     final hair = Paint()..color = const Color(0xFF6D4558);
     final path = Path()
@@ -384,6 +441,7 @@ class _LayeredTutorPainter extends CustomPainter {
       oldDelegate.parameters != parameters ||
       oldDelegate.state != state ||
       oldDelegate.emotion != emotion ||
+      oldDelegate.gesture != gesture ||
       oldDelegate.viseme != viseme ||
       oldDelegate.reduceMotion != reduceMotion;
 }

@@ -24,9 +24,15 @@ Demo/E2E builds and has no production route.
 ## Build commands
 
 ```bash
-flutter build web --release --dart-define=APP_MODE=production --base-href=/talk/
-flutter build web --release --dart-define=APP_MODE=demo --base-href=/talk-demo/
-flutter build web --release --dart-define=APP_MODE=e2e
+flutter build web --release --pwa-strategy=offline-first \
+  --dart-define=APP_MODE=production --dart-define=APP_BASE_PATH=/talk/ \
+  --base-href=/talk/
+flutter build web --release --pwa-strategy=offline-first \
+  --dart-define=APP_MODE=demo --dart-define=APP_BASE_PATH=/talk-demo/ \
+  --base-href=/talk-demo/
+flutter build web --release --pwa-strategy=none \
+  --dart-define=APP_MODE=e2e --dart-define=APP_BASE_PATH=/ \
+  --dart-define=E2E=true
 ```
 
 Production API configuration remains user-controlled. Demo/E2E direct calls to

@@ -86,6 +86,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   // P1 task 5 — current tutor emotion driven by TTS amplitude + keywords.
   TutorEmotion _tutorEmotion = TutorEmotion.neutral;
+  TutorGestureCue _tutorGesture = TutorGestureCue.idle;
   StreamSubscription<double>? _amplitudeSub;
 
   // E7 — thinking filler loop timer.
@@ -336,7 +337,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             CharacterState.speaking => ConversationState.speaking,
           },
     );
-    setState(() => _characterState = state);
+    setState(() {
+      _characterState = state;
+      if (state == CharacterState.idle) {
+        _tutorGesture = TutorGestureCue.idle;
+      }
+    });
     // E7 — start/stop thinking filler audio loop.
     if (state == CharacterState.thinking) {
       _startThinkingFiller();
@@ -465,6 +471,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       prefer3d: false,
                       speakingText: _speakingText,
                       emotion: _tutorEmotion,
+                      gesture: _tutorGesture,
                       panelWidth: Responsive.sidePanelWidth(context),
                       avatarKey: _avatarKey,
                       amplitudeStream: _ttsPlaybackService.amplitudeStream,
@@ -487,6 +494,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       prefer3d: false,
                       speakingText: _speakingText,
                       emotion: _tutorEmotion,
+                      gesture: _tutorGesture,
                       panelHeight: Responsive.characterPanelHeight(context),
                       compact: true,
                       avatarKey: _avatarKey,
@@ -671,12 +679,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       // text that the retried stream appends to, producing a garbled reply.
       String fullContent = '';
       String? correctionsJson;
+      TutorEmotion? semanticEmotion;
+      TutorGestureCue? semanticGesture;
 
       await withRetry(
         () async {
           // Reset accumulated state so a retry starts clean.
           fullContent = '';
           correctionsJson = null;
+          semanticEmotion = null;
+          semanticGesture = null;
           if (mounted) setState(() => _streamingText = '');
           final stream = llmGateway.streamMessage(
             history: history,
@@ -690,6 +702,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             }
             if (chunk.done) {
               correctionsJson = chunk.correctionsJson;
+              if (chunk.emotionId != null) {
+                semanticEmotion = TutorEmotionX.fromId(chunk.emotionId!);
+              }
+              if (chunk.gestureId != null) {
+                semanticGesture = TutorGestureCueX.fromId(chunk.gestureId!);
+              }
             }
           }
         },
@@ -796,7 +814,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       // P1 task 5 — update tutor emotion from the AI reply text. Uses the
       // pre-strip `cleanedContent` so an explicit `[emotion:id]` marker
       // (Phase 3) wins over keyword matching.
-      _updateEmotionFromText(cleanedContent);
+      if (mounted) {
+        setState(() {
+          _tutorEmotion = semanticEmotion ?? emotionFromText(cleanedContent);
+          _tutorGesture = semanticGesture ?? gestureFromText(cleanedContent);
+        });
+      }
 
       ref.invalidate(messagesProvider(widget.sessionId));
       ref.invalidate(correctionsByMessageProvider(widget.sessionId));
@@ -1050,7 +1073,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       _attachPlayerStateListener(messageId, playbackToken);
       _subscribeAmplitude();
-      _updateEmotionFromText(text);
 
       if (!mounted || playbackToken != _playbackToken) return;
       final bytes = await _ttsPlaybackService.playCached(
@@ -1114,6 +1136,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _attachPlayerStateListener(messageId, playbackToken);
       _subscribeAmplitude();
       _updateEmotionFromText(text);
+      if (mounted) setState(() => _tutorGesture = gestureFromText(text));
 
       // P1 task 3 — retry TTS with exponential backoff.
       final l = AppLocalizations.of(context);
@@ -1419,6 +1442,7 @@ class _CharacterPanel extends StatelessWidget {
 
   /// P1 task 5 — emotion drives a subtle accent color shift on the panel.
   final TutorEmotion emotion;
+  final TutorGestureCue gesture;
 
   /// Phase 3 — key into the avatar stage so the panel can pass through the
   /// parent screen's [AvatarStage] key (used by the screen to push Rhubarb
@@ -1440,6 +1464,7 @@ class _CharacterPanel extends StatelessWidget {
     this.compact = false,
     this.prefer3d = false,
     this.emotion = TutorEmotion.neutral,
+    this.gesture = TutorGestureCue.idle,
     this.avatarKey,
     this.amplitudeStream,
   });
@@ -1466,6 +1491,7 @@ class _CharacterPanel extends StatelessWidget {
       tutorAvatar: tutorAvatar,
       phase: AvatarPhase.fromCharacterState(state),
       emotion: emotion,
+      gesture: gesture,
       speakingText: speakingText,
       amplitudeStream: amplitudeStream,
       prefer3d: prefer3d,

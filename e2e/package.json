@@ -6,6 +6,7 @@
   "scripts": {
     "test": "playwright test",
     "test:simulation": "playwright test specs/runtime/simulation.spec.ts --project=chromium --workers=1",
+    "test:simulation:responsive": "playwright test specs/runtime/simulation.spec.ts --project=chromium --project=mobile-chrome --workers=1",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
     "test:fast": "playwright test --project=chromium --reporter=list",

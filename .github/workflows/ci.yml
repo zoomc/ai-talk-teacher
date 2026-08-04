@@ -19,8 +19,31 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: '3.44.4'
           cache: true
+
+      - name: Check formatting for newly added Dart files
+        run: |
+          set -euo pipefail
+          new_dart="$(git diff-tree --no-commit-id --name-only --diff-filter=A -r "$GITHUB_SHA" -- '*.dart' | tr '\n' ' ')"
+          if [ -n "${new_dart// }" ]; then
+            # The repository predates this CI gate and contains legacy files
+            # that are intentionally not reflowed in feature commits.
+            dart format --output=none --set-exit-if-changed $new_dart
+          fi
+
+      - name: Scan tracked source for secrets
+        run: |
+          set -euo pipefail
+          if rg -n --hidden --glob '!.git/**' --glob '!build/**' \
+            --glob '!docs/**' --glob '!*.md' \
+            '(BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|Authorization: Bearer [A-Za-z0-9._-]{20,})' .; then
+            echo 'Potential credential material found in tracked source.' >&2
+            exit 1
+          fi
+
+      - name: Verify dependency and asset license evidence
+        run: bash scripts/verify_dependency_licenses.sh
 
       - name: Install Flutter packages
         run: flutter pub get
@@ -32,10 +55,22 @@ jobs:
         run: flutter test
 
       - name: Build production web
-        run: flutter build web --release --dart-define=APP_MODE=production --base-href=/talk/
+        run: |
+          flutter build web --release --pwa-strategy=offline-first \
+            --dart-define=APP_MODE=production \
+            --dart-define=APP_BASE_PATH=/talk/ \
+            --base-href=/talk/
+          bash scripts/stamp_web_release.sh build/web "$GITHUB_SHA" production
+          bash scripts/verify_web_artifact.sh build/web /talk/ production "$GITHUB_SHA"
 
       - name: Build Demo web
-        run: flutter build web --release --dart-define=APP_MODE=demo --base-href=/talk-demo/
+        run: |
+          flutter build web --release --pwa-strategy=offline-first \
+            --dart-define=APP_MODE=demo \
+            --dart-define=APP_BASE_PATH=/talk-demo/ \
+            --base-href=/talk-demo/
+          bash scripts/stamp_web_release.sh build/web "$GITHUB_SHA" demo
+          bash scripts/verify_web_artifact.sh build/web /talk-demo/ demo "$GITHUB_SHA"
 
   playwright-types:
     runs-on: ubuntu-latest
@@ -61,14 +96,20 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: '3.44.4'
           cache: true
 
       - name: Install Flutter packages
         run: flutter pub get
 
       - name: Build E2E simulation web
-        run: flutter build web --release --dart-define=APP_MODE=e2e --dart-define=E2E=true
+        run: |
+          flutter build web --release --pwa-strategy=none \
+            --dart-define=APP_MODE=e2e \
+            --dart-define=APP_BASE_PATH=/ \
+            --dart-define=E2E=true
+          bash scripts/stamp_web_release.sh build/web "$GITHUB_SHA" e2e
+          bash scripts/verify_web_artifact.sh build/web / e2e "$GITHUB_SHA"
 
       - name: Install E2E dependencies
         working-directory: e2e
@@ -80,4 +121,14 @@ jobs:
 
       - name: Run Simulation smoke test
         working-directory: e2e
-        run: npm run test:simulation
+        run: npm run test:simulation:responsive
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulation-playwright-${{ github.sha }}
+          path: |
+            e2e/test-results/
+            e2e/playwright-report/
+          if-no-files-found: ignore
