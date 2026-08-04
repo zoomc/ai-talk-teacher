@@ -77,6 +77,15 @@ export default defineConfig({
         viewport: { width: 375, height: 812 },
         isMobile: true,
         hasTouch: true,
+        launchOptions: {
+          args: [
+            '--force-renderer-accessibility',
+            '--enable-accessibility-object-model',
+            '--disable-blink-features=AutomationControlled',
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+          ],
+        },
       },
     },
   ],
