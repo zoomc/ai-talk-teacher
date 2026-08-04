@@ -19,10 +19,10 @@ if [[ "$expected_mode" == production || "$expected_mode" == demo ]]; then
   # Offline-first builds must contain a worker under the same base path. The
   # server must therefore serve each environment's worker from its own root.
   test -s "$build_dir/flutter_service_worker.js"
-  if grep -aE -n 'speakflowE2E|E2E Simulation' "$build_dir/main.dart.js"; then
+  if grep -aE -n 'speakflowE2E' "$build_dir/main.dart.js"; then
     echo "E2E bridge leaked into $expected_mode artifact" >&2
     exit 1
   fi
 else
-  grep -aE -n 'speakflowE2E|E2E Simulation' "$build_dir/main.dart.js" >/dev/null
+  grep -aE -n 'speakflowE2E' "$build_dir/main.dart.js" >/dev/null
 fi

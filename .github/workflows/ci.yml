@@ -55,7 +55,7 @@ jobs:
 
       - name: Build production web
         run: |
-          flutter build web --release --pwa-strategy=offline-first \
+          flutter build web --release --no-wasm-dry-run --pwa-strategy=offline-first \
             --no-web-resources-cdn \
             --dart-define=APP_MODE=production \
             --dart-define=APP_BASE_PATH=/talk/ \
@@ -65,7 +65,7 @@ jobs:
 
       - name: Build Demo web
         run: |
-          flutter build web --release --pwa-strategy=offline-first \
+          flutter build web --release --no-wasm-dry-run --pwa-strategy=offline-first \
             --no-web-resources-cdn \
             --dart-define=APP_MODE=demo \
             --dart-define=APP_BASE_PATH=/talk-demo/ \
@@ -104,31 +104,9 @@ jobs:
         run: flutter pub get
 
       - name: Build E2E simulation web
-        id: build-e2e
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          flutter build web --release --no-wasm-dry-run \
-            --dart-define=APP_MODE=e2e \
-            --dart-define=E2E=true 2>&1 | tee e2e-build.log
-
-      - name: Report E2E build output
-        if: steps.build-e2e.outcome == 'failure'
-        run: |
-          if grep -Eqi 'out of memory|killed|no space left|disk space' e2e-build.log; then
-            category=resource
-          elif grep -Eqi 'pub get|dependency|package' e2e-build.log; then
-            category=dependency
-          elif grep -Eqi 'error|exception|compile|target kernel' e2e-build.log; then
-            category=compile
-          else
-            category=unknown
-          fi
-          echo "::error title=E2E build failed::category=$category"
-
-      - name: Fail if E2E build failed
-        if: steps.build-e2e.outcome == 'failure'
-        run: exit 1
+        run: flutter build web --release --no-wasm-dry-run \
+          --dart-define=APP_MODE=e2e \
+          --dart-define=E2E=true
 
       - name: Stamp E2E artifact
         run: bash scripts/stamp_web_release.sh build/web "$GITHUB_SHA" e2e

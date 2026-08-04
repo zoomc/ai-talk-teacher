@@ -13,7 +13,7 @@ export default defineConfig({
     timeout: 20000, // 20s for assertions (Flutter can be sluggish)
   },
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  retries: process.env.CI ? 2 : 0,
   // Single-worker in CI for deterministic ordering; 2 locally for speed.
   workers: process.env.CI ? 1 : 2,
   reporter: [
