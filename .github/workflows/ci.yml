@@ -35,8 +35,7 @@ jobs:
       - name: Scan tracked source for secrets
         run: |
           set -euo pipefail
-          if rg -n --hidden --glob '!.git/**' --glob '!build/**' \
-            --glob '!docs/**' --glob '!*.md' \
+          if git grep -nE \
             '(BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|Authorization: Bearer [A-Za-z0-9._-]{20,})' .; then
             echo 'Potential credential material found in tracked source.' >&2
             exit 1
@@ -105,25 +104,9 @@ jobs:
         run: flutter pub get
 
       - name: Build E2E simulation web
-        id: build-e2e
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          flutter build web --release --no-wasm-dry-run \
-            --dart-define=APP_MODE=e2e \
-            --dart-define=E2E=true 2>&1 | tee e2e-build.log
-
-      - name: Upload E2E build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-build-log-${{ github.sha }}
-          path: e2e-build.log
-          if-no-files-found: ignore
-
-      - name: Fail if E2E build failed
-        if: steps.build-e2e.outcome == 'failure'
-        run: exit 1
+        run: flutter build web --release --no-wasm-dry-run \
+          --dart-define=APP_MODE=e2e \
+          --dart-define=E2E=true
 
       - name: Stamp E2E artifact
         run: bash scripts/stamp_web_release.sh build/web "$GITHUB_SHA" e2e
