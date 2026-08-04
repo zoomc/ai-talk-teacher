@@ -88,6 +88,7 @@ jobs:
         id: resolve_release
         run: |
           set -euo pipefail
+          tar -xzf ai-talk-teacher-web.tgz release-sha.txt
           test -s release-sha.txt
           release_sha="$(tr -d '\r\n' < release-sha.txt)"
           echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
