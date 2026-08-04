@@ -103,13 +103,17 @@ jobs:
         run: flutter pub get
 
       - name: Build E2E simulation web
-        run: |
-          flutter build web --release --pwa-strategy=none \
-            --dart-define=APP_MODE=e2e \
-            --dart-define=APP_BASE_PATH=/ \
-            --dart-define=E2E=true
-          bash scripts/stamp_web_release.sh build/web "$GITHUB_SHA" e2e
-          bash scripts/verify_web_artifact.sh build/web / e2e "$GITHUB_SHA"
+        run: flutter build web --release --pwa-strategy=none \
+          --dart-define=APP_MODE=e2e \
+          --dart-define=APP_BASE_PATH=/ \
+          --dart-define=E2E=true \
+          --base-href=/
+
+      - name: Stamp E2E artifact
+        run: bash scripts/stamp_web_release.sh build/web "$GITHUB_SHA" e2e
+
+      - name: Verify E2E artifact
+        run: bash scripts/verify_web_artifact.sh build/web / e2e "$GITHUB_SHA"
 
       - name: Install E2E dependencies
         working-directory: e2e
