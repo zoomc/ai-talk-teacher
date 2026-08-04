@@ -155,15 +155,14 @@ jobs:
             test -s "$prod_root/index.html"
             test -s "$demo_root/index.html"
 
-            previous_prod="$RELEASE_ROOT/previous-production"
-            previous_demo="$RELEASE_ROOT/previous-demo"
+            backup_prod="$RELEASE_ROOT/previous-production-$RELEASE_SHA"
+            backup_demo="$RELEASE_ROOT/previous-demo-$RELEASE_SHA"
+            sudo -n rm -rf "$backup_prod" "$backup_demo"
             if [ -e "$PROD_TARGET" ] || [ -L "$PROD_TARGET" ]; then
-              sudo -n mv -Tf "$PROD_TARGET" "${previous_prod}.next"
-              sudo -n mv -Tf "${previous_prod}.next" "$previous_prod"
+              sudo -n mv -Tf "$PROD_TARGET" "$backup_prod"
             fi
             if [ -e "$DEMO_TARGET" ] || [ -L "$DEMO_TARGET" ]; then
-              sudo -n mv -Tf "$DEMO_TARGET" "${previous_demo}.next"
-              sudo -n mv -Tf "${previous_demo}.next" "$previous_demo"
+              sudo -n mv -Tf "$DEMO_TARGET" "$backup_demo"
             fi
             sudo -n ln -s "$prod_root" "${PROD_TARGET}.next"
             sudo -n mv -Tf "${PROD_TARGET}.next" "$PROD_TARGET"
@@ -171,6 +170,13 @@ jobs:
             sudo -n mv -Tf "${DEMO_TARGET}.next" "$DEMO_TARGET"
             sudo -n nginx -t
             sudo -n systemctl reload nginx
+            sudo -n rm -rf "$RELEASE_ROOT/previous-production" "$RELEASE_ROOT/previous-demo"
+            if [ -e "$backup_prod" ] || [ -L "$backup_prod" ]; then
+              sudo -n ln -s "$backup_prod" "$RELEASE_ROOT/previous-production"
+            fi
+            if [ -e "$backup_demo" ] || [ -L "$backup_demo" ]; then
+              sudo -n ln -s "$backup_demo" "$RELEASE_ROOT/previous-demo"
+            fi
 
       - name: Verify production and Demo Web health
         uses: appleboy/ssh-action@v1.0.3
@@ -201,6 +207,7 @@ jobs:
         if: failure()
         uses: appleboy/ssh-action@v1.0.3
         env:
+          RELEASE_SHA: ${{ steps.resolve_release.outputs.release_sha }}
           PROD_TARGET: ${{ env.PROD_TARGET }}
           DEMO_TARGET: ${{ env.DEMO_TARGET }}
           RELEASE_ROOT: ${{ env.RELEASE_ROOT }}
@@ -209,21 +216,24 @@ jobs:
           username: ${{ secrets.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: ${{ secrets.ALIYUN_SSH_PORT || 22 }}
-          envs: PROD_TARGET,DEMO_TARGET,RELEASE_ROOT
+          envs: RELEASE_SHA,PROD_TARGET,DEMO_TARGET,RELEASE_ROOT
           script_stop: true
           script: |
             set -euo pipefail
+            : "${RELEASE_SHA:?release SHA is required}"
             restore_target() {
               local target="$1"
-              local previous="$2"
-              if [ -e "$previous" ] || [ -L "$previous" ]; then
+              local backup="$2"
+              if [ -e "$backup" ] || [ -L "$backup" ]; then
                 if [ -e "$target" ] || [ -L "$target" ]; then
                   sudo -n mv -Tf "$target" "$RELEASE_ROOT/failed-$(basename "$target")"
                 fi
-                sudo -n mv -Tf "$previous" "$target"
+                sudo -n mv -Tf "$backup" "$target"
+              elif [ -e "$target" ] || [ -L "$target" ]; then
+                sudo -n rm -rf "$target"
               fi
             }
-            restore_target "$PROD_TARGET" "$RELEASE_ROOT/previous-production"
-            restore_target "$DEMO_TARGET" "$RELEASE_ROOT/previous-demo"
+            restore_target "$PROD_TARGET" "$RELEASE_ROOT/previous-production-$RELEASE_SHA"
+            restore_target "$DEMO_TARGET" "$RELEASE_ROOT/previous-demo-$RELEASE_SHA"
             sudo -n nginx -t
             sudo -n systemctl reload nginx
