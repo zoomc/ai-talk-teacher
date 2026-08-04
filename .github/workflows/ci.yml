@@ -146,7 +146,21 @@ jobs:
 
       - name: Run Simulation smoke test
         working-directory: e2e
+        id: simulation
+        continue-on-error: true
         run: npm run test:simulation:responsive
+
+      - name: Report failed simulation tests
+        if: steps.simulation.outcome == 'failure'
+        run: |
+          names="$(grep -o 'classname="[^"]*"[^>]*name="[^"]*"' e2e/test-results/junit.xml \
+            | sed -E 's/classname="([^"]*)"[^>]*name="([^"]*)"/\1 :: \2/' \
+            | tr '\n' ';' | sed 's/%/%25/g; s/\r/%0D/g')"
+          echo "::error title=Simulation test failures::$names"
+
+      - name: Fail if simulation smoke failed
+        if: steps.simulation.outcome == 'failure'
+        run: exit 1
 
       - name: Upload Playwright artifacts
         if: always()
