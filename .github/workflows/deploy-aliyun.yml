@@ -1,4 +1,4 @@
-name: Deploy Aliyun production Web
+name: Deploy Aliyun production and Demo Web
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ on:
     branches: [main]
 
 concurrency:
-  group: ai-talk-teacher-production-web
+  group: ai-talk-teacher-web
   cancel-in-progress: false
 
 permissions:
@@ -20,8 +20,11 @@ permissions:
 
 env:
   PROD_BASE_HREF: /talk/
+  DEMO_BASE_HREF: /talk-demo/
   PROD_URL: https://zoomlab.top/talk
+  DEMO_URL: https://zoomlab.top/talk-demo
   PROD_TARGET: /opt/ai-talk-teacher
+  DEMO_TARGET: /opt/ai-talk-teacher-demo
   RELEASE_ROOT: /opt/ai-talk-teacher-releases
 
 jobs:
@@ -59,13 +62,30 @@ jobs:
 
       - name: Package production Web
         run: |
+          mkdir -p release-payload/prod
+          cp -a build/web/. release-payload/prod/
+
+      - name: Build Demo Web
+        run: |
+          flutter build web --release --no-wasm-dry-run --pwa-strategy=offline-first \
+            --no-web-resources-cdn \
+            --dart-define=APP_MODE=demo \
+            --dart-define=APP_BASE_PATH="$DEMO_BASE_HREF" \
+            --base-href="$DEMO_BASE_HREF"
+          bash scripts/stamp_web_release.sh build/web "$RELEASE_SHA" demo
+          bash scripts/verify_web_artifact.sh build/web "$DEMO_BASE_HREF" demo "$RELEASE_SHA"
+
+      - name: Package Demo Web
+        run: |
           set -euo pipefail
-          mkdir -p release-payload/web
-          cp -a build/web/. release-payload/web/
+          mkdir -p release-payload/demo
+          cp -a build/web/. release-payload/demo/
+          test -s release-payload/prod/index.html
+          test -s release-payload/demo/index.html
           printf '%s\n' "$RELEASE_SHA" > release-sha.txt
           tar -czf ai-talk-teacher-web.tgz release-payload release-sha.txt
 
-      - name: Upload production Web artifact
+      - name: Upload production and Demo Web artifact
         uses: actions/upload-artifact@v4
         with:
           name: ai-talk-teacher-web
@@ -79,7 +99,7 @@ jobs:
     environment:
       name: aliyun-production
     steps:
-      - name: Download production Web artifact
+      - name: Download production and Demo Web artifact
         uses: actions/download-artifact@v4
         with:
           name: ai-talk-teacher-web
@@ -93,7 +113,7 @@ jobs:
           release_sha="$(tr -d '\r\n' < release-sha.txt)"
           echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Copy production Web to Aliyun
+      - name: Copy production and Demo Web to Aliyun
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.ALIYUN_HOST }}
@@ -103,23 +123,25 @@ jobs:
           source: ai-talk-teacher-web.tgz
           target: /tmp
 
-      - name: Atomically activate production Web
+      - name: Atomically activate production and Demo Web
         uses: appleboy/ssh-action@v1.0.3
         env:
           RELEASE_SHA: ${{ steps.resolve_release.outputs.release_sha }}
           PROD_TARGET: ${{ env.PROD_TARGET }}
+          DEMO_TARGET: ${{ env.DEMO_TARGET }}
           RELEASE_ROOT: ${{ env.RELEASE_ROOT }}
         with:
           host: ${{ secrets.ALIYUN_HOST }}
           username: ${{ secrets.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: ${{ secrets.ALIYUN_SSH_PORT || 22 }}
-          envs: RELEASE_SHA,PROD_TARGET,RELEASE_ROOT
+          envs: RELEASE_SHA,PROD_TARGET,DEMO_TARGET,RELEASE_ROOT
           script_stop: true
           script: |
             set -euo pipefail
             : "${RELEASE_SHA:?release SHA is required}"
             : "${PROD_TARGET:?production target is required}"
+            : "${DEMO_TARGET:?demo target is required}"
             : "${RELEASE_ROOT:?release root is required}"
             archive="/tmp/ai-talk-teacher-web.tgz"
             test -s "$archive"
@@ -128,58 +150,80 @@ jobs:
             rm -rf "$release_dir"
             mkdir -p "$release_dir"
             tar -xzf "$archive" -C "$release_dir"
-            web_root="$release_dir/release-payload/web"
-            test -s "$web_root/index.html"
+            prod_root="$release_dir/release-payload/prod"
+            demo_root="$release_dir/release-payload/demo"
+            test -s "$prod_root/index.html"
+            test -s "$demo_root/index.html"
 
-            previous_target="$RELEASE_ROOT/previous-production"
+            previous_prod="$RELEASE_ROOT/previous-production"
+            previous_demo="$RELEASE_ROOT/previous-demo"
             if [ -e "$PROD_TARGET" ] || [ -L "$PROD_TARGET" ]; then
-              sudo -n mv -Tf "$PROD_TARGET" "${previous_target}.next"
-              sudo -n mv -Tf "${previous_target}.next" "$previous_target"
+              sudo -n mv -Tf "$PROD_TARGET" "${previous_prod}.next"
+              sudo -n mv -Tf "${previous_prod}.next" "$previous_prod"
             fi
-            sudo -n ln -s "$web_root" "${PROD_TARGET}.next"
+            if [ -e "$DEMO_TARGET" ] || [ -L "$DEMO_TARGET" ]; then
+              sudo -n mv -Tf "$DEMO_TARGET" "${previous_demo}.next"
+              sudo -n mv -Tf "${previous_demo}.next" "$previous_demo"
+            fi
+            sudo -n ln -s "$prod_root" "${PROD_TARGET}.next"
             sudo -n mv -Tf "${PROD_TARGET}.next" "$PROD_TARGET"
+            sudo -n ln -s "$demo_root" "${DEMO_TARGET}.next"
+            sudo -n mv -Tf "${DEMO_TARGET}.next" "$DEMO_TARGET"
             sudo -n nginx -t
             sudo -n systemctl reload nginx
 
-      - name: Verify production Web health
+      - name: Verify production and Demo Web health
         uses: appleboy/ssh-action@v1.0.3
         env:
           RELEASE_SHA: ${{ steps.resolve_release.outputs.release_sha }}
           PROD_URL: ${{ env.PROD_URL }}
+          DEMO_URL: ${{ env.DEMO_URL }}
+          DEMO_BASIC_AUTH_USER: ${{ secrets.DEMO_BASIC_AUTH_USER }}
+          DEMO_BASIC_AUTH_PASSWORD: ${{ secrets.DEMO_BASIC_AUTH_PASSWORD }}
         with:
           host: ${{ secrets.ALIYUN_HOST }}
           username: ${{ secrets.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: ${{ secrets.ALIYUN_SSH_PORT || 22 }}
-          envs: RELEASE_SHA,PROD_URL
+          envs: RELEASE_SHA,PROD_URL,DEMO_URL,DEMO_BASIC_AUTH_USER,DEMO_BASIC_AUTH_PASSWORD
           script_stop: true
           script: |
             set -euo pipefail
             curl -fsS "$PROD_URL/" | grep -q 'flutter_bootstrap.js'
             curl -fsS "$PROD_URL/version.json" | grep -q "$RELEASE_SHA"
             curl -fsS "$PROD_URL/#/health-check" | grep -q 'flutter_bootstrap.js'
+            test "$(curl -sS -o /dev/null -w '%{http_code}' "$DEMO_URL/")" = 401
+            curl -fsS -u "${DEMO_BASIC_AUTH_USER:?}:${DEMO_BASIC_AUTH_PASSWORD:?}" "$DEMO_URL/" | grep -q 'flutter_bootstrap.js'
+            curl -fsS -u "${DEMO_BASIC_AUTH_USER:?}:${DEMO_BASIC_AUTH_PASSWORD:?}" "$DEMO_URL/version.json" | grep -q "$RELEASE_SHA"
+            curl -fsSI -u "${DEMO_BASIC_AUTH_USER:?}:${DEMO_BASIC_AUTH_PASSWORD:?}" "$DEMO_URL/" | grep -qi 'X-Robots-Tag:.*noindex'
 
-      - name: Roll back production Web after deployment failure
+      - name: Roll back production and Demo Web after deployment failure
         if: failure()
         uses: appleboy/ssh-action@v1.0.3
         env:
           PROD_TARGET: ${{ env.PROD_TARGET }}
+          DEMO_TARGET: ${{ env.DEMO_TARGET }}
           RELEASE_ROOT: ${{ env.RELEASE_ROOT }}
         with:
           host: ${{ secrets.ALIYUN_HOST }}
           username: ${{ secrets.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: ${{ secrets.ALIYUN_SSH_PORT || 22 }}
-          envs: PROD_TARGET,RELEASE_ROOT
+          envs: PROD_TARGET,DEMO_TARGET,RELEASE_ROOT
           script_stop: true
           script: |
             set -euo pipefail
-            previous_target="$RELEASE_ROOT/previous-production"
-            if [ -e "$previous_target" ] || [ -L "$previous_target" ]; then
-              if [ -e "$PROD_TARGET" ] || [ -L "$PROD_TARGET" ]; then
-                sudo -n mv -Tf "$PROD_TARGET" "$RELEASE_ROOT/failed-production"
+            restore_target() {
+              local target="$1"
+              local previous="$2"
+              if [ -e "$previous" ] || [ -L "$previous" ]; then
+                if [ -e "$target" ] || [ -L "$target" ]; then
+                  sudo -n mv -Tf "$target" "$RELEASE_ROOT/failed-$(basename "$target")"
+                fi
+                sudo -n mv -Tf "$previous" "$target"
               fi
-              sudo -n mv -Tf "$previous_target" "$PROD_TARGET"
-              sudo -n nginx -t
-              sudo -n systemctl reload nginx
-            fi
+            }
+            restore_target "$PROD_TARGET" "$RELEASE_ROOT/previous-production"
+            restore_target "$DEMO_TARGET" "$RELEASE_ROOT/previous-demo"
+            sudo -n nginx -t
+            sudo -n systemctl reload nginx
