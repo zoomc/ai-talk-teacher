@@ -3,7 +3,7 @@
 Rollback is a symlink switch to a previously extracted production Web release.
 It does not delete the release directory or touch user SQLite/IndexedDB data.
 
-1. SSH to the Aliyun host and list `/opt/ai-talk-teacher-releases` by commit SHA.
+1. SSH to the Aliyun host and list `/home/admin/ai-talk-teacher-releases` by commit SHA.
 2. Confirm the candidate contains `release-payload/web/index.html`.
 3. Point the production `.next` symlink at the candidate Web directory.
 4. Atomically replace the active production root with `mv -Tf`.

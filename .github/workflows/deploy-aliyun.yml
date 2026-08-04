@@ -22,7 +22,7 @@ env:
   PROD_BASE_HREF: /talk/
   PROD_URL: https://zoomlab.top/talk
   PROD_TARGET: /opt/ai-talk-teacher
-  RELEASE_ROOT: /opt/ai-talk-teacher-releases
+  RELEASE_ROOT: /home/admin/ai-talk-teacher-releases
 
 jobs:
   build:
