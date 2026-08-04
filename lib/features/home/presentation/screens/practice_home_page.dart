@@ -10,6 +10,7 @@ import '../../../../shared/providers.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../avatar/presentation/widgets/avatar_stage.dart';
 import '../../../chat/domain/tutor.dart';
+import '../../../../core/runtime/runtime_mode_banner.dart';
 import '../home_providers.dart';
 
 /// The focused practice entry point.
@@ -89,6 +90,7 @@ class _PracticeHomePageState extends ConsumerState<PracticeHomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const RuntimeModeBanner(),
                   Text(
                     l.t('chat.practice_live'),
                     style: Theme.of(context).textTheme.headlineMedium,
@@ -114,7 +116,9 @@ class _PracticeHomePageState extends ConsumerState<PracticeHomePage> {
                             phase: AvatarPhase.idle,
                             tutorName: _tutor.name,
                             tutorAvatar: _tutor.avatar,
-                            prefer3d: !lowBandwidth,
+                            // The layered 2D tutor is the default; 3D is
+                            // kept for the hidden Demo/Debug Avatar Lab.
+                            prefer3d: false,
                             panelHeight: Responsive.isMobile(context)
                                 ? 300
                                 : 360,

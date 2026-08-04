@@ -1,14 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/i18n/app_localizations.dart';
+import '../core/runtime/runtime_capabilities.dart';
+import '../core/runtime/runtime_config.dart';
+import '../core/runtime/simulation_runtime.dart';
 import '../features/profile/data/profile_repository.dart';
 import '../features/profile/domain/profile_models.dart';
 import '../features/chat/data/chat_repository.dart';
+import '../features/chat/data/chat_gateways.dart';
 import '../features/project_space/data/project_repository.dart';
 
 final profileRepoProvider = Provider((ref) => ProfileRepository());
 final chatRepoProvider = Provider((ref) => ChatRepository());
 final projectRepoProvider = Provider((ref) => ProjectRepository());
+
+final runtimeConfigProvider = Provider((ref) => RuntimeConfig.mode);
+
+final runtimeCapabilitiesProvider = Provider<RuntimeCapabilities>(
+  (ref) => RuntimeCapabilities.forConfig(),
+);
+
+final simulationRuntimeProvider = Provider<SimulationRuntime>(
+  (ref) => SimulationRuntime(),
+);
+
+/// The fixture picker is intentionally only read by Demo UI and Simulation
+/// gateways. It is not a runtime switch: changing it cannot turn Production
+/// into Demo because APP_MODE is compile-time fixed.
+final simulationFixtureProvider = StateProvider<String>(
+  (ref) => SimulationFixtures.happyPath.id,
+);
+
+final llmGatewayProvider = Provider<LlmGateway>((ref) {
+  final runtime = ref.watch(simulationRuntimeProvider);
+  final fixtureId = ref.watch(simulationFixtureProvider);
+  if (runtime.fixture.id != fixtureId) runtime.selectFixture(fixtureId);
+  return ChatGatewayFactory.llm(ref.watch(profileRepoProvider), runtime);
+});
+
+final sttGatewayProvider = Provider<SttGateway>((ref) {
+  final runtime = ref.watch(simulationRuntimeProvider);
+  final fixtureId = ref.watch(simulationFixtureProvider);
+  if (runtime.fixture.id != fixtureId) runtime.selectFixture(fixtureId);
+  return ChatGatewayFactory.stt(ref.watch(profileRepoProvider), runtime);
+});
+
+final ttsGatewayProvider = Provider<TtsGateway>((ref) {
+  final runtime = ref.watch(simulationRuntimeProvider);
+  final fixtureId = ref.watch(simulationFixtureProvider);
+  if (runtime.fixture.id != fixtureId) runtime.selectFixture(fixtureId);
+  return ChatGatewayFactory.tts(ref.watch(profileRepoProvider), runtime);
+});
 
 /// Global theme mode state. Initialized in main() from the persisted
 /// `theme` user setting (via ProviderScope.overrides) so the very first

@@ -7,7 +7,8 @@
  *   2. Waits for Flutter to boot and the E2E bridge to be exposed
  *   3. Resets the SQLite database
  *   4. Seeds the requested fixture set
- *   5. Enables Dart-side mock mode (short-circuits LLM/STT/TTS)
+ *   5. Enables the legacy bridge mock toggle; the APP_MODE=e2e build uses
+ *      Simulation gateways for the normal product flow
  *   6. Registers HTTP mocks (defense in depth)
  *   7. Returns a ready-to-use page
  *

@@ -1,0 +1,1 @@
+{"id":"llm_retry","turns":[{"stt":{"text":"Please retry this answer."},"llm":{"failFirstAttempt":true,"chunks":["The second attempt succeeded. ","You can continue practicing."],"corrections":[]}}]}

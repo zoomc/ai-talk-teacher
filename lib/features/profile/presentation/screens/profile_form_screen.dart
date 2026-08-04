@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -207,8 +206,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     return Scaffold(
-      backgroundColor:
-          isLight ? AppColors.lightBgPrimary : AppColors.bgPrimary,
+      backgroundColor: isLight ? AppColors.lightBgPrimary : AppColors.bgPrimary,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
@@ -303,14 +301,14 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
       children: [
         DropdownButtonFormField<String>(
           value: _providerId,
-          dropdownColor:
-              Theme.of(context).brightness == Brightness.light
-                  ? AppColors.lightBgTertiary
-                  : AppColors.bgTertiary,
+          dropdownColor: Theme.of(context).brightness == Brightness.light
+              ? AppColors.lightBgTertiary
+              : AppColors.bgTertiary,
           style: TextStyle(
-              color: Theme.of(context).brightness == Brightness.light
-                  ? AppColors.lightTextPrimary
-                  : AppColors.textPrimary),
+            color: Theme.of(context).brightness == Brightness.light
+                ? AppColors.lightTextPrimary
+                : AppColors.textPrimary,
+          ),
           decoration: InputDecoration(
             labelText: l.t('profile.provider'),
             hintText: l.t('profile.select_provider'),
@@ -485,10 +483,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
           requiredKey: 'profile.required',
         ),
         const SizedBox(height: AppSpacing.sm),
-        _fetchButton(
-          labelKey: 'profile.fetch_models',
-          onPressed: _fetchModels,
-        ),
+        _fetchButton(labelKey: 'profile.fetch_models', onPressed: _fetchModels),
       ],
     );
   }
@@ -594,7 +589,10 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         ),
         const SizedBox(height: AppSpacing.lg),
         // Voice field + fetch button (or static dropdown for openai-compatible).
-        Text(l.t('profile.voice'), style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          l.t('profile.voice'),
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: AppSpacing.xs),
         if (def.voices.isNotEmpty && def.kind == ProviderKind.openaiCompatible)
           _staticVoiceDropdown(def.voices)
@@ -636,27 +634,42 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
           ),
           const SizedBox(height: AppSpacing.lg),
         ],
-        Text(l.t('profile.tts_speed'), style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          l.t('profile.tts_speed'),
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: AppSpacing.xs),
         DropdownButtonFormField<double>(
           value: _selectedSpeed,
-          dropdownColor:
-              Theme.of(context).brightness == Brightness.light
-                  ? AppColors.lightBgTertiary
-                  : AppColors.bgTertiary,
+          dropdownColor: Theme.of(context).brightness == Brightness.light
+              ? AppColors.lightBgTertiary
+              : AppColors.bgTertiary,
           style: TextStyle(
-              color: Theme.of(context).brightness == Brightness.light
-                  ? AppColors.lightTextPrimary
-                  : AppColors.textPrimary),
+            color: Theme.of(context).brightness == Brightness.light
+                ? AppColors.lightTextPrimary
+                : AppColors.textPrimary,
+          ),
           decoration: InputDecoration(
             labelText: l.t('profile.tts_speed'),
             hintText: l.t('profile.select_provider'),
           ),
           items: [
-            DropdownMenuItem(value: 0.75, child: Text(l.t('profile.speed_slower'))),
-            DropdownMenuItem(value: 1.0, child: Text(l.t('profile.speed_normal'))),
-            DropdownMenuItem(value: 1.25, child: Text(l.t('profile.speed_faster'))),
-            DropdownMenuItem(value: 1.5, child: Text(l.t('profile.speed_fastest'))),
+            DropdownMenuItem(
+              value: 0.75,
+              child: Text(l.t('profile.speed_slower')),
+            ),
+            DropdownMenuItem(
+              value: 1.0,
+              child: Text(l.t('profile.speed_normal')),
+            ),
+            DropdownMenuItem(
+              value: 1.25,
+              child: Text(l.t('profile.speed_faster')),
+            ),
+            DropdownMenuItem(
+              value: 1.5,
+              child: Text(l.t('profile.speed_fastest')),
+            ),
           ],
           onChanged: (v) => setState(() => _selectedSpeed = v ?? 1.0),
         ),
@@ -669,9 +682,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     return Align(
       alignment: Alignment.centerLeft,
       child: TextButton.icon(
-        style: TextButton.styleFrom(
-          minimumSize: const Size.fromHeight(44),
-        ),
+        style: TextButton.styleFrom(minimumSize: const Size.fromHeight(44)),
         onPressed: _reuseSttConfig,
         icon: const Icon(Icons.copy, size: 18),
         label: Text(l.t('profile.reuse_stt')),
@@ -708,7 +719,8 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
       });
       if (mounted) _snack(l.t('profile.reuse_stt_copied'));
     } catch (e) {
-      if (mounted) _snack(l.tArg('profile.reuse_stt_failed', {'error': _safeError(e)}));
+      if (mounted)
+        _snack(l.tArg('profile.reuse_stt_failed', {'error': _safeError(e)}));
     }
   }
 
@@ -718,14 +730,14 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     final valid = voices.contains(current);
     return DropdownButtonFormField<String>(
       initialValue: valid ? current : (voices.isNotEmpty ? voices.first : null),
-      dropdownColor:
-          Theme.of(context).brightness == Brightness.light
-              ? AppColors.lightBgTertiary
-              : AppColors.bgTertiary,
+      dropdownColor: Theme.of(context).brightness == Brightness.light
+          ? AppColors.lightBgTertiary
+          : AppColors.bgTertiary,
       style: TextStyle(
-          color: Theme.of(context).brightness == Brightness.light
-              ? AppColors.lightTextPrimary
-              : AppColors.textPrimary),
+        color: Theme.of(context).brightness == Brightness.light
+            ? AppColors.lightTextPrimary
+            : AppColors.textPrimary,
+      ),
       decoration: const InputDecoration(hintText: 'Select voice'),
       items: voices
           .map((v) => DropdownMenuItem<String>(value: v, child: Text(v)))
@@ -757,14 +769,13 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
       keyboardType: keyboardType,
       autocorrect: autocorrect,
       style: const TextStyle(color: AppColors.textPrimary),
-      decoration: InputDecoration(
-        labelText: l.t(labelKey),
-        hintText: hintText,
-      ),
+      decoration: InputDecoration(labelText: l.t(labelKey), hintText: hintText),
       validator: (v) {
         if (!required) return null;
         if (v == null || v.isEmpty) {
-          return requiredKey == null ? l.t('profile.required') : l.t(requiredKey);
+          return requiredKey == null
+              ? l.t('profile.required')
+              : l.t(requiredKey);
         }
         return null;
       },
@@ -790,9 +801,13 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
             : l.t('profile.api_key_hint'),
         suffixIcon: IconButton(
           icon: Icon(
-            _obscureKey ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+            _obscureKey
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
           ),
-          tooltip: _obscureKey ? l.t('profile.show_key') : l.t('profile.hide_key'),
+          tooltip: _obscureKey
+              ? l.t('profile.show_key')
+              : l.t('profile.hide_key'),
           onPressed: () => setState(() => _obscureKey = !_obscureKey),
         ),
       ),
@@ -819,7 +834,9 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
                 child: CircularProgressIndicator(strokeWidth: 2.5),
               )
             : const Icon(Icons.network_check, size: 18),
-        label: Text(_isTesting ? l.t('profile.testing') : l.t('service.test_connection')),
+        label: Text(
+          _isTesting ? l.t('profile.testing') : l.t('service.test_connection'),
+        ),
       ),
     );
   }
@@ -914,7 +931,8 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         setState(() => _modelController.text = selected);
       }
     } catch (e) {
-      if (mounted) _snack(l.tArg('profile.fetch_models_failed', {'error': _safeError(e)}));
+      if (mounted)
+        _snack(l.tArg('profile.fetch_models_failed', {'error': _safeError(e)}));
     } finally {
       if (mounted) setState(() => _isFetching = false);
     }
@@ -951,7 +969,8 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         });
       }
     } catch (e) {
-      if (mounted) _snack(l.tArg('profile.fetch_voices_failed', {'error': _safeError(e)}));
+      if (mounted)
+        _snack(l.tArg('profile.fetch_voices_failed', {'error': _safeError(e)}));
     } finally {
       if (mounted) setState(() => _isFetching = false);
     }
@@ -982,10 +1001,9 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor:
-            Theme.of(context).brightness == Brightness.light
-                ? AppColors.lightBgTertiary
-                : AppColors.bgTertiary,
+        backgroundColor: Theme.of(context).brightness == Brightness.light
+            ? AppColors.lightBgTertiary
+            : AppColors.bgTertiary,
         title: Text(title),
         content: SizedBox(
           width: double.maxFinite,
@@ -1124,9 +1142,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
       }
 
       // Build extraConfig with proper JSON escaping (BL-089).
-      final regionJson = region.isEmpty
-          ? null
-          : jsonEncode({'region': region});
+      final regionJson = region.isEmpty ? null : jsonEncode({'region': region});
 
       switch (widget.type) {
         case 'llm':
@@ -1184,7 +1200,10 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
 
   /// If this is the first profile of its type, automatically activate it
   /// so the user isn't left with no active service (BL-085).
-  Future<void> _maybeActivateOnFirstSave(ProfileRepository repo, String id) async {
+  Future<void> _maybeActivateOnFirstSave(
+    ProfileRepository repo,
+    String id,
+  ) async {
     switch (widget.type) {
       case 'llm':
         final active = await repo.getActiveLlmProfile();

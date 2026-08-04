@@ -1,0 +1,18 @@
+{
+  "id": "summary_loop",
+  "turns": [
+    {
+      "stt": {"text": "I want to improve my confidence."},
+      "llm": {
+        "chunks": ["You made a clear start. ", "Keep adding one detail at a time."],
+        "corrections": []
+      }
+    }
+  ],
+  "summary": {
+    "highlights": true,
+    "improvements": 3,
+    "nextSentence": true,
+    "reviewItems": true
+  }
+}

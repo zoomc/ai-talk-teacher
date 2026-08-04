@@ -1,0 +1,1 @@
+{"id":"interruption","turns":[{"stt":{"text":"Please let me interrupt and start a fresh turn.","delayMs":0},"llm":{"chunks":["This response is intentionally slow so it can be interrupted."," The next turn must still be accepted."],"chunkDelayMs":550},"interruptible":true}]}

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../../core/e2e/e2e_mock_services.dart';
+import '../../../core/runtime/runtime_config.dart';
 import '../../../core/util/openai_endpoint.dart';
 import '../../profile/domain/profile_models.dart';
 import '../domain/chat_models.dart';
@@ -25,9 +26,9 @@ class LlmService {
     final latestUserMessage = history.isEmpty
         ? null
         : history.reversed
-            .where((m) => m.role == MessageRole.user)
-            .firstOrNull
-            ?.content;
+              .where((m) => m.role == MessageRole.user)
+              .firstOrNull
+              ?.content;
     final canned = E2eMockServices.cannedLlmReply(
       userMessage ?? latestUserMessage ?? systemPrompt,
     );
@@ -36,6 +37,11 @@ class LlmService {
         content: _cleanResponse(canned),
         corrections: extractCorrections(canned),
         usage: null,
+      );
+    }
+    if (RuntimeConfig.isSimulation) {
+      throw LlmException(
+        'External LLM providers are disabled in simulation mode',
       );
     }
 
@@ -118,9 +124,9 @@ class LlmService {
     final latestUserMessage = history.isEmpty
         ? null
         : history.reversed
-            .where((m) => m.role == MessageRole.user)
-            .firstOrNull
-            ?.content;
+              .where((m) => m.role == MessageRole.user)
+              .firstOrNull
+              ?.content;
     final canned = E2eMockServices.cannedLlmReply(
       userMessage ?? latestUserMessage ?? systemPrompt,
     );
@@ -129,26 +135,32 @@ class LlmService {
       yield const StreamChunk(done: true);
       return;
     }
+    if (RuntimeConfig.isSimulation) {
+      throw LlmException(
+        'External LLM providers are disabled in simulation mode',
+      );
+    }
 
     final messages = _buildMessages(history, systemPrompt, userMessage);
-    final request = http.Request(
-      'POST',
-      Uri.parse(openAiEndpoint(profile.baseUrl, 'chat/completions')),
-    )
-      ..headers['Content-Type'] = 'application/json'
-      ..headers['Authorization'] = 'Bearer ${profile.apiKey}'
-      ..headers['Accept'] = 'text/event-stream'
-      ..body = jsonEncode({
-        'model': profile.model,
-        'messages': messages,
-        'temperature': 0.7,
-        'max_tokens': 400,
-        'stream': true,
-        // Ask OpenAI-compatible providers to include the usage blob on the
-        // terminating chunk. Providers that don't understand the field
-        // ignore it; those that do let us surface token accounting for free.
-        'stream_options': {'include_usage': true},
-      });
+    final request =
+        http.Request(
+            'POST',
+            Uri.parse(openAiEndpoint(profile.baseUrl, 'chat/completions')),
+          )
+          ..headers['Content-Type'] = 'application/json'
+          ..headers['Authorization'] = 'Bearer ${profile.apiKey}'
+          ..headers['Accept'] = 'text/event-stream'
+          ..body = jsonEncode({
+            'model': profile.model,
+            'messages': messages,
+            'temperature': 0.7,
+            'max_tokens': 400,
+            'stream': true,
+            // Ask OpenAI-compatible providers to include the usage blob on the
+            // terminating chunk. Providers that don't understand the field
+            // ignore it; those that do let us surface token accounting for free.
+            'stream_options': {'include_usage': true},
+          });
 
     final http.Client client;
     final http.StreamedResponse response;
@@ -170,9 +182,7 @@ class LlmService {
           .timeout(const Duration(seconds: 5))
           .catchError((_) => '');
       client.close();
-      throw LlmException(
-        'API error: ${response.statusCode} - $body',
-      );
+      throw LlmException('API error: ${response.statusCode} - $body');
     }
 
     try {
@@ -218,7 +228,13 @@ class LlmService {
   }
 
   /// Extract corrections from the response.
-  List<Correction> extractCorrections(String content) {
+  List<Correction> extractCorrections(String content) =>
+      LlmService.parseCorrections(content);
+
+  /// Shared parser used by both Production and Simulation gateways. Keeping
+  /// this in the service module ensures Demo exercises the same correction
+  /// contract as a real provider.
+  static List<Correction> parseCorrections(String content) {
     final corrections = <Correction>[];
 
     // Find corrections JSON block
@@ -295,7 +311,7 @@ class LlmService {
   /// Accepts int or num (e.g. `82` or `82.0`). Returns the model default
   /// (50) when missing or unparseable so review ordering stays sensible
   /// even when an older / non-compliant model omits the field.
-  int _parseImportance(dynamic value) {
+  static int _parseImportance(dynamic value) {
     if (value is int) {
       return value.clamp(0, 100);
     }
@@ -321,6 +337,11 @@ class LlmService {
     required List<ChatMessage> history,
     required List<Correction> corrections,
   }) async {
+    if (RuntimeConfig.isSimulation) {
+      throw LlmException(
+        'External LLM providers are disabled in simulation mode',
+      );
+    }
     final transcript = StringBuffer();
     for (final m in history) {
       transcript.writeln('${m.role.name}: ${m.content}');
@@ -328,8 +349,10 @@ class LlmService {
     final correctionList = corrections.isEmpty
         ? '(none flagged this session)'
         : corrections
-            .map((c) => '- "${c.original}" → "${c.corrected}" (${c.type.name})')
-            .join('\n');
+              .map(
+                (c) => '- "${c.original}" → "${c.corrected}" (${c.type.name})',
+              )
+              .join('\n');
 
     final systemPrompt = '''You are an English speaking coach. The student just 
 finished a conversation. Produce a concise post-class summary as STRICT JSON with 
@@ -379,8 +402,9 @@ Return ONLY the JSON object, no markdown fence, no commentary.''';
       throw LlmException('No response choices returned from summary API');
     }
     final content =
-        (choices[0]['message'] as Map<String, dynamic>?)?['content'] as String? ??
-            '';
+        (choices[0]['message'] as Map<String, dynamic>?)?['content']
+            as String? ??
+        '';
     if (content.trim().isEmpty) {
       throw LlmException('Empty summary response');
     }
@@ -423,6 +447,7 @@ Return ONLY the JSON object, no markdown fence, no commentary.''';
 
   /// Fetch available models from the server (OpenAI-compatible /v1/models).
   Future<List<String>> fetchModels() async {
+    if (RuntimeConfig.isSimulation) return [];
     try {
       final response = await http
           .get(
@@ -455,6 +480,11 @@ Return ONLY the JSON object, no markdown fence, no commentary.''';
   /// Test connectivity + credentials. Returns the model count on success,
   /// throws [LlmException] with a helpful message on failure.
   Future<int> testConnection() async {
+    if (RuntimeConfig.isSimulation) {
+      throw LlmException(
+        'External LLM providers are disabled in simulation mode',
+      );
+    }
     final response = await http
         .get(
           Uri.parse(openAiEndpoint(profile.baseUrl, 'models')),

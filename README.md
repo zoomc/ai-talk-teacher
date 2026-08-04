@@ -11,7 +11,8 @@
 - 🎙️ **语音对话** — 语音输入 + TTS 语音输出，自然对话体验
 - 💬 **智能纠正** — AI 在对话中自然纠正错误，不打断交流节奏
 - 📝 **错误跟踪** — 自动记录所有错误，支持间隔重复复习
-- 🎭 **虚拟外教** — Three.js + GLB 3D 角色、振幅/Rhubarb 唇形同步，失败时回退 Flutter 绘制角色
+- 🎭 **虚拟外教** — 分层 2D 上半身教师为默认路径，支持振幅/Rhubarb 唇形同步；3D GLB 作为实验路径并可安全回退
+- 🧪 **可验证 Demo** — `APP_MODE=demo` 使用真实业务链路和本地确定性音频，不需要 API Key，也不访问外部 AI 服务
 - 🔒 **隐私优先** — 用户自带 API Key，SQLite 学习数据默认本地保存；Web 端 Key 仍受浏览器存储与 XSS 风险约束
 
 ## 技术栈
@@ -35,6 +36,10 @@
 - [docs/architecture/data-migration.md](docs/architecture/data-migration.md) — SQLite/IndexedDB schema v10 兼容与迁移
 - [docs/architecture/responsive-design.md](docs/architecture/responsive-design.md) — 手机/桌面/PWA 响应式策略
 - [docs/research/avatar-technology-selection.md](docs/research/avatar-technology-selection.md) — Avatar 技术研究与 Spike
+- [docs/research/2d-avatar-selection.md](docs/research/2d-avatar-selection.md) — 分层 2D 默认方案与许可证边界
+- [docs/architecture/runtime-modes.md](docs/architecture/runtime-modes.md) — Production/Demo/E2E 编译期运行模式
+- [docs/architecture/simulation-runtime.md](docs/architecture/simulation-runtime.md) — 确定性业务夹具与故障矩阵
+- [docs/deployment/aliyun-dual-environment.md](docs/deployment/aliyun-dual-environment.md) — 阿里云双环境原子发布
 - [docs/qa/test-and-performance-report.md](docs/qa/test-and-performance-report.md) — 测试证据与性能边界
 - [docs/qa/independent-review.md](docs/qa/independent-review.md) — 第二遍独立验收记录
 - [docs/qa/known-limitations-and-backlog.md](docs/qa/known-limitations-and-backlog.md) — 已知限制与后续工作

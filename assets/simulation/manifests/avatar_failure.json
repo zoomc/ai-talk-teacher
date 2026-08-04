@@ -1,0 +1,1 @@
+{"id":"avatar_failure","turns":[{"stt":{"text":"Please test the lightweight avatar fallback."},"llm":{"chunks":["The layered 2D tutor remains available when an experimental renderer fails."],"corrections":[]},"avatar":{"failExperimentalRenderer":true,"fallback":"layered_2d"}}]}

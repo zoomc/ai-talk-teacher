@@ -1,0 +1,1 @@
+{"id":"happy_path","turns":[{"stt":{"text":"I went to a small cafe near my office yesterday.","delayMs":0},"llm":{"chunks":["That sounds lovely! ","What did you order at the cafe?"],"chunkDelayMs":120,"emotion":"encouraging","gesture":"gentle_nod","corrections":[]},"tts":{"localAudio":true,"visemes":true}}]}

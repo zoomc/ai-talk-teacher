@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Runtime isolation and layered tutor — 2026-08-04
+
+- Added compile-time `APP_MODE=production|demo|e2e` with isolated database,
+  secure-storage, and TTS cache namespaces. Demo/E2E never call configured AI
+  providers and show a visible fixture/reset banner.
+- Added deterministic Simulation gateways and twelve business fixtures covering
+  streaming, correction/review, empty STT, interruption, retry, TTS failure,
+  avatar fallback, and summary loops. Fixtures emit local PCM WAV and viseme data.
+- Made the layered 2D upper-body tutor the default AvatarStage renderer, with
+  independent body, arms, face, hair, eyes, brows, cheeks, mouth, emotion, and
+  viseme controls. The 3D/GLB path is now an explicit hidden Avatar Lab option.
+- Added CI plus an Aliyun dual-environment atomic release workflow and documented
+  required nginx Basic Auth and rollback evidence. No public deployment is claimed
+  until the configured GitHub/Aliyun checks pass.
+
 ### Focused practice loop — 2026-08-01
 
 - Changed `/` to a focused AI-tutor practice entry point; kept the learning

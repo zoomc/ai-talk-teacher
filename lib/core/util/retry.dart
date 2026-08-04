@@ -109,16 +109,21 @@ Future<T> withRetry<T>(
       final wait = delayIndex < delays.length
           ? delays[delayIndex]
           : delays.last;
-      onProgress?.call(RetryProgress(
-        failedAttempt: attempt,
-        maxAttempts: maxAttempts,
-        nextWait: wait,
-      ));
+      onProgress?.call(
+        RetryProgress(
+          failedAttempt: attempt,
+          maxAttempts: maxAttempts,
+          nextWait: wait,
+        ),
+      );
       await Future<void>.delayed(wait);
     }
   }
   // Unreachable — the loop either returns or throws. Defensive fallback.
-  throw RetryExhausted(lastError ?? StateError('retry loop exited'), maxAttempts);
+  throw RetryExhausted(
+    lastError ?? StateError('retry loop exited'),
+    maxAttempts,
+  );
 }
 
 /// Convenience predicate: retry on transient errors, give up immediately on
@@ -130,7 +135,8 @@ bool isTransientRetryable(Object error) {
   if (raw.contains('401') ||
       raw.contains('403') ||
       raw.contains('unauthorized') ||
-      raw.contains('invalid api key')) {
+      raw.contains('invalid api key') ||
+      raw.contains('not configured')) {
     return false;
   }
   // Mic permission — never retry, needs the user to grant it.

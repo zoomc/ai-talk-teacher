@@ -1,0 +1,1 @@
+{"id":"review_loop","turns":[{"stt":{"text":"Yesterday I go to the park."},"llm":{"chunks":["Let's practice that sentence once more."],"corrections":[{"type":"grammar","original":"Yesterday I go","corrected":"Yesterday I went","explanation":"Use past tense.","importance":90,"skill":"past-tense"}]}}],"review":{"seedFromCorrections":true,"completeAfterRating":true}}

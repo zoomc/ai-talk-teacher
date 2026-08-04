@@ -7,9 +7,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/util/responsive.dart';
 import '../../../../shared/providers.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
-import '../../data/llm_service.dart';
+import '../../data/chat_gateways.dart';
 import '../../data/tts_playback_service.dart';
-import '../../data/tts_service.dart';
 import '../../domain/session_summary.dart';
 import '../../../project_space/domain/project_models.dart';
 import '../../../project_space/presentation/widgets/join_project_sheet.dart';
@@ -56,19 +55,11 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
       _error = null;
     });
     try {
-      final profileRepo = ref.read(profileRepoProvider);
       final chatRepo = ref.read(chatRepoProvider);
-      final llmProfile = await profileRepo.getActiveLlmProfile();
       final messages = await chatRepo.getMessages(widget.sessionId, limit: 60);
-      final corrections =
-          await chatRepo.getCorrectionsForSession(widget.sessionId);
-      if (llmProfile == null) {
-        setState(() {
-          _isLoading = false;
-          _error = _l.t('guest.unavailable');
-        });
-        return;
-      }
+      final corrections = await chatRepo.getCorrectionsForSession(
+        widget.sessionId,
+      );
       if (messages.length < 2) {
         setState(() {
           _isLoading = false;
@@ -76,15 +67,24 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
         });
         return;
       }
-      final summary = await LlmService(llmProfile).generateSummary(
-        sessionId: widget.sessionId,
-        history: messages,
-        corrections: corrections,
-      );
+      final summary = await ref
+          .read(llmGatewayProvider)
+          .generateSummary(
+            sessionId: widget.sessionId,
+            history: messages,
+            corrections: corrections,
+          );
       if (mounted) {
         setState(() {
           _summary = summary;
           _isLoading = false;
+        });
+      }
+    } on GatewayConfigurationException {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = _l.t('guest.unavailable');
         });
       }
     } catch (e) {
@@ -103,16 +103,9 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
     if (sentence == null || sentence.isEmpty || _isPlayingSentence) return;
     setState(() => _isPlayingSentence = true);
     try {
-      final profileRepo = ref.read(profileRepoProvider);
-      final ttsProfile = await profileRepo.getActiveTtsProfile();
-      if (ttsProfile == null) {
-        _snack(_l.t('guest.unavailable'));
-        return;
-      }
-      final tts = TtsService(ttsProfile);
       await _ttsPlaybackService.playCached(
         sentence,
-        () => tts.synthesize(sentence),
+        () => ref.read(ttsGatewayProvider).synthesize(sentence),
       );
     } catch (e) {
       debugPrint('summary playNextSentence failed: $e');
@@ -159,8 +152,10 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: AppSpacing.md),
-            Text(_l.t('summary.generating'),
-                style: Theme.of(context).textTheme.bodyLarge),
+            Text(
+              _l.t('summary.generating'),
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
           ],
         ),
       );
@@ -172,12 +167,13 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline,
-                  size: 56, color: AppColors.error),
+              const Icon(Icons.error_outline, size: 56, color: AppColors.error),
               const SizedBox(height: AppSpacing.md),
-              Text(_error!,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
               const SizedBox(height: AppSpacing.lg),
               ElevatedButton.icon(
                 onPressed: _generate,
@@ -197,12 +193,17 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.sentiment_satisfied_alt,
-                  size: 56, color: AppColors.success),
+              const Icon(
+                Icons.sentiment_satisfied_alt,
+                size: 56,
+                color: AppColors.success,
+              ),
               const SizedBox(height: AppSpacing.md),
-              Text(_l.t('summary.empty_highlight'),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge),
+              Text(
+                _l.t('summary.empty_highlight'),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
               const SizedBox(height: AppSpacing.xl),
               _backHomeButton(context),
             ],
@@ -228,8 +229,10 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
               ),
               const SizedBox(width: AppSpacing.xs),
               Expanded(
-                child: Text(_l.t('summary.title'),
-                    style: Theme.of(context).textTheme.displayLarge),
+                child: Text(
+                  _l.t('summary.title'),
+                  style: Theme.of(context).textTheme.displayLarge,
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.folder_outlined),
@@ -273,20 +276,23 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.trending_up_rounded,
-                              color: AppColors.warning),
+                          const Icon(
+                            Icons.trending_up_rounded,
+                            color: AppColors.warning,
+                          ),
                           const SizedBox(width: AppSpacing.xs),
-                          Text(_l.t('summary.improvements'),
-                              style: const TextStyle(
-                                color: AppColors.warning,
-                                fontWeight: FontWeight.w600,
-                              )),
+                          Text(
+                            _l.t('summary.improvements'),
+                            style: const TextStyle(
+                              color: AppColors.warning,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: AppSpacing.md),
                       for (int i = 0; i < s.improvements.length; i++) ...[
-                        _ImprovementRow(
-                            index: i + 1, text: s.improvements[i]),
+                        _ImprovementRow(index: i + 1, text: s.improvements[i]),
                         if (i < s.improvements.length - 1)
                           const SizedBox(height: AppSpacing.sm),
                       ],
@@ -303,15 +309,19 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.lightbulb_rounded,
-                              color: AppColors.accentPrimary),
+                          const Icon(
+                            Icons.lightbulb_rounded,
+                            color: AppColors.accentPrimary,
+                          ),
                           const SizedBox(width: AppSpacing.xs),
                           Expanded(
-                            child: Text(_l.t('summary.next_sentence'),
-                                style: const TextStyle(
-                                  color: AppColors.accentPrimary,
-                                  fontWeight: FontWeight.w600,
-                                )),
+                            child: Text(
+                              _l.t('summary.next_sentence'),
+                              style: const TextStyle(
+                                color: AppColors.accentPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                           if (s.nextSentence.isNotEmpty)
                             IconButton(
@@ -320,11 +330,13 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
                                       width: 18,
                                       height: 18,
                                       child: CircularProgressIndicator(
-                                          strokeWidth: 2),
+                                        strokeWidth: 2,
+                                      ),
                                     )
                                   : const Icon(Icons.volume_up_rounded),
-                              onPressed:
-                                  _isPlayingSentence ? null : _playNextSentence,
+                              onPressed: _isPlayingSentence
+                                  ? null
+                                  : _playNextSentence,
                               tooltip: _l.t('practice.tap_demo'),
                             ),
                         ],
@@ -357,9 +369,7 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
         onPressed: () => context.go('/'),
         icon: const Icon(Icons.home_outlined),
         label: Text(_l.t('summary.back_home')),
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size.fromHeight(48),
-        ),
+        style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
       ),
     );
   }
@@ -394,11 +404,10 @@ class _SummaryCard extends StatelessWidget {
             children: [
               Icon(icon, color: color),
               const SizedBox(width: AppSpacing.xs),
-              Text(title,
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                  )),
+              Text(
+                title,
+                style: TextStyle(color: color, fontWeight: FontWeight.w600),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),

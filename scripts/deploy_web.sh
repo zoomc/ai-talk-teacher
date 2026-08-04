@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Build, publish and prove a Flutter Web release served at /talk/.
+# Build and publish a manually invoked Production Flutter Web release at /talk/.
+# CI's dual-environment release path is .github/workflows/deploy-aliyun.yml.
 set -euo pipefail
 
 host="${SPEAKFLOW_DEPLOY_HOST:-zoomlab}"
@@ -14,13 +15,12 @@ grep -Fq "flutter_bootstrap.js?v=$version" web/index.html || { echo "index relea
 grep -Fq "defaultValue: '$version'" lib/core/services/version_service.dart || { echo "Dart version missing" >&2; exit 1; }
 
 flutter test
-flutter build web --release --base-href /talk/
+flutter build web --release --dart-define=APP_MODE=production --base-href /talk/
 # Flutter emits a stable main.dart.js filename. Version its request URL so a
 # CDN can never choose an old object for a new application release.
 perl -0pi -e "s/\"mainJsPath\":\"main\\.dart\\.js\"/\"mainJsPath\":\"main.dart.js?v=$version\"/" build/web/flutter_bootstrap.js
 grep -Fq "main.dart.js?v=$version" build/web/flutter_bootstrap.js
 
-git push origin main
 release_dir="/home/admin/ai-talk-teacher.release"
 rsync -az --delete build/web/ "$host:$release_dir/"
 ssh -o BatchMode=yes "$host" "set -e; sudo -n rm -rf '$target.previous'; sudo -n mv '$target' '$target.previous'; sudo -n mv '$release_dir' '$target'; sudo -n chown -R admin:admin '$target'"

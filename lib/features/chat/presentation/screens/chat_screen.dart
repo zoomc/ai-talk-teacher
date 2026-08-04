@@ -10,13 +10,12 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/util/responsive.dart';
 import '../../../../core/util/retry.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/runtime/runtime_mode_banner.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
 import '../../data/chat_repository.dart';
-import '../../data/llm_service.dart';
+import '../../data/chat_gateways.dart';
 import '../../data/llm_streaming.dart';
-import '../../data/stt_service.dart';
-import '../../data/tts_service.dart';
 import '../../data/recording_service.dart';
 import '../../data/tts_playback_service.dart';
 import '../../domain/app_error.dart';
@@ -91,7 +90,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   // E7 — thinking filler loop timer.
   Timer? _thinkingFillerTimer;
-  int _thinkingFillerToken = 0;
 
   String _tutorName = 'AI Tutor';
   String _tutorAvatar = '👩‍🏫';
@@ -156,6 +154,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _checkVoiceConfigured() async {
     try {
+      if (!ref.read(runtimeCapabilitiesProvider).requiresConfiguration) {
+        if (mounted) setState(() => _voiceConfigured = true);
+        return;
+      }
       final profileRepo = ref.read(profileRepoProvider);
       final stt = await profileRepo.getActiveSttProfile();
       final tts = await profileRepo.getActiveTtsProfile();
@@ -203,7 +205,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _playerStateSub?.cancel();
     _amplitudeSub?.cancel();
     _thinkingFillerTimer?.cancel();
-    _thinkingFillerToken++;
     _messageController.dispose();
     _scrollController.dispose();
     _messageFocusNode.dispose();
@@ -344,60 +345,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  // E7 — play a subtle "hmm / let me see" filler on a loop while the AI is
-  // thinking, so the user gets immediate audio feedback that the tutor is
-  // processing (instead of silence during the LLM round-trip).
+  // E7 — use the avatar's thinking animation instead of repeatedly calling
+  // TTS while the LLM is pending. This avoids overlapping speech and extra
+  // provider cost; Demo uses the same local animation path.
   void _startThinkingFiller() {
     _thinkingFillerTimer?.cancel();
-    final fillerToken = ++_thinkingFillerToken;
-    _thinkingFillerTimer = Timer.periodic(const Duration(seconds: 3), (
-      _,
-    ) async {
-      try {
-        if (!mounted ||
-            fillerToken != _thinkingFillerToken ||
-            _characterState != CharacterState.thinking ||
-            !_isLoading) {
-          return;
-        }
-        final profileRepo = ref.read(profileRepoProvider);
-        final ttsProfile = await profileRepo.getActiveTtsProfile();
-        if (!mounted ||
-            fillerToken != _thinkingFillerToken ||
-            _characterState != CharacterState.thinking ||
-            !_isLoading ||
-            ttsProfile == null) {
-          return;
-        }
-        final tts = TtsService(ttsProfile);
-        // E7 — English filler phrases spoken aloud by the TTS so the
-        // learner hears natural English "thinking" sounds. Kept in
-        // English on purpose (the user is learning English); not
-        // localised.
-        const fillers = ['Hmm...', 'Let me think...', 'Well...'];
-        final filler = fillers[DateTime.now().second % fillers.length];
-        final bytes = await _ttsPlaybackService.playCached(
-          filler,
-          () => tts.synthesize(filler),
-        );
-        if (!mounted ||
-            fillerToken != _thinkingFillerToken ||
-            _characterState != CharacterState.thinking ||
-            !_isLoading) {
-          return;
-        }
-        // Phase 3 — best-effort viseme analysis. Fillers are short so the
-        // timeline may arrive after playback finished; the avatar stage
-        // handles that gracefully by ignoring stale timelines.
-        unawaited(_maybeAnalyzeVisemes(text: filler, audioBytes: bytes));
-      } catch (_) {
-        // Best-effort — filler is non-critical.
-      }
-    });
+    _thinkingFillerTimer = null;
   }
 
   void _stopThinkingFiller() {
-    _thinkingFillerToken++;
     _thinkingFillerTimer?.cancel();
     _thinkingFillerTimer = null;
   }
@@ -504,7 +460,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       state: _characterState,
                       tutorName: _tutorName,
                       tutorAvatar: _tutorAvatar,
-                      prefer3d: !lowBandwidth,
+                      // 2D is the default production teacher; 3D remains an
+                      // experimental Avatar Lab renderer.
+                      prefer3d: false,
                       speakingText: _speakingText,
                       emotion: _tutorEmotion,
                       panelWidth: Responsive.sidePanelWidth(context),
@@ -526,7 +484,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       state: _characterState,
                       tutorName: _tutorName,
                       tutorAvatar: _tutorAvatar,
-                      prefer3d: !lowBandwidth,
+                      prefer3d: false,
                       speakingText: _speakingText,
                       emotion: _tutorEmotion,
                       panelHeight: Responsive.characterPanelHeight(context),
@@ -548,6 +506,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final warningColor = isLight ? AppColors.lightWarning : AppColors.warning;
     return Column(
       children: [
+        const RuntimeModeBanner(),
         if (!_voiceConfigured)
           Material(
             color: Colors.transparent,
@@ -664,19 +623,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     try {
       final profileRepo = ref.read(profileRepoProvider);
-      final llmProfile = await profileRepo.getActiveLlmProfile();
-
-      if (llmProfile == null) {
-        if (mounted) {
-          final l = AppLocalizations.of(context);
-          _showConfigNeeded(
-            l.t('chat.config_needed_llm_title'),
-            l.t('chat.config_needed_llm_body'),
-          );
-          _conversation.transition(ConversationState.recoverableError);
-        }
-        return;
-      }
 
       final history = await repo.getMessages(widget.sessionId);
       final session = await repo.getSession(widget.sessionId);
@@ -716,7 +662,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         correctionStrength: correctionStrength,
       );
 
-      final llmService = LlmService(llmProfile);
+      final llmGateway = ref.read(llmGatewayProvider);
 
       // P1 task 3 — retry the streaming call with exponential backoff.
       // NOTE: fullContent/correctionsJson are declared in the outer scope so
@@ -732,7 +678,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           fullContent = '';
           correctionsJson = null;
           if (mounted) setState(() => _streamingText = '');
-          final stream = llmService.streamMessage(
+          final stream = llmGateway.streamMessage(
             history: history,
             systemPrompt: systemPrompt,
           );
@@ -741,11 +687,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             if (chunk.isDelta && mounted) {
               fullContent += chunk.delta;
               setState(() => _streamingText = fullContent);
-              // P1 task 1 — TTS can start early after the first sentence.
-              if (_speakingText == null &&
-                  fullContent.contains(RegExp(r'[.!?]\s'))) {
-                _maybeStartEarlyTts(fullContent);
-              }
             }
             if (chunk.done) {
               correctionsJson = chunk.correctionsJson;
@@ -791,7 +732,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       // Parse + save corrections.
       var savedCorrectionCount = 0;
       if (correctionsJson != null) {
-        final corrections = llmService.extractCorrections(
+        final corrections = llmGateway.extractCorrections(
           '```corrections\n$correctionsJson\n```',
         );
         for (final correction in corrections) {
@@ -872,6 +813,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       // Auto-play TTS for the full AI reply. Uses the marker-stripped
       // `displayContent` so the TTS engine never speaks the marker aloud.
       _autoplayTts(aiResponse.id, displayContent);
+    } on GatewayConfigurationException catch (e) {
+      if (mounted && _conversation.isCurrent(turnToken)) {
+        final service = e.service.toLowerCase();
+        if (service == 'llm') {
+          final l = AppLocalizations.of(context);
+          _showConfigNeeded(
+            l.t('chat.config_needed_llm_title'),
+            l.t('chat.config_needed_llm_body'),
+          );
+        } else {
+          _showAppError(e);
+        }
+        _conversation.transition(ConversationState.recoverableError);
+      }
     } on RetryExhausted catch (e) {
       if (mounted && _conversation.isCurrent(turnToken)) {
         setState(() {
@@ -913,22 +868,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  /// P1 task 1 — start TTS early once the first sentence boundary is
-  /// detected in the stream, to reduce perceived latency.
-  void _maybeStartEarlyTts(String partialContent) {
-    final match = RegExp(r'^(.+?[.!?]\s)').firstMatch(partialContent);
-    if (match == null) return;
-    final firstSentence = match.group(1)!.trim();
-    if (firstSentence.isEmpty) return;
-    // Phase 3 — strip any emotion marker before handing the text to TTS
-    // so the marker is never spoken aloud. The marker is parsed later
-    // from the full reply in _handleSend.
-    final clean = stripEmotionMarkers(firstSentence);
-    if (clean.isEmpty) return;
-    // Fire-and-forget — the full TTS will play after streaming completes.
-    _autoplayTts('__early__', clean);
-  }
-
   Future<void> _handleRecordToggle() async {
     // The primary voice control is also the barge-in control: a user can
     // stop the tutor immediately before starting the next recording.
@@ -966,29 +905,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           return;
         }
 
-        final profileRepo = ref.read(profileRepoProvider);
-        final sttProfile = await profileRepo.getActiveSttProfile();
-        if (!_conversation.isCurrent(transcribeToken)) return;
-
-        if (sttProfile == null) {
-          if (mounted) {
-            final l = AppLocalizations.of(context);
-            _showConfigNeeded(
-              l.t('chat.config_needed_stt_title'),
-              l.t('chat.config_needed_stt_body'),
-            );
-            _setCharacterState(CharacterState.idle);
-          }
-          return;
-        }
-
-        final sttService = SttService(sttProfile);
+        final sttGateway = ref.read(sttGatewayProvider);
 
         // P1 task 3 — retry STT with exponential backoff.
         String transcribedText;
         try {
           transcribedText = await withRetry(
-            () => sttService.transcribe(audioData),
+            () => sttGateway.transcribe(audioData),
             shouldRetry: isTransientRetryable,
             onProgress: (p) {
               if (mounted) {
@@ -1026,6 +949,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             SnackBar(content: Text(l.t('chat.transcribe_empty_hint'))),
           );
           _setCharacterState(CharacterState.idle);
+        }
+      } on GatewayConfigurationException catch (_) {
+        if (mounted && _conversation.isCurrent(transcribeToken)) {
+          final l = AppLocalizations.of(context);
+          _showConfigNeeded(
+            l.t('chat.config_needed_stt_title'),
+            l.t('chat.config_needed_stt_body'),
+          );
+          _setCharacterStateWithSemanticState(
+            CharacterState.idle,
+            semanticState: ConversationState.recoverableError,
+          );
         }
       } catch (e) {
         if (mounted && _conversation.isCurrent(transcribeToken)) {
@@ -1102,11 +1037,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _autoplayTts(String messageId, String text) async {
     final playbackToken = ++_playbackToken;
     try {
-      final profileRepo = ref.read(profileRepoProvider);
-      final ttsProfile = await profileRepo.getActiveTtsProfile();
-      if (!mounted || playbackToken != _playbackToken || ttsProfile == null) {
-        return;
-      }
+      final ttsGateway = ref.read(ttsGatewayProvider);
+      if (!mounted || playbackToken != _playbackToken) return;
 
       _setCharacterState(CharacterState.speaking);
       if (mounted) {
@@ -1116,7 +1048,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         });
       }
 
-      final ttsService = TtsService(ttsProfile);
       _attachPlayerStateListener(messageId, playbackToken);
       _subscribeAmplitude();
       _updateEmotionFromText(text);
@@ -1124,8 +1055,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (!mounted || playbackToken != _playbackToken) return;
       final bytes = await _ttsPlaybackService.playCached(
         text,
-        () => ttsService.synthesize(text),
+        () => ttsGateway.synthesize(text),
       );
+      final simulationVisemes = ttsGateway.visemesFor(text);
+      if (simulationVisemes != null &&
+          mounted &&
+          playbackToken == _playbackToken) {
+        _avatarKey.currentState?.setVisemeTimeline(simulationVisemes);
+      }
       // Phase 3 — analyse the just-played audio with Rhubarb and push the
       // timeline into the avatar stage. Runs in the background; the stage
       // falls back to amplitude-driven motion until the timeline lands.
@@ -1133,6 +1070,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     } catch (e) {
       debugPrint('Auto TTS failed: $e');
       if (mounted && playbackToken == _playbackToken) {
+        if (e.toString().contains('not configured')) {
+          final l = AppLocalizations.of(context);
+          _showConfigNeeded(
+            l.t('chat.config_needed_tts_title'),
+            l.t('chat.config_needed_tts_body'),
+          );
+        }
         setState(() {
           _playingMessageId = null;
           _speakingText = null;
@@ -1163,31 +1107,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       });
       _setCharacterState(CharacterState.speaking);
 
-      final profileRepo = ref.read(profileRepoProvider);
-      final ttsProfile = await profileRepo.getActiveTtsProfile();
-
-      if (ttsProfile == null) {
-        if (mounted && playbackToken == _playbackToken) {
-          final l = AppLocalizations.of(context);
-          _showConfigNeeded(
-            l.t('chat.config_needed_tts_title'),
-            l.t('chat.config_needed_tts_body'),
-          );
-          setState(() {
-            _playingMessageId = null;
-            _speakingText = null;
-          });
-          _setCharacterStateWithSemanticState(
-            CharacterState.idle,
-            semanticState: ConversationState.recoverableError,
-          );
-        }
-        return;
-      }
-
       if (!mounted || playbackToken != _playbackToken) return;
 
-      final ttsService = TtsService(ttsProfile);
+      final ttsGateway = ref.read(ttsGatewayProvider);
 
       _attachPlayerStateListener(messageId, playbackToken);
       _subscribeAmplitude();
@@ -1199,7 +1121,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         final bytes = await withRetry(
           () => _ttsPlaybackService.playCached(
             text,
-            () => ttsService.synthesize(text),
+            () => ttsGateway.synthesize(text),
           ),
           shouldRetry: isTransientRetryable,
           onProgress: (p) {
@@ -1215,6 +1137,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         );
         if (mounted) setState(() => _retryHint = null);
         if (!mounted || playbackToken != _playbackToken) return;
+        final simulationVisemes = ttsGateway.visemesFor(text);
+        if (simulationVisemes != null) {
+          _avatarKey.currentState?.setVisemeTimeline(simulationVisemes);
+        }
         // Phase 3 — Rhubarb viseme analysis runs after playback started so
         // it doesn't delay the retry loop. Best-effort.
         unawaited(_maybeAnalyzeVisemes(text: text, audioBytes: bytes));
@@ -1234,9 +1160,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           _showAppError(e.lastError);
         }
       }
+    } on GatewayConfigurationException catch (_) {
+      if (mounted && playbackToken == _playbackToken) {
+        final l = AppLocalizations.of(context);
+        _showConfigNeeded(
+          l.t('chat.config_needed_tts_title'),
+          l.t('chat.config_needed_tts_body'),
+        );
+        setState(() {
+          _playingMessageId = null;
+          _speakingText = null;
+        });
+        _setCharacterStateWithSemanticState(
+          CharacterState.idle,
+          semanticState: ConversationState.recoverableError,
+        );
+      }
     } catch (e) {
       if (mounted && playbackToken == _playbackToken) {
-        _showAppError(e);
+        if (e.toString().contains('not configured')) {
+          final l = AppLocalizations.of(context);
+          _showConfigNeeded(
+            l.t('chat.config_needed_tts_title'),
+            l.t('chat.config_needed_tts_body'),
+          );
+        } else {
+          _showAppError(e);
+        }
         setState(() {
           _playingMessageId = null;
           _speakingText = null;
@@ -1488,7 +1438,7 @@ class _CharacterPanel extends StatelessWidget {
     this.panelWidth,
     this.panelHeight,
     this.compact = false,
-    this.prefer3d = true,
+    this.prefer3d = false,
     this.emotion = TutorEmotion.neutral,
     this.avatarKey,
     this.amplitudeStream,

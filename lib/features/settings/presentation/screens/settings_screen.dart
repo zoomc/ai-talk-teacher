@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/runtime/runtime_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/install_prompt_service.dart';
@@ -63,10 +64,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to load settings: $e'),
-            action: SnackBarAction(
-              label: 'Retry',
-              onPressed: _loadSettings,
-            ),
+            action: SnackBarAction(label: 'Retry', onPressed: _loadSettings),
           ),
         );
       }
@@ -81,10 +79,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final previous = ref.read(lowBandwidthProvider);
     ref.read(lowBandwidthProvider.notifier).state = value;
     try {
-      await ref.read(profileRepoProvider).setSetting(
-            'low_bandwidth',
-            value ? 'true' : 'false',
-          );
+      await ref
+          .read(profileRepoProvider)
+          .setSetting('low_bandwidth', value ? 'true' : 'false');
     } catch (e) {
       ref.read(lowBandwidthProvider.notifier).state = previous;
       if (mounted) {
@@ -118,11 +115,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// Falls back to the 'encourage' default when no persona is selected.
   String _activePersonaLabel() {
     final style = TeacherPersonaStyle.normalize(
-        _activePersonaId == 'persona_strict'
-            ? TeacherPersonaStyle.strict
-            : _activePersonaId == 'persona_humor'
-                ? TeacherPersonaStyle.humor
-                : TeacherPersonaStyle.encourage);
+      _activePersonaId == 'persona_strict'
+          ? TeacherPersonaStyle.strict
+          : _activePersonaId == 'persona_humor'
+          ? TeacherPersonaStyle.humor
+          : TeacherPersonaStyle.encourage,
+    );
     return _l.t(TeacherPersonaStyle.labelKey(style));
   }
 
@@ -140,7 +138,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: Row(
                 children: [
                   if (n == _dailyScenarioCount)
-                    const Icon(Icons.check, size: 18, color: AppColors.accentSecondary)
+                    const Icon(
+                      Icons.check,
+                      size: 18,
+                      color: AppColors.accentSecondary,
+                    )
                   else
                     const SizedBox(width: 18),
                   const SizedBox(width: AppSpacing.sm),
@@ -153,7 +155,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     if (picked != null && picked != _dailyScenarioCount) {
       setState(() => _dailyScenarioCount = picked);
-      await ref.read(chatRepoProvider).setDailyScenarioRecommendationCount(picked);
+      await ref
+          .read(chatRepoProvider)
+          .setDailyScenarioRecommendationCount(picked);
     }
   }
 
@@ -176,7 +180,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (p.id == _activePersonaId)
-                    const Icon(Icons.check, size: 18, color: AppColors.accentSecondary)
+                    const Icon(
+                      Icons.check,
+                      size: 18,
+                      color: AppColors.accentSecondary,
+                    )
                   else
                     const SizedBox(width: 18),
                   const SizedBox(width: AppSpacing.sm),
@@ -184,8 +192,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(p.name,
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        Text(
+                          p.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                         const SizedBox(height: 2),
                         Text(
                           _l.t(TeacherPersonaStyle.descKey(p.style)),
@@ -231,14 +241,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return Scaffold(
         body: Container(
           decoration: BoxDecoration(
-              color: lowBandwidth
-                  ? (isLight ? AppColors.lightFlatBg : AppColors.darkFlatBg)
-                  : null,
-              gradient: lowBandwidth
-                  ? null
-                  : (isLight
-                      ? AppColors.lightGradientBg
-                      : AppColors.gradientBg)),
+            color: lowBandwidth
+                ? (isLight ? AppColors.lightFlatBg : AppColors.darkFlatBg)
+                : null,
+            gradient: lowBandwidth
+                ? null
+                : (isLight ? AppColors.lightGradientBg : AppColors.gradientBg),
+          ),
           child: const Center(child: CircularProgressIndicator()),
         ),
       );
@@ -267,35 +276,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xl),
 
-                _SettingsSection(
-                  title: _l.t('settings.services'),
-                  children: [
-                    _SettingsTile(
-                      icon: Icons.cloud_outlined,
-                      title: _l.t('settings.service_config'),
-                      subtitle: _l.t('settings.service_config_subtitle'),
-                      onTap: () => context.push('/service-config'),
-                    ),
-                    _SettingsTile(
-                      icon: Icons.surround_sound_outlined,
-                      title: _l.t('settings.voice_health'),
-                      subtitle: _l.t('settings.voice_health_desc'),
-                      onTap: () => context.push('/voice-health'),
-                    ),
-                    _SettingsTile(
-                      icon: Icons.wifi_tethering,
-                      title: _l.t('settings.test_current_profile'),
-                      subtitle: _l.t('settings.test_current_profile_sub'),
-                      onTap: _testCurrentProfile,
-                    ),
-                    _SettingsTile(
-                      icon: Icons.restart_alt,
-                      title: _l.t('settings.rerun_onboarding'),
-                      subtitle: _l.t('settings.rerun_onboarding_sub'),
-                      onTap: () => context.push('/onboarding'),
-                    ),
-                  ],
-                ),
+                if (!RuntimeConfig.isSimulation)
+                  _SettingsSection(
+                    title: _l.t('settings.services'),
+                    children: [
+                      _SettingsTile(
+                        icon: Icons.cloud_outlined,
+                        title: _l.t('settings.service_config'),
+                        subtitle: _l.t('settings.service_config_subtitle'),
+                        onTap: () => context.push('/service-config'),
+                      ),
+                      _SettingsTile(
+                        icon: Icons.surround_sound_outlined,
+                        title: _l.t('settings.voice_health'),
+                        subtitle: _l.t('settings.voice_health_desc'),
+                        onTap: () => context.push('/voice-health'),
+                      ),
+                      _SettingsTile(
+                        icon: Icons.wifi_tethering,
+                        title: _l.t('settings.test_current_profile'),
+                        subtitle: _l.t('settings.test_current_profile_sub'),
+                        onTap: _testCurrentProfile,
+                      ),
+                      _SettingsTile(
+                        icon: Icons.restart_alt,
+                        title: _l.t('settings.rerun_onboarding'),
+                        subtitle: _l.t('settings.rerun_onboarding_sub'),
+                        onTap: () => context.push('/onboarding'),
+                      ),
+                    ],
+                  ),
 
                 const SizedBox(height: AppSpacing.lg),
 
@@ -340,8 +350,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     _SettingsTile(
                       icon: Icons.calendar_today_outlined,
                       title: _l.t('content.daily_count'),
-                      subtitle: _l.tArg('content.daily_count_value',
-                          {'n': '$_dailyScenarioCount'}),
+                      subtitle: _l.tArg('content.daily_count_value', {
+                        'n': '$_dailyScenarioCount',
+                      }),
                       onTap: _showDailyCountDialog,
                     ),
                     _SettingsTile(
@@ -418,8 +429,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     _SettingsTile(
                       icon: Icons.info_outline,
                       title: _l.t('app.name'),
-                      subtitle: _l.tArg('settings.version',
-                          {'version': kAppVersion}),
+                      subtitle: _l.tArg('settings.version', {
+                        'version': kAppVersion,
+                      }),
                       onTap: _showAboutDialog,
                     ),
                   ],
@@ -473,16 +485,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       await TtsPlaybackService().clearCache();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_l.t('settings.cache_cleared'))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_l.t('settings.cache_cleared'))));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_l.tArg('settings.cache_clear_failed',
-                {'error': e.toString()})),
+            content: Text(
+              _l.tArg('settings.cache_clear_failed', {'error': e.toString()}),
+            ),
           ),
         );
       }
@@ -777,8 +790,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ElevatedButton(
               onPressed: () async {
                 await ref.read(profileRepoProvider).setSetting('theme', local);
-                ref.read(themeModeProvider.notifier).state =
-                    _parseThemeMode(local);
+                ref.read(themeModeProvider.notifier).state = _parseThemeMode(
+                  local,
+                );
                 if (mounted) setState(() => _theme = local);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
@@ -854,7 +868,8 @@ class _AppSection extends ConsumerWidget {
     final versionState = ref.watch(versionServiceProvider);
     final installState = ref.watch(installPromptServiceProvider);
 
-    if (installState.platformUnsupported && !versionState.isChecking &&
+    if (installState.platformUnsupported &&
+        !versionState.isChecking &&
         versionState.serverVersion == null) {
       return const SizedBox.shrink();
     }
@@ -866,22 +881,27 @@ class _AppSection extends ConsumerWidget {
         subtitle: versionState.isChecking
             ? l.t('settings.checking')
             : (versionState.newVersionAvailable
-                ? l.tArg('settings.update_available',
-                    {'version': versionState.serverVersion ?? ''})
-                : (versionState.serverVersion != null
-                    ? l.tArg('settings.up_to_date',
-                        {'version': versionState.serverVersion!})
-                    : l.t('settings.tap_to_check'))),
+                  ? l.tArg('settings.update_available', {
+                      'version': versionState.serverVersion ?? '',
+                    })
+                  : (versionState.serverVersion != null
+                        ? l.tArg('settings.up_to_date', {
+                            'version': versionState.serverVersion!,
+                          })
+                        : l.t('settings.tap_to_check'))),
         onTap: () async {
           await ref.read(versionServiceProvider.notifier).checkNow();
           if (!context.mounted) return;
           final s = ref.read(versionServiceProvider);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(s.newVersionAvailable
-                  ? l.tArg('settings.new_version_in_banner',
-                      {'version': s.serverVersion ?? ''})
-                  : l.t('settings.latest_version')),
+              content: Text(
+                s.newVersionAvailable
+                    ? l.tArg('settings.new_version_in_banner', {
+                        'version': s.serverVersion ?? '',
+                      })
+                    : l.t('settings.latest_version'),
+              ),
             ),
           );
         },
@@ -897,9 +917,7 @@ class _AppSection extends ConsumerWidget {
                 .resetDismissal();
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(l.t('settings.install_will_show')),
-              ),
+              SnackBar(content: Text(l.t('settings.install_will_show'))),
             );
           },
         ),
@@ -929,10 +947,10 @@ class _SettingsSection extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: isLight
-                      ? AppColors.lightTextSecondary
-                      : AppColors.textSecondary,
-                ),
+              color: isLight
+                  ? AppColors.lightTextSecondary
+                  : AppColors.textSecondary,
+            ),
           ),
         ),
         GlassCard(child: Column(children: children)),
@@ -965,8 +983,9 @@ class _SettingsTile extends StatelessWidget {
     final subtitleColor = isLight
         ? AppColors.lightTextSecondary
         : AppColors.textSecondary;
-    final chevronColor =
-        isLight ? AppColors.lightTextMuted : AppColors.textMuted;
+    final chevronColor = isLight
+        ? AppColors.lightTextMuted
+        : AppColors.textMuted;
     return ListTile(
       onTap: onTap,
       leading: Icon(
@@ -976,15 +995,11 @@ class _SettingsTile extends StatelessWidget {
       title: Text(title, style: TextStyle(color: titleColor)),
       subtitle: Text(
         subtitle,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: subtitleColor,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: subtitleColor),
       ),
-      trailing: Icon(
-        Icons.chevron_right,
-        color: chevronColor,
-        size: 20,
-      ),
+      trailing: Icon(Icons.chevron_right, color: chevronColor, size: 20),
     );
   }
 }
@@ -1011,8 +1026,9 @@ class _SettingsToggleTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final titleColor =
-        isLight ? AppColors.lightTextPrimary : AppColors.textPrimary;
+    final titleColor = isLight
+        ? AppColors.lightTextPrimary
+        : AppColors.textPrimary;
     final subtitleColor = isLight
         ? AppColors.lightTextSecondary
         : AppColors.textSecondary;
@@ -1025,9 +1041,9 @@ class _SettingsToggleTile extends StatelessWidget {
       title: Text(title, style: TextStyle(color: titleColor)),
       subtitle: Text(
         subtitle,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: subtitleColor,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: subtitleColor),
       ),
     );
   }

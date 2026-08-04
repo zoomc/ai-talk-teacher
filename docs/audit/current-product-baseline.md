@@ -1,7 +1,7 @@
 # 当前产品基线
 
 核查日期：2026-08-04
-代码基线：`main` / `9cb74e2`（与 `origin/main` 一致；本轮中断与生命周期修复尚未提交）
+代码基线：`main` / `origin/main` 已同步；本轮运行模式、模拟网关和 Avatar 改动待提交。
 
 ## 结论摘要
 
@@ -9,10 +9,9 @@
 - 基线的 2 个 `SkillMasteryService` 评分失败已修复：reviewCount 5–7 使用 90 分，reviewCount ≥8 才是 100 分，时间衰减测试也恢复通过。
 - 当前默认路径是 `/` → `PracticeHomePage`：直接展示 AI 老师、当前人物、自由对话主题和开始按钮；原 `HomePage` 仪表盘保留在 `/dashboard`。
 - 当前主导航收敛为 3 项：练习、复习、设置（“我的”由设置及其二级入口承载）；场景/历史/项目保留为二级入口。
-- 当前真实 Avatar 主流程是 `PracticeHomePage/ChatScreen → AvatarStage → VirtualCharacter3D → painter fallback`。`assets/3d/avatar.html` 是 Three.js + GLB iframe/WebView 管线，低带宽或加载失败时不阻塞练习。
+- 当前 Avatar 主流程是 `PracticeHomePage/ChatScreen → AvatarStage → layered 2D painter`；`assets/3d/avatar.html` 的 Three.js + GLB iframe/WebView 管线保留为实验路径，低带宽或加载失败时不阻塞练习。
 - API Key 的 SQLite 字段只写入 `***stored***`，真实值由 `flutter_secure_storage` 保存；Web 端仍属于浏览器端密钥，不能等同于原生 Keychain。
-- 本轮补强了处理态取消、turn token 的持久化边界、filler TTS 生命周期、permission/completed
-  语义和 Three.js Avatar 姿态复位；最终提交以测试报告中的 commit 为准。
+- 本轮在上述状态修复基础上增加 `APP_MODE=production|demo|e2e`、隔离数据库/密钥/TTS 缓存、真实业务模拟网关、分层 2D Avatar、隐藏 Avatar Lab 与双环境发布配置；最终提交和测试报告以推送后的 commit 为准。
 
 ## 路由与页面地图
 
@@ -28,7 +27,7 @@
 
 ### 二级入口
 
-`/onboarding`、`/placement`、`/chat/:sessionId`、`/summary/:sessionId`、`/practice`、`/history`、`/pronunciation/:sessionId`、`/tutor-selection`、`/service-config`、`/profile-form/:type`、`/voice-health`、`/projects`、`/project/:projectId`、`/progress`。
+`/onboarding`、`/placement`、`/chat/:sessionId`、`/summary/:sessionId`、`/practice`、`/history`、`/pronunciation/:sessionId`、`/tutor-selection`、`/service-config`、`/profile-form/:type`、`/voice-health`、`/projects`、`/project/:projectId`、`/progress`；Demo/E2E 另有隐藏 `/lab/avatar`。
 
 ### 主要跳转
 
@@ -70,11 +69,11 @@
 - Flutter + Riverpod + GoRouter；应用启动逻辑在 `lib/main.dart`，路由在 `lib/core/router/app_router.dart`。
 - 对话 UI 在 `ChatScreen`，消息通过 `messagesProvider` 读取 `ChatRepository`；LLM 支持 SSE 流式读取，STT/TTS 走用户配置的 Provider Profile。
 - 音频：`RecordingService` 负责录音；`TtsPlaybackService` 负责缓存、播放、振幅流、停止；`ChatScreen` 监听播放器完成事件并更新 Avatar。
-- Avatar：`AvatarStage` 维护 idle/emotion/viseme 时间线；`VirtualCharacter` 是 Flutter painter fallback；`VirtualCharacter3D` 负责 Web `HtmlElementView` 与移动/桌面 WebView；`assets/3d/avatar.html` 使用 Three.js `GLTFLoader` 加载 Ready Player Me GLB。
+- Avatar：`AvatarStage` 维护 idle/emotion/viseme 时间线；`LayeredTutorAvatar` 是默认的分层 2D 上半身 painter；`VirtualCharacter3D` 负责实验性 Web `HtmlElementView` 与移动/桌面 WebView；`assets/3d/avatar.html` 使用 Three.js `GLTFLoader` 加载 Ready Player Me GLB。
 - 数据：`DatabaseHelper` v10 创建/迁移 SQLite 表；Repository 分布在 chat、profile、home、project_space 等 feature。
 - API Key：profile metadata 在 SQLite；真实 Key 通过 `SecureStorageService` 写入 `flutter_secure_storage`。
 - PWA：`web/manifest.json`、`web/index.html`、`version_check.js`、Flutter 生产构建生成的 `flutter_service_worker.js`。版本检查与 SW waiting 通过 JS bridge 暴露给 Dart。
-- 测试：Dart unit/widget tests；`e2e/` 为 Playwright + Flutter E2E bridge，支持 Chromium/mobile-chrome 和 HTTP/Dart mock。
+- 测试：Dart unit/widget tests；`e2e/` 为 Playwright + Flutter E2E bridge；`APP_MODE=e2e` 走真实业务模拟网关并保留 bridge 兼容能力。
 
 ## 数据兼容表
 

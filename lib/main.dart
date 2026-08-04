@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/i18n/app_localizations.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
+import 'core/runtime/runtime_config.dart';
 import 'core/services/browser_language_bridge_stub.dart'
     if (dart.library.js_interop) 'core/services/browser_language_bridge_web.dart';
 import 'core/e2e/e2e_bridge_stub.dart'
-    if (dart.library.js_interop) 'core/e2e/e2e_bridge_web.dart' as e2e;
+    if (dart.library.js_interop) 'core/e2e/e2e_bridge_web.dart'
+    as e2e;
 import 'features/profile/data/profile_repository.dart';
 import 'shared/providers.dart';
 import 'shared/widgets/app_banners.dart';
@@ -21,7 +23,6 @@ void main() async {
   // active, exposes `window.speakflowE2E.*` JS hooks for Playwright to
   // reset/seed the SQLite database and short-circuit LLM/STT/TTS services.
   await e2e.E2eBridge.maybeInit();
-  e2e.E2eBridge.exposeHooks();
 
   // D1: Global error handling — catch framework and async errors so they don't
   // silently crash the app without any user-visible feedback.
@@ -36,7 +37,9 @@ void main() async {
 
   // Check onboarding status + theme/locale preference before launching.
   final profileRepo = ProfileRepository();
-  final hasCompletedOnboarding = await profileRepo.hasCompletedOnboarding();
+  final hasCompletedOnboarding = RuntimeConfig.isSimulation
+      ? true
+      : await profileRepo.hasCompletedOnboarding();
   final themeStr = await profileRepo.getSetting('theme');
   final initialThemeMode = _parseThemeMode(themeStr);
   final initialLocale = await _resolveInitialLocale(profileRepo);
@@ -62,6 +65,12 @@ void main() async {
       child: SpeakFlowApp(hasCompletedOnboarding: hasCompletedOnboarding),
     ),
   );
+
+  // The bridge is exposed only after the first Flutter frame is scheduled so
+  // Playwright never observes a half-initialized database/UI bridge.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    e2e.E2eBridge.exposeHooks();
+  });
 }
 
 ThemeMode _parseThemeMode(String? s) {

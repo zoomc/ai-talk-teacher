@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Flutter packages
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Unit and widget tests
+        run: flutter test
+
+      - name: Build production web
+        run: flutter build web --release --dart-define=APP_MODE=production --base-href=/talk/
+
+      - name: Build Demo web
+        run: flutter build web --release --dart-define=APP_MODE=demo --base-href=/talk-demo/
+
+  playwright-types:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: e2e
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install E2E dependencies
+        run: npm ci
+
+      - name: Typecheck Playwright suite
+        run: npm run typecheck
+
+  e2e-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Flutter packages
+        run: flutter pub get
+
+      - name: Build E2E simulation web
+        run: flutter build web --release --dart-define=APP_MODE=e2e --dart-define=E2E=true
+
+      - name: Install E2E dependencies
+        working-directory: e2e
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Simulation smoke test
+        working-directory: e2e
+        run: npm run test:simulation

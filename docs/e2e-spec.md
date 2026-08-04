@@ -1,5 +1,13 @@
 # SpeakFlow E2E Test Specification
 
+> **Runtime note (2026-08-04):** The supported `APP_MODE=e2e` build is a
+> profile-free Simulation Runtime. It deliberately does not expose onboarding,
+> provider/key forms, or external provider calls. The executable CI smoke gate
+> is `npm run test:simulation`, covering the simulation banner and hidden Avatar
+> Lab. The older M01/M02/M13–M17 provider/onboarding catalog below is retained
+> as historical UI coverage and needs a separate production-like test build
+> before it can be run against the new E2E mode.
+
 > **Purpose**: This document is the canonical specification for the Playwright
 > E2E suite under `e2e/specs/`. It enumerates every functional module
 > (a "feature point"), its happy path, branch cases, and exception cases.
@@ -17,12 +25,12 @@
 >
 > **Build command**:
 > ```bash
-> flutter build web --release --dart-define=E2E=true
+> flutter build web --release --dart-define=APP_MODE=e2e --dart-define=E2E=true
 > ```
 >
 > **Run command**:
 > ```bash
-> cd e2e && npm test
+> cd e2e && npm run test:simulation
 > ```
 
 ## Table of Contents
@@ -486,7 +494,8 @@ Breathing (3.3s sine), blinking (deterministic ~3.5s), head micro-turn
 1. Chat screen idle (no voice activity) → avatar breathing + occasional blink.
 2. Head micro-turn visible (yaw/pitch/roll never exactly repeat).
 3. Body sway visible (7s period).
-4. AvatarStage renders `assets/images/tutor-hero-v1.png` as fallback (no Live2D).
+4. AvatarStage renders the layered 2D upper-body tutor as fallback (no bundled
+   Live2D model).
 5. Live2D model present under `assets/live2d/tutor/` → native rendering branch.
 
 #### Branch / Edge Cases
@@ -503,11 +512,12 @@ Breathing (3.3s sine), blinking (deterministic ~3.5s), head micro-turn
 16. Custom config (periods, amplitudes) overrides defaults.
 17. AvatarStage composes idle + emotion + viseme every tick.
 18. Idle base → emotion override → viseme mouth override (merge order).
-19. Fallback renderer composes breath-driven sway + head-roll tilt + parameter-driven mouth overlay.
+19. Fallback renderer composes breath-driven sway + head-roll tilt + layered
+    body/face parts with parameter-driven mouth shapes.
 
 #### Exception Cases
 20. Live2D loader fails (missing model) → fallback renderer; no blank screen.
-21. Fallback image 404 → colored gradient + `Icons.face` (never blank).
+21. Missing optional model/asset → layered renderer and status pill (never blank).
 22. Ticker disposed during animation → no exceptions on next tick.
 23. `IdleAnimationController.sample` with negative elapsed → clamps to 0.
 

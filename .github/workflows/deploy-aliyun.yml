@@ -1,0 +1,129 @@
+name: Deploy Aliyun dual environment
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_SHA: ${{ github.sha }}
+  PROD_BASE_HREF: /talk/
+  DEMO_BASE_HREF: /talk-demo/
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Flutter packages
+        run: flutter pub get
+
+      - name: Build production distribution
+        run: flutter build web --release --dart-define=APP_MODE=production --base-href="$PROD_BASE_HREF"
+
+      - name: Package production distribution
+        run: mkdir -p release-payload/prod && cp -a build/web/. release-payload/prod/
+
+      - name: Build Demo distribution
+        run: flutter build web --release --dart-define=APP_MODE=demo --base-href="$DEMO_BASE_HREF"
+
+      - name: Package Demo distribution
+        run: mkdir -p release-payload/demo && cp -a build/web/. release-payload/demo/
+
+      - name: Package immutable release
+        run: tar -czf ai-talk-teacher-${RELEASE_SHA}.tgz release-payload
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-talk-teacher-${{ github.sha }}
+          path: ai-talk-teacher-${{ github.sha }}.tgz
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: aliyun-production
+    steps:
+      - name: Download release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ai-talk-teacher-${{ github.sha }}
+
+      - name: Copy immutable release to Aliyun
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          port: ${{ secrets.ALIYUN_SSH_PORT || 22 }}
+          source: ai-talk-teacher-${{ github.sha }}.tgz
+          target: /tmp
+
+      - name: Atomically activate production and Demo
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+          PROD_TARGET: ${{ secrets.ALIYUN_PROD_TARGET }}
+          DEMO_TARGET: ${{ secrets.ALIYUN_DEMO_TARGET }}
+          RELEASE_ROOT: ${{ secrets.ALIYUN_RELEASE_ROOT }}
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          port: ${{ secrets.ALIYUN_SSH_PORT || 22 }}
+          envs: RELEASE_SHA,PROD_TARGET,DEMO_TARGET,RELEASE_ROOT
+          script_stop: true
+          script: |
+            set -euo pipefail
+            : "${PROD_TARGET:?ALIYUN_PROD_TARGET is required}"
+            : "${DEMO_TARGET:?ALIYUN_DEMO_TARGET is required}"
+            : "${RELEASE_ROOT:?ALIYUN_RELEASE_ROOT is required}"
+            archive="/tmp/ai-talk-teacher-${RELEASE_SHA}.tgz"
+            test -s "$archive"
+            release_dir="$RELEASE_ROOT/$RELEASE_SHA"
+            mkdir -p "$release_dir"
+            tar -xzf "$archive" -C "$release_dir"
+            test -f "$release_dir/release-payload/prod/index.html"
+            test -f "$release_dir/release-payload/demo/index.html"
+            ln -sfn "$release_dir/release-payload/prod" "${PROD_TARGET}.next"
+            mv -Tf "${PROD_TARGET}.next" "$PROD_TARGET"
+            ln -sfn "$release_dir/release-payload/demo" "${DEMO_TARGET}.next"
+            mv -Tf "${DEMO_TARGET}.next" "$DEMO_TARGET"
+            sudo -n nginx -t
+            sudo -n systemctl reload nginx
+            rm -f "$archive"
+
+      - name: Verify nginx and both public entry points
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          PROD_URL: ${{ secrets.ALIYUN_PROD_URL }}
+          DEMO_URL: ${{ secrets.ALIYUN_DEMO_URL }}
+          DEMO_BASIC_AUTH_USER: ${{ secrets.DEMO_BASIC_AUTH_USER }}
+          DEMO_BASIC_AUTH_PASSWORD: ${{ secrets.DEMO_BASIC_AUTH_PASSWORD }}
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          port: ${{ secrets.ALIYUN_SSH_PORT || 22 }}
+          envs: PROD_URL,DEMO_URL,DEMO_BASIC_AUTH_USER,DEMO_BASIC_AUTH_PASSWORD
+          script_stop: true
+          script: |
+            set -euo pipefail
+            sudo -n nginx -t
+            sudo -n nginx -T 2>/dev/null | grep -q 'auth_basic'
+            test -n "$PROD_URL" && curl -fsS "$PROD_URL/" | grep -q 'flutter_bootstrap.js'
+            test -n "$DEMO_URL" && curl -fsS -u "${DEMO_BASIC_AUTH_USER:?}:${DEMO_BASIC_AUTH_PASSWORD:?}" "$DEMO_URL/" | grep -q 'flutter_bootstrap.js'

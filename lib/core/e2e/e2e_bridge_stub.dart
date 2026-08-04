@@ -6,7 +6,9 @@
 // is never exposed to the page.
 
 /// Compile-time E2E flag. False unless `--dart-define=E2E=true` is passed.
-const bool kE2E = bool.fromEnvironment('E2E', defaultValue: false);
+const bool kE2E =
+    String.fromEnvironment('APP_MODE', defaultValue: 'production') == 'e2e' ||
+    bool.fromEnvironment('E2E', defaultValue: false);
 
 /// No-op E2E bridge for non-web platforms.
 ///

@@ -6,17 +6,43 @@ import 'package:path_provider/path_provider.dart';
 // Conditional import: web uses the FFI WebAssembly factory, other
 // platforms use the default sqflite platform channel.
 import 'database_init_stub.dart'
-    if (dart.library.js_interop) 'database_init_web.dart' as db_init;
+    if (dart.library.js_interop) 'database_init_web.dart'
+    as db_init;
+import '../runtime/runtime_config.dart';
 
 class DatabaseHelper {
   static Database? _database;
-  static const String _dbName = 'speakflow.db';
+  static String get _dbName => RuntimeConfig.databaseName;
   static const int _dbVersion = 10;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
+  }
+
+  /// Clear only the isolated Demo/E2E database. Production data is protected
+  /// by the mode guard so a Demo reset can never delete user data.
+  static Future<void> resetIsolatedRuntimeData() async {
+    if (!RuntimeConfig.isSimulation) return;
+    final db = await database;
+    final tables = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' "
+      "AND name NOT LIKE 'sqlite_%'",
+    );
+    await db.execute('PRAGMA foreign_keys = OFF');
+    try {
+      await db.transaction((txn) async {
+        for (final row in tables) {
+          final name = row['name'];
+          if (name is String && name.isNotEmpty) {
+            await txn.delete(name);
+          }
+        }
+      });
+    } finally {
+      await db.execute('PRAGMA foreign_keys = ON');
+    }
   }
 
   static Future<Database> _initDatabase() async {
@@ -456,7 +482,8 @@ class DatabaseHelper {
         'category': 'daily',
         'system_prompt':
             'You are a friendly English tutor. The student is practicing ordering food at a restaurant. You play the role of the waiter/waitress. Correct their errors naturally by restating the correct version in your reply.',
-        'goal': 'Order a meal confidently and handle common waiter interactions',
+        'goal':
+            'Order a meal confidently and handle common waiter interactions',
         'tags': '["daily","food","beginner"]',
       },
       {
@@ -480,7 +507,8 @@ class DatabaseHelper {
         'category': 'career',
         'system_prompt':
             'You are a friendly English tutor. The student is practicing for a job interview. You play the interviewer. Ask common interview questions and correct errors naturally.',
-        'goal': 'Answer common interview questions with structured, confident responses',
+        'goal':
+            'Answer common interview questions with structured, confident responses',
         'tags': '["career","interview","intermediate"]',
       },
       {
@@ -492,7 +520,8 @@ class DatabaseHelper {
         'category': 'career',
         'system_prompt':
             'You are a friendly English tutor. The student is practicing business English in a meeting context. Correct errors naturally while keeping the meeting flowing.',
-        'goal': 'Lead and contribute to a business meeting using professional English',
+        'goal':
+            'Lead and contribute to a business meeting using professional English',
         'tags': '["career","business","advanced"]',
       },
       {
@@ -654,8 +683,11 @@ class DatabaseHelper {
     ];
     final batch = db.batch();
     for (final p in personas) {
-      batch.insert('teacher_persona', p,
-          conflictAlgorithm: ConflictAlgorithm.ignore);
+      batch.insert(
+        'teacher_persona',
+        p,
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
     }
     await batch.commit();
   }
@@ -668,165 +700,207 @@ class DatabaseHelper {
   static Future<void> _insertDefaultScenarioItems(Database db) async {
     final items = <Map<String, dynamic>>[
       // 1. self_intro
-      _item('self_intro', 'Hi, my name is Alex. Nice to meet you.',
-          '你好，我叫 Alex。很高兴认识你。'),
-      _item('self_intro', "I'm from Shanghai, China.",
-          '我来自中国上海。'),
-      _item('self_intro', 'I work as a software engineer at a tech company.',
-          '我在一家科技公司做软件工程师。'),
-      _item('self_intro', 'In my free time, I enjoy hiking and photography.',
-          '业余时间我喜欢徒步和摄影。'),
-      _item('self_intro',
-          "I'm learning English to communicate better with my clients.",
-          '我学英语是为了更好地和客户沟通。'),
-      _item('self_intro', "It's great to meet you all today.",
-          '今天很高兴认识大家。'),
+      _item(
+        'self_intro',
+        'Hi, my name is Alex. Nice to meet you.',
+        '你好，我叫 Alex。很高兴认识你。',
+      ),
+      _item('self_intro', "I'm from Shanghai, China.", '我来自中国上海。'),
+      _item(
+        'self_intro',
+        'I work as a software engineer at a tech company.',
+        '我在一家科技公司做软件工程师。',
+      ),
+      _item(
+        'self_intro',
+        'In my free time, I enjoy hiking and photography.',
+        '业余时间我喜欢徒步和摄影。',
+      ),
+      _item(
+        'self_intro',
+        "I'm learning English to communicate better with my clients.",
+        '我学英语是为了更好地和客户沟通。',
+      ),
+      _item('self_intro', "It's great to meet you all today.", '今天很高兴认识大家。'),
       // 2. order_coffee
-      _item('order_coffee', 'Hi, could I get a large latte, please?',
-          '你好，请给我一杯大杯拿铁。'),
+      _item(
+        'order_coffee',
+        'Hi, could I get a large latte, please?',
+        '你好，请给我一杯大杯拿铁。',
+      ),
       _item('order_coffee', 'What sizes do you have?', '你们有什么杯型？'),
-      _item('order_coffee', 'Can I have it with oat milk?',
-          '可以加燕麦奶吗？'),
+      _item('order_coffee', 'Can I have it with oat milk?', '可以加燕麦奶吗？'),
       _item('order_coffee', "I'd like it iced, please.", '请做成冰的。'),
       _item('order_coffee', 'How much is it?', '多少钱？'),
       _item('order_coffee', 'For here, please.', '堂食，谢谢。'),
-      _item('order_coffee', 'Could I get a receipt, please?',
-          '请给我小票。'),
+      _item('order_coffee', 'Could I get a receipt, please?', '请给我小票。'),
       // 3. book_hotel
-      _item('book_hotel',
-          "Hi, I'd like to book a room for two nights.",
-          '你好，我想订一间房，住两晚。'),
-      _item('book_hotel',
-          'Do you have any rooms available for March 15th?',
-          '3月15日还有房吗？'),
-      _item('book_hotel', "I'd like a double room, please.",
-          '请给我一间双床房。'),
+      _item(
+        'book_hotel',
+        "Hi, I'd like to book a room for two nights.",
+        '你好，我想订一间房，住两晚。',
+      ),
+      _item(
+        'book_hotel',
+        'Do you have any rooms available for March 15th?',
+        '3月15日还有房吗？',
+      ),
+      _item('book_hotel', "I'd like a double room, please.", '请给我一间双床房。'),
       _item('book_hotel', "What's the rate per night?", '每晚多少钱？'),
       _item('book_hotel', 'Does that include breakfast?', '含早餐吗？'),
-      _item('book_hotel', "I'll be checking in around 6 PM.",
-          '我大约下午6点入住。'),
-      _item('book_hotel', 'Can I pay with a credit card?',
-          '可以刷信用卡吗？'),
+      _item('book_hotel', "I'll be checking in around 6 PM.", '我大约下午6点入住。'),
+      _item('book_hotel', 'Can I pay with a credit card?', '可以刷信用卡吗？'),
       // 4. doctor
-      _item('doctor', "I've had a headache for the past two days.",
-          '我头疼两天了。'),
+      _item('doctor', "I've had a headache for the past two days.", '我头疼两天了。'),
       _item('doctor', "I'm feeling a bit dizzy.", '我有点头晕。'),
-      _item('doctor', 'How often should I take this medicine?',
-          '这个药多久吃一次？'),
+      _item('doctor', 'How often should I take this medicine?', '这个药多久吃一次？'),
       _item('doctor', 'Are there any side effects?', '有副作用吗？'),
-      _item('doctor', "I'm also having trouble sleeping.",
-          '我也睡不好。'),
+      _item('doctor', "I'm also having trouble sleeping.", '我也睡不好。'),
       _item('doctor', 'Should I avoid any foods?', '需要忌口吗？'),
-      _item('doctor', 'When should I come back for a follow-up?',
-          '什么时候来复查？'),
+      _item('doctor', 'When should I come back for a follow-up?', '什么时候来复查？'),
       // 5. job_interview
-      _item('job_interview',
-          'I have five years of experience in software development.',
-          '我有五年软件开发经验。'),
-      _item('job_interview',
-          'In my last role, I led a team of four engineers.',
-          '在上一份工作中，我带过四个人。'),
-      _item('job_interview',
-          'My biggest strength is problem-solving.',
-          '我最大的优势是解决问题。'),
-      _item('job_interview',
-          "One area I'm improving is public speaking.",
-          '我正在提升公开演讲能力。'),
-      _item('job_interview',
-          "I'm excited about this role because of your team's focus on AI.",
-          '我对这个岗位很感兴趣，因为你们团队专注 AI。'),
-      _item('job_interview', 'When can I expect to hear back?',
-          '什么时候能有结果？'),
+      _item(
+        'job_interview',
+        'I have five years of experience in software development.',
+        '我有五年软件开发经验。',
+      ),
+      _item(
+        'job_interview',
+        'In my last role, I led a team of four engineers.',
+        '在上一份工作中，我带过四个人。',
+      ),
+      _item(
+        'job_interview',
+        'My biggest strength is problem-solving.',
+        '我最大的优势是解决问题。',
+      ),
+      _item(
+        'job_interview',
+        "One area I'm improving is public speaking.",
+        '我正在提升公开演讲能力。',
+      ),
+      _item(
+        'job_interview',
+        "I'm excited about this role because of your team's focus on AI.",
+        '我对这个岗位很感兴趣，因为你们团队专注 AI。',
+      ),
+      _item('job_interview', 'When can I expect to hear back?', '什么时候能有结果？'),
       // 6. business_meeting
-      _item('business_meeting',
-          "Let's get started. Today's agenda has three items.",
-          '我们开始吧。今天有三个议题。'),
-      _item('business_meeting',
-          'Could you walk us through the Q2 numbers?',
-          '能讲一下 Q2 数据吗？'),
-      _item('business_meeting',
-          "I'd like to raise a point about the timeline.",
-          '我想说一个关于时间线的问题。'),
-      _item('business_meeting', 'Can we circle back to that later?',
-          '这个我们待会儿再讨论好吗？'),
-      _item('business_meeting',
-          "I think we're aligned on the next steps.",
-          '下一步我们应该达成一致了。'),
-      _item('business_meeting',
-          "Let's table this for now and revisit next week.",
-          '这个先放一放，下周再议。'),
-      _item('business_meeting', "Thanks everyone, let's wrap up.",
-          '谢谢大家，今天就到这儿。'),
+      _item(
+        'business_meeting',
+        "Let's get started. Today's agenda has three items.",
+        '我们开始吧。今天有三个议题。',
+      ),
+      _item(
+        'business_meeting',
+        'Could you walk us through the Q2 numbers?',
+        '能讲一下 Q2 数据吗？',
+      ),
+      _item(
+        'business_meeting',
+        "I'd like to raise a point about the timeline.",
+        '我想说一个关于时间线的问题。',
+      ),
+      _item(
+        'business_meeting',
+        'Can we circle back to that later?',
+        '这个我们待会儿再讨论好吗？',
+      ),
+      _item(
+        'business_meeting',
+        "I think we're aligned on the next steps.",
+        '下一步我们应该达成一致了。',
+      ),
+      _item(
+        'business_meeting',
+        "Let's table this for now and revisit next week.",
+        '这个先放一放，下周再议。',
+      ),
+      _item(
+        'business_meeting',
+        "Thanks everyone, let's wrap up.",
+        '谢谢大家，今天就到这儿。',
+      ),
       // 7. phone_call
-      _item('phone_call',
-          'Hi, this is Alex calling. May I speak to Ms. Chen?',
-          '你好，我是 Alex，请找一下陈女士。'),
-      _item('phone_call', 'Could you take a message, please?',
-          '可以帮我留言吗？'),
-      _item('phone_call', "I'm returning your call about the proposal.",
-          '我回你关于提案的电话。'),
-      _item('phone_call',
-          'Could you spell that for me, please?',
-          '可以拼写一下吗？'),
-      _item('phone_call',
-          "I think we have a bad connection. Could you repeat that?",
-          '信号不好，能再说一遍吗？'),
-      _item('phone_call',
-          "I'll send the details by email right after we hang up.",
-          '挂电话后我把详情发邮件。'),
-      _item('phone_call', 'Thanks for your help. Goodbye.',
-          '谢谢帮忙，再见。'),
+      _item(
+        'phone_call',
+        'Hi, this is Alex calling. May I speak to Ms. Chen?',
+        '你好，我是 Alex，请找一下陈女士。',
+      ),
+      _item('phone_call', 'Could you take a message, please?', '可以帮我留言吗？'),
+      _item(
+        'phone_call',
+        "I'm returning your call about the proposal.",
+        '我回你关于提案的电话。',
+      ),
+      _item('phone_call', 'Could you spell that for me, please?', '可以拼写一下吗？'),
+      _item(
+        'phone_call',
+        "I think we have a bad connection. Could you repeat that?",
+        '信号不好，能再说一遍吗？',
+      ),
+      _item(
+        'phone_call',
+        "I'll send the details by email right after we hang up.",
+        '挂电话后我把详情发邮件。',
+      ),
+      _item('phone_call', 'Thanks for your help. Goodbye.', '谢谢帮忙，再见。'),
       // 8. ask_directions
-      _item('ask_directions',
-          'Excuse me, could you tell me how to get to the train station?',
-          '打扰一下，去火车站怎么走？'),
+      _item(
+        'ask_directions',
+        'Excuse me, could you tell me how to get to the train station?',
+        '打扰一下，去火车站怎么走？',
+      ),
       _item('ask_directions', 'Is it far from here?', '离这儿远吗？'),
-      _item('ask_directions', 'How long does it take on foot?',
-          '走路要多久？'),
-      _item('ask_directions', 'Should I take a bus or the subway?',
-          '坐公交还是地铁？'),
-      _item('ask_directions',
-          'Could you repeat that more slowly, please?',
-          '可以慢一点再说一遍吗？'),
-      _item('ask_directions',
-          'Is there a landmark I should look for?',
-          '有什么地标吗？'),
-      _item('ask_directions', 'Thank you, that\'s very helpful.',
-          '谢谢，很有帮助。'),
+      _item('ask_directions', 'How long does it take on foot?', '走路要多久？'),
+      _item('ask_directions', 'Should I take a bus or the subway?', '坐公交还是地铁？'),
+      _item(
+        'ask_directions',
+        'Could you repeat that more slowly, please?',
+        '可以慢一点再说一遍吗？',
+      ),
+      _item(
+        'ask_directions',
+        'Is there a landmark I should look for?',
+        '有什么地标吗？',
+      ),
+      _item('ask_directions', 'Thank you, that\'s very helpful.', '谢谢，很有帮助。'),
       // 9. shopping
-      _item('shopping', "Hi, I'm looking for a winter jacket.",
-          '你好，我想买件冬装外套。'),
-      _item('shopping', 'Do you have this in a size medium?',
-          '有 M 码吗？'),
+      _item('shopping', "Hi, I'm looking for a winter jacket.", '你好，我想买件冬装外套。'),
+      _item('shopping', 'Do you have this in a size medium?', '有 M 码吗？'),
       _item('shopping', 'Can I try it on?', '可以试穿吗？'),
       _item('shopping', 'How much is it?', '多少钱？'),
       _item('shopping', 'Is there a discount on this?', '有折扣吗？'),
       _item('shopping', 'Do you accept returns?', '可以退货吗？'),
-      _item('shopping', "I'll take it. Can I pay by card?",
-          '我要了，可以刷卡吗？'),
+      _item('shopping', "I'll take it. Can I pay by card?", '我要了，可以刷卡吗？'),
       // 10. social_icebreaker
-      _item('social_icebreaker',
-          "Hi, I don't think we've met. I'm Alex.",
-          '你好，我们好像没见过。我是 Alex。'),
-      _item('social_icebreaker', 'Great party, isn\'t it?',
-          '聚会不错，是吧？'),
-      _item('social_icebreaker', 'How do you know the host?',
-          '你怎么认识主人的？'),
-      _item('social_icebreaker', 'What do you do for a living?',
-          '你做什么工作？'),
-      _item('social_icebreaker',
-          "Have you tried the food? It's amazing.",
-          '尝了菜没？很好吃。'),
-      _item('social_icebreaker', 'Where are you from originally?',
-          '你老家是哪儿的？'),
-      _item('social_icebreaker',
-          "It was nice talking to you. See you around!",
-          '聊得挺开心，回头见！'),
+      _item(
+        'social_icebreaker',
+        "Hi, I don't think we've met. I'm Alex.",
+        '你好，我们好像没见过。我是 Alex。',
+      ),
+      _item('social_icebreaker', 'Great party, isn\'t it?', '聚会不错，是吧？'),
+      _item('social_icebreaker', 'How do you know the host?', '你怎么认识主人的？'),
+      _item('social_icebreaker', 'What do you do for a living?', '你做什么工作？'),
+      _item(
+        'social_icebreaker',
+        "Have you tried the food? It's amazing.",
+        '尝了菜没？很好吃。',
+      ),
+      _item('social_icebreaker', 'Where are you from originally?', '你老家是哪儿的？'),
+      _item(
+        'social_icebreaker',
+        "It was nice talking to you. See you around!",
+        '聊得挺开心，回头见！',
+      ),
     ];
     final batch = db.batch();
     for (final item in items) {
-      batch.insert('scenario_items', item,
-          conflictAlgorithm: ConflictAlgorithm.ignore);
+      batch.insert(
+        'scenario_items',
+        item,
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
     }
     await batch.commit();
   }
@@ -974,9 +1048,7 @@ class DatabaseHelper {
       batch.execute(
         'ALTER TABLE corrections ADD COLUMN occurrence_count INTEGER NOT NULL DEFAULT 1',
       );
-      batch.execute(
-        'ALTER TABLE corrections ADD COLUMN last_seen_at TEXT',
-      );
+      batch.execute('ALTER TABLE corrections ADD COLUMN last_seen_at TEXT');
       await batch.commit();
       // Populate last_seen_at for rows that pre-date the column. ALTER TABLE
       // ... ADD COLUMN with NOT NULL is impossible without a default, so we
@@ -1335,7 +1407,8 @@ class DatabaseHelper {
   static Future<void> _backfillScenarioGoalTags(Database db) async {
     const updates = <String, Map<String, String?>>{
       'restaurant': {
-        'goal': 'Order a meal confidently and handle common waiter interactions',
+        'goal':
+            'Order a meal confidently and handle common waiter interactions',
         'tags': '["daily","food","beginner"]',
       },
       'airport': {
@@ -1343,11 +1416,13 @@ class DatabaseHelper {
         'tags': '["travel","beginner"]',
       },
       'job_interview': {
-        'goal': 'Answer common interview questions with structured, confident responses',
+        'goal':
+            'Answer common interview questions with structured, confident responses',
         'tags': '["career","interview","intermediate"]',
       },
       'business_meeting': {
-        'goal': 'Lead and contribute to a business meeting using professional English',
+        'goal':
+            'Lead and contribute to a business meeting using professional English',
         'tags': '["career","business","advanced"]',
       },
       'shopping': {
@@ -1390,7 +1465,11 @@ class DatabaseHelper {
     for (final id in newIds) {
       final row = existing[id];
       if (row == null) continue;
-      batch.insert('scenarios', row, conflictAlgorithm: ConflictAlgorithm.ignore);
+      batch.insert(
+        'scenarios',
+        row,
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
     }
     await batch.commit();
   }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../../../core/e2e/e2e_mock_services.dart';
+import '../../../core/runtime/runtime_config.dart';
 import '../../../core/util/openai_endpoint.dart';
 import '../../profile/domain/profile_models.dart';
 import '../../profile/domain/provider_catalog.dart';
@@ -23,6 +24,11 @@ class TtsService {
     final canned = E2eMockServices.cannedTtsAudioBase64;
     if (canned != null) {
       return Uint8List.fromList(base64Decode(canned));
+    }
+    if (RuntimeConfig.isSimulation) {
+      throw TtsException(
+        'External TTS providers are disabled in simulation mode',
+      );
     }
 
     switch (profile.kind) {
@@ -350,6 +356,11 @@ class TtsService {
 
   /// Test connectivity + credentials. Throws [TtsException] on failure.
   Future<void> testConnection() async {
+    if (RuntimeConfig.isSimulation) {
+      throw TtsException(
+        'External TTS providers are disabled in simulation mode',
+      );
+    }
     switch (profile.kind) {
       case ProviderKind.openaiCompatible:
         // No dedicated "voices" list endpoint; /models is the best probe.
@@ -432,6 +443,7 @@ class TtsService {
   /// Returns a list of `{id, name}` maps. Empty list for providers that don't
   /// support listing (callers fall back to the catalog's static voice list).
   Future<List<VoiceOption>> fetchVoices() async {
+    if (RuntimeConfig.isSimulation) return [];
     switch (profile.kind) {
       case ProviderKind.openaiCompatible:
         return []; // Use catalog static voices.

@@ -1,0 +1,1 @@
+{"id":"no_correction","turns":[{"stt":{"text":"I had a calm morning.","delayMs":0},"llm":{"chunks":["That sentence is clear and natural. ","What helped you have a calm morning?"],"chunkDelayMs":120,"emotion":"happy","gesture":"open_hand","corrections":[]},"tts":{"localAudio":true,"visemes":true}}]}

@@ -1,0 +1,1 @@
+{"id":"slow_stream","turns":[{"stt":{"text":"Can you give me a little advice?"},"llm":{"chunks":["Of course. ","Take a breath, ","speak clearly, ","and trust your ideas."],"chunkDelayMs":550},"tts":{"localAudio":true,"visemes":true}}]}

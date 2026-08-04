@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import '../../../core/runtime/runtime_config.dart';
 
 class TtsPlaybackService {
   final AudioPlayer _player = AudioPlayer();
@@ -77,7 +78,21 @@ class TtsPlaybackService {
     final h = text.hashCode.toUnsigned(32);
     final prefix = text.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
     final prefixPart = prefix.length > 16 ? prefix.substring(0, 16) : prefix;
-    return '${h.toRadixString(16)}_${text.length}_$prefixPart';
+    return '${RuntimeConfig.storageNamespace}_${h.toRadixString(16)}_${text.length}_$prefixPart';
+  }
+
+  String _extensionFor(Uint8List bytes) {
+    final isWav =
+        bytes.length >= 12 &&
+        bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46 &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x41 &&
+        bytes[10] == 0x56 &&
+        bytes[11] == 0x45;
+    return isWav ? 'wav' : 'mp3';
   }
 
   /// Set the playback speed for subsequent plays. Applied immediately to the
@@ -97,7 +112,9 @@ class TtsPlaybackService {
     try {
       final tempDir = await getTemporaryDirectory();
       _fileCounter++;
-      final file = File('${tempDir.path}/tts_$_fileCounter.mp3');
+      final file = File(
+        '${tempDir.path}/tts_$_fileCounter.${_extensionFor(audioBytes)}',
+      );
 
       await file.writeAsBytes(audioBytes);
 
@@ -130,16 +147,24 @@ class TtsPlaybackService {
       } else {
         // 2. Disk cache hit?
         final dir = await getTemporaryDirectory();
-        final cacheDir = Directory('${dir.path}/tts_cache');
+        final cacheDir = Directory(
+          '${dir.path}/tts_cache/${RuntimeConfig.storageNamespace}',
+        );
         if (!cacheDir.existsSync()) {
           cacheDir.createSync(recursive: true);
         }
-        file = File('${cacheDir.path}/$key.mp3');
-        if (file.existsSync()) {
+        final mp3File = File('${cacheDir.path}/$key.mp3');
+        final wavFile = File('${cacheDir.path}/$key.wav');
+        if (mp3File.existsSync()) {
+          file = mp3File;
+          bytes = await file.readAsBytes();
+        } else if (wavFile.existsSync()) {
+          file = wavFile;
           bytes = await file.readAsBytes();
         } else {
           // 3. Cache miss — synthesize and persist.
           bytes = await synthesize();
+          file = File('${cacheDir.path}/$key.${_extensionFor(bytes)}');
           await file.writeAsBytes(bytes);
         }
         _memCache[key] = bytes;
@@ -148,7 +173,9 @@ class TtsPlaybackService {
       // Write bytes to a fresh playback file (just_audio needs a path).
       final tempDir = await getTemporaryDirectory();
       _fileCounter++;
-      final playFile = File('${tempDir.path}/tts_play_$_fileCounter.mp3');
+      final playFile = File(
+        '${tempDir.path}/tts_play_$_fileCounter.${_extensionFor(bytes)}',
+      );
       await playFile.writeAsBytes(bytes);
 
       await player.setFilePath(playFile.path);
@@ -177,7 +204,11 @@ class TtsPlaybackService {
     if (cached != null) return cached;
     try {
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/tts_cache/$key.mp3');
+      final cacheDir =
+          '${dir.path}/tts_cache/${RuntimeConfig.storageNamespace}';
+      final mp3File = File('$cacheDir/$key.mp3');
+      final wavFile = File('$cacheDir/$key.wav');
+      final file = mp3File.existsSync() ? mp3File : wavFile;
       if (file.existsSync()) {
         final bytes = await file.readAsBytes();
         _memCache[key] = bytes;

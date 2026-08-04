@@ -1,4 +1,5 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../runtime/runtime_config.dart';
 
 /// Secure storage for API keys
 /// Uses platform-specific secure storage:
@@ -10,7 +11,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 ///   self-hosted relay when that risk is unacceptable.
 class SecureStorageService {
   static const _storage = FlutterSecureStorage();
-  static const _keyPrefix = 'speakflow_key_';
+  static String get _keyPrefix =>
+      'speakflow_${RuntimeConfig.storageNamespace}_key_';
 
   /// Store an API key
   static Future<void> storeApiKey(String profileId, String apiKey) async {

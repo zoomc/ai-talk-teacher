@@ -5,8 +5,7 @@
 /// under `assets/live2d/<model-name>/` (configurable via [kLive2DAssetDir]
 /// + [Live2DLoader.tryLoad]'s `modelSubdir` parameter), the loader returns
 /// a populated [Live2DModel]; otherwise it returns null and the avatar
-/// stage falls back to the existing placeholder illustration
-/// (`assets/images/tutor-hero-v1.png`).
+/// stage uses its layered 2D upper-body renderer.
 ///
 /// The actual Cubism SDK rendering binding is *not* included here — by
 /// design. Per the project plan in `project.md`:
@@ -105,7 +104,11 @@ class Live2DLoader {
       0,
       manifestAssetPath.lastIndexOf('/'),
     );
-    return parseModel3Json(raw, manifestAssetPath: manifestAssetPath, parentDir: parentDir);
+    return parseModel3Json(
+      raw,
+      manifestAssetPath: manifestAssetPath,
+      parentDir: parentDir,
+    );
   }
 
   /// Pure-Dart `.model3.json` parser. Exposed for unit tests so a fixture
@@ -135,7 +138,8 @@ class Live2DLoader {
     required String manifestAssetPath,
     required String parentDir,
   }) {
-    final Map<String, dynamic> decoded = jsonDecode(raw) as Map<String, dynamic>;
+    final Map<String, dynamic> decoded =
+        jsonDecode(raw) as Map<String, dynamic>;
 
     final version = (decoded['Version'] as num?)?.toInt() ?? 3;
     final name = (decoded['Name'] as String?) ?? 'Live2DModel';
@@ -148,7 +152,9 @@ class Live2DLoader {
     // Moc — required.
     final mocRel = fileRefs['Moc'] as String?;
     if (mocRel == null || mocRel.isEmpty) {
-      throw const FormatException('Live2D model3.json missing FileReferences.Moc');
+      throw const FormatException(
+        'Live2D model3.json missing FileReferences.Moc',
+      );
     }
     final moc3Path = '$parentDir/$mocRel';
 
@@ -189,10 +195,9 @@ class Live2DLoader {
           final n = e['Name'] as String?;
           final f = e['File'] as String?;
           if (n != null && f != null && f.isNotEmpty) {
-            expressions.add(Live2DExpressionRef(
-              name: n,
-              relativePath: '$parentDir/$f',
-            ));
+            expressions.add(
+              Live2DExpressionRef(name: n, relativePath: '$parentDir/$f'),
+            );
           }
         }
       }
@@ -209,11 +214,13 @@ class Live2DLoader {
               final n = m['Name'] as String?;
               final f = m['File'] as String?;
               if (n != null && f != null && f.isNotEmpty) {
-                motions.add(Live2DMotionRef(
-                  name: n,
-                  relativePath: '$parentDir/$f',
-                  trigger: trigger,
-                ));
+                motions.add(
+                  Live2DMotionRef(
+                    name: n,
+                    relativePath: '$parentDir/$f',
+                    trigger: trigger,
+                  ),
+                );
               }
             }
           }

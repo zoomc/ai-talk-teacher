@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../../../core/e2e/e2e_mock_services.dart';
+import '../../../core/runtime/runtime_config.dart';
 import '../../../core/util/openai_endpoint.dart';
 import '../../profile/domain/profile_models.dart';
 import '../../profile/domain/provider_catalog.dart';
@@ -21,6 +22,11 @@ class SttService {
     // E2E mock: short-circuit if mock mode is enabled (no HTTP).
     final canned = E2eMockServices.cannedSttTranscript;
     if (canned != null) return canned;
+    if (RuntimeConfig.isSimulation) {
+      throw SttException(
+        'External STT providers are disabled in simulation mode',
+      );
+    }
 
     switch (profile.kind) {
       case ProviderKind.openaiCompatible:
@@ -205,6 +211,11 @@ class SttService {
   /// lightweight auth endpoint, performs a minimal probe that returns 401 on
   /// bad keys (which we treat as "reachable but unauthorized").
   Future<void> testConnection() async {
+    if (RuntimeConfig.isSimulation) {
+      throw SttException(
+        'External STT providers are disabled in simulation mode',
+      );
+    }
     switch (profile.kind) {
       case ProviderKind.openaiCompatible:
         final response = await http

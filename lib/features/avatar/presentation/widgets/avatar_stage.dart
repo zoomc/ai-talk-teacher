@@ -4,11 +4,11 @@
 /// face the user sees in the chat screen:
 ///
 ///   ┌───────────────────────────────────────────────────────────────────┐
-///   │  Live2D model?  │  Renderer used                                 │
+///   │  Renderer        │  Default behaviour                            │
 ///   ├─────────────────┼────────────────────────────────────────────────┤
-///   │  yes (future)   │  Native Cubism binding (not yet shipped)       │
-///   │  no  (today)    │  Existing `tutor-hero-v1.png` placeholder +   │
-///   │                 │  parameter-driven mouth overlay               │
+///   │  layered 2D      │  asset-free upper-body painter                │
+///   │  optional Live2D │  used only when a legal model is bundled       │
+///   │  experimental 3D │  available from the hidden Avatar Lab         │
 ///   └───────────────────────────────────────────────────────────────────┘
 ///
 /// The widget is *parameter-set driven*: every frame the idle controller,
@@ -19,10 +19,9 @@
 /// native Live2D binding lands, only the `_renderLive2D` branch needs to be
 /// flipped from `throw UnimplementedError()` to "drive the binding".
 ///
-/// Fallback rendering path uses the existing [VirtualCharacter] painter
-/// helpers (`visemeForChar`) so the user-visible mouth motion stays exactly
-/// as good as it was before Phase 3, with the new idle + emotion motion
-/// added on top.
+/// The production-safe path is the layered 2D tutor. It uses the existing
+/// [VirtualCharacter] viseme mapping only to choose a mouth shape when a
+/// timeline is not available; the face and upper body remain separate layers.
 library;
 
 import 'dart:async';
@@ -44,6 +43,7 @@ import '../../../../shared/widgets/virtual_character.dart'
 import '../../../../shared/widgets/virtual_character_3d.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
+import 'layered_tutor_avatar.dart';
 
 /// Phase (4-state) used by the avatar stage. Mirrors [VoicePhase] but kept
 /// as its own enum so the avatar module doesn't pull in [VoicePhase] from
@@ -132,6 +132,7 @@ class AvatarStage extends StatefulWidget {
   final Stream<double>? amplitudeStream;
   final String tutorName;
   final bool prefer3d;
+  final bool? reduceMotion;
 
   /// Optional: fixed-size box the avatar renders inside. When `null`,
   /// the stage fills its parent.
@@ -146,7 +147,8 @@ class AvatarStage extends StatefulWidget {
     this.emotion = TutorEmotion.neutral,
     this.speakingText,
     this.amplitudeStream,
-    this.prefer3d = true,
+    this.prefer3d = false,
+    this.reduceMotion,
     this.panelWidth,
     this.panelHeight,
   });
@@ -164,8 +166,8 @@ class AvatarStageState extends State<AvatarStage>
   late final EmotionController _emotion;
   late final VisemeTimelinePlayer _visemePlayer;
 
-  /// Live2D model descriptor — `null` means "no model shipped yet, use the
-  /// placeholder fallback". Probed once in [initState] via [Live2DLoader].
+  /// Live2D model descriptor — `null` means "use the layered 2D renderer".
+  /// Probed once in [initState] via [Live2DLoader].
   Live2DModel? _live2dModel;
 
   /// Latest amplitude sample (0..1) from the TTS playback service, or `0`
@@ -330,7 +332,7 @@ class AvatarStageState extends State<AvatarStage>
         setState(() => _live2dModel = model);
       }
     } catch (_) {
-      // Any probe failure → stay on the placeholder fallback. The avatar
+      // Any probe failure → stay on the layered 2D fallback. The avatar
       // must never block the chat from rendering.
     }
   }
@@ -418,19 +420,11 @@ class AvatarStageState extends State<AvatarStage>
   }
 
   Widget _renderFallback() {
-    // The placeholder renderer composes the same image the chat screen
-    // was already using, plus a parameter-driven mouth overlay. The
-    // overlay reads `mouthOpenY` and `mouthForm` from `_merged` so the
-    // Rhubarb timeline / amplitude stream / emotion all flow into the
-    // same shape.
+    // The default renderer is a layered vector upper-body tutor. Each face
+    // and body part receives the merged idle/emotion/viseme parameters.
     final isSpeaking = widget.phase == AvatarPhase.speaking;
     final text = widget.speakingText ?? '';
     final hasSpeech = isSpeaking && text.isNotEmpty;
-
-    final mouthOpenY =
-        _merged[Live2DParamId.mouthOpenY] ??
-        (isSpeaking ? _latestAmplitude : 0.0);
-    final mouthForm = _merged[Live2DParamId.mouthForm] ?? 0.0;
 
     // Determine which painter viseme to draw — Rhubarb's frame carries a
     // painter viseme name when available, otherwise fall back to the
@@ -458,41 +452,22 @@ class AvatarStageState extends State<AvatarStage>
       painterViseme = Viseme.closed;
     }
 
-    // Subtle vertical sway driven by the breath parameter — keeps the
-    // placeholder image feeling alive even before a Live2D model ships.
-    final breath = _merged[Live2DParamId.breath] ?? 0.5;
-    final swayOffset = (breath - 0.5) * 6.0; // ±3px
-
-    // Head roll tilts the whole portrait a touch.
-    final rollDeg = (_merged[Live2DParamId.angleZ] ?? 0.0) * 8.0;
-
     return Stack(
       fit: StackFit.expand,
       children: [
-        Transform.translate(
-          offset: Offset(0, swayOffset - 3),
-          child: Transform.rotate(
-            angle: rollDeg * 3.14159265 / 180.0,
-            child: Transform.scale(
-              scale: isSpeaking ? 1.012 : 1.0,
-              child: Image.asset(
-                'assets/images/tutor-hero-v1.png',
-                fit: BoxFit.cover,
-                alignment: const Alignment(0, -0.22),
-                errorBuilder: (_, _, _) => _renderImageFallback(),
-              ),
-            ),
-          ),
+        LayeredTutorAvatar(
+          parameters: _merged,
+          state: switch (widget.phase) {
+            AvatarPhase.idle => LayeredTutorState.idle,
+            AvatarPhase.listening => LayeredTutorState.listening,
+            AvatarPhase.thinking => LayeredTutorState.thinking,
+            AvatarPhase.speaking => LayeredTutorState.speaking,
+          },
+          emotion: widget.emotion,
+          viseme: painterViseme,
+          reduceMotion:
+              widget.reduceMotion ?? MediaQuery.disableAnimationsOf(context),
         ),
-        if (hasSpeech)
-          Align(
-            alignment: const Alignment(0.10, 0.10),
-            child: _ParameterisedMouthOverlay(
-              viseme: painterViseme,
-              openAmount: mouthOpenY,
-              smileAmount: mouthForm,
-            ),
-          ),
         Positioned(
           left: AppSpacing.md,
           bottom: AppSpacing.md,
@@ -502,32 +477,6 @@ class AvatarStageState extends State<AvatarStage>
           ),
         ),
       ],
-    );
-  }
-
-  /// Plain coloured panel rendered when the placeholder image asset is
-  /// missing (e.g. during tests). Keeps the avatar always visible.
-  Widget _renderImageFallback() {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: isLight
-              ? [AppColors.lightBgSecondary, AppColors.lightBgPrimary]
-              : [AppColors.bgSecondary, AppColors.bgPrimary],
-        ),
-      ),
-      child: Center(
-        child: Icon(
-          Icons.face,
-          size: 96,
-          color: isLight
-              ? AppColors.lightAccentPrimary
-              : AppColors.accentPrimaryLight,
-        ),
-      ),
     );
   }
 
@@ -554,64 +503,6 @@ class AvatarStageState extends State<AvatarStage>
       case AvatarPhase.speaking:
         return 'Speaking';
     }
-  }
-}
-
-/// Mouth overlay that takes a viseme + continuous open/smile amounts. When
-/// the viseme is from the legacy `VirtualCharacter.visemeForChar` table,
-/// the discrete viseme defines the basic shape; the continuous amounts
-/// modulate the size so amplitude / viseme-timeline data still produces
-/// smooth motion on top of the discrete viseme.
-class _ParameterisedMouthOverlay extends StatelessWidget {
-  final Viseme viseme;
-  final double openAmount;
-  final double smileAmount;
-
-  const _ParameterisedMouthOverlay({
-    required this.viseme,
-    required this.openAmount,
-    required this.smileAmount,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final rounded = {
-      Viseme.roundedSmall,
-      Viseme.roundedLarge,
-      Viseme.pucker,
-    }.contains(viseme);
-    final wide = {
-      Viseme.wideOpen,
-      Viseme.wide,
-      Viseme.wideFlat,
-      Viseme.smileOpen,
-    }.contains(viseme);
-    final open = {
-      Viseme.mediumOpen,
-      Viseme.wideOpen,
-      Viseme.roundedLarge,
-      Viseme.oval,
-      Viseme.openTeeth,
-    }.contains(viseme);
-
-    // Continuous modulation: amplitude widens/heightens the mouth beyond
-    // the viseme's base shape.
-    final openBoost = (openAmount * 6.0).clamp(0.0, 8.0);
-    final smileBoost = (smileAmount * 4.0).clamp(-2.0, 6.0);
-
-    final width = (rounded ? 18.0 : (wide ? 36.0 : 28.0)) + smileBoost;
-    final height = (open ? 12.0 : 6.0) + openBoost;
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: const Color(0xFF9B3F58).withValues(alpha: open ? 0.75 : 0.5),
-        borderRadius: BorderRadius.circular(AppRadius.full),
-        border: Border.all(
-          color: const Color(0xFFE997AD).withValues(alpha: 0.45),
-        ),
-      ),
-    );
   }
 }
 

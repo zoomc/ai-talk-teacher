@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/util/responsive.dart';
+import '../../core/runtime/runtime_config.dart';
 import '../../features/home/presentation/screens/home_page.dart';
 import '../../features/home/presentation/screens/practice_home_page.dart';
 import '../../features/home/presentation/screens/pronunciation_detail_screen.dart';
@@ -26,6 +27,7 @@ import '../../features/onboarding/presentation/screens/placement_screen.dart';
 import '../../features/profile/data/profile_repository.dart';
 import '../../features/project_space/presentation/screens/projects_screen.dart';
 import '../../features/project_space/presentation/screens/project_detail_screen.dart';
+import '../../features/avatar/presentation/screens/avatar_lab_screen.dart';
 
 class AppRouter {
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -38,6 +40,10 @@ class AppRouter {
     redirect: (context, state) async {
       final isOnboarding = state.matchedLocation == '/onboarding';
       final isPlacement = state.matchedLocation == '/placement';
+      final isProviderConfig =
+          state.matchedLocation == '/service-config' ||
+          state.matchedLocation == '/voice-health' ||
+          state.matchedLocation.startsWith('/profile-form/');
       // Phase-1 P0 #1 — the guest trial launches straight into /chat/:id
       // before onboarding is complete, so the chat path must bypass the
       // onboarding/placement gates. The chat screen itself enforces the
@@ -58,15 +64,25 @@ class AppRouter {
         // the user (no provider configured yet, etc.).
       }
 
+      // Simulation builds are deliberately provider-free. Keep profile/key
+      // forms out of Demo/E2E even when a user deep-links to them.
+      if (RuntimeConfig.isSimulation &&
+          (isOnboarding || isPlacement || isProviderConfig)) {
+        return '/';
+      }
+
       // Check if onboarding is completed
       final hasCompletedOnboarding = await _profileRepo
           .hasCompletedOnboarding();
 
-      if (!hasCompletedOnboarding && !isOnboarding && !isGuestChat) {
+      if (!RuntimeConfig.isSimulation &&
+          !hasCompletedOnboarding &&
+          !isOnboarding &&
+          !isGuestChat) {
         return '/onboarding';
       }
 
-      if (hasCompletedOnboarding) {
+      if (!RuntimeConfig.isSimulation && hasCompletedOnboarding) {
         // Check if placement is completed
         final hasCompletedPlacement = await _profileRepo
             .hasCompletedPlacement();
@@ -131,6 +147,12 @@ class AppRouter {
           ProjectDetailScreen(projectId: state.pathParameters['projectId']!),
         ),
       ),
+      if (RuntimeConfig.isSimulation)
+        GoRoute(
+          path: '/lab/avatar',
+          pageBuilder: (context, state) =>
+              _slideTransitionPage(context, const AvatarLabScreen()),
+        ),
       GoRoute(
         path: '/chat/:sessionId',
         pageBuilder: (context, state) => _slideTransitionPage(
