@@ -123,10 +123,23 @@ export async function sendChatMessage(page: Page, text: string): Promise<void> {
     await input.click({ timeout: 2000 }).catch(() => {});
     await page.keyboard.type(text, { delay: 10 });
   }
+  // On narrow Flutter semantics views, `fill()` can update the hidden DOM
+  // input without dispatching the framework's text-editing event. Verify the
+  // submit control became active and replay the edit through keyboard events
+  // when it did not.
+  const send = page.getByRole('button', { name: /send|发送/i }).first();
+  if (!(await send.isEnabled().catch(() => false))) {
+    await input.click({ timeout: 2000 }).catch(() => {});
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.type(text, { delay: 10 });
+    await expect.poll(async () => send.isEnabled().catch(() => false), {
+      timeout: 5000,
+      intervals: [250, 500, 1000],
+    }).toBe(true);
+  }
   // Clicking the semantic Send button is more deterministic for Flutter Web
   // than relying on a platform-specific Enter/onSubmitted event. Keep Enter
   // as a fallback for older semantics trees.
-  const send = page.getByRole('button', { name: /send|发送/i }).first();
   try {
     await expect.poll(async () => send.isEnabled().catch(() => false), {
       timeout: 5000,

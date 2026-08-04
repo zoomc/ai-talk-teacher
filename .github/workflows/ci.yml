@@ -126,25 +126,7 @@ jobs:
 
       - name: Run Simulation smoke test
         working-directory: e2e
-        id: simulation
-        continue-on-error: true
         run: npm run test:simulation:responsive
-
-      - name: Report failed simulation tests
-        if: steps.simulation.outcome == 'failure'
-        run: |
-          names="$(find e2e/test-results -type f \
-            \( -name 'test-failed-*.png' -o -name 'error-context.md' -o -name 'trace.zip' \) \
-            -print 2>/dev/null | tr '\n' ';' | sed 's/%/%25/g; s/\r/%0D/g')"
-          if [ -n "$names" ]; then
-            echo "::error title=Simulation test failure artifacts::$names"
-          else
-            echo '::error title=Simulation test failures::failure artifacts were not enumerated'
-          fi
-
-      - name: Fail if simulation smoke failed
-        if: steps.simulation.outcome == 'failure'
-        run: exit 1
 
       - name: Upload Playwright artifacts
         if: always()

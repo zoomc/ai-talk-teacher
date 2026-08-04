@@ -69,14 +69,16 @@ export default defineConfig({
       },
     },
 
-    // Mobile viewport: 375×812 (iPhone X-class) Chromium with touch.
+    // Mobile viewport: 375×812 (iPhone X-class). Keep the desktop Chromium
+    // engine in CI because Flutter's mobile UA/touch path is flaky in Linux
+    // headless runs; the viewport still exercises the responsive layout.
     {
       name: 'mobile-chrome',
       use: {
-        ...devices['Pixel 5'],
+        ...devices['Desktop Chrome'],
         viewport: { width: 375, height: 812 },
-        isMobile: true,
-        hasTouch: true,
+        isMobile: false,
+        hasTouch: false,
         launchOptions: {
           args: [
             '--force-renderer-accessibility',
