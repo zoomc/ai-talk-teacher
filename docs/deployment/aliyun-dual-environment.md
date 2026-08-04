@@ -1,44 +1,29 @@
-# Aliyun dual-environment deployment
+# Aliyun production Web deployment
 
-`.github/workflows/deploy-aliyun.yml` builds two immutable Flutter Web artifacts
-from the same commit:
+`.github/workflows/deploy-aliyun.yml` is the only GitHub Actions deployment
+entrypoint. It builds one Flutter Web artifact from the selected commit and
+publishes it to `/talk/` on the Aliyun host.
 
-- Production: `APP_MODE=production`, base path `/talk/`.
-- Demo: `APP_MODE=demo`, base path from the repository variable `DEMO_PATH`,
-  protected by nginx Basic Auth. The workflow normalizes the value as a single
-  path segment; it does not silently choose a public default.
-
-The workflow uploads one tarball, extracts it under a commit-specific release
-directory, checks both `index.html` files, then atomically swaps the two nginx
-document-root symlinks and reloads nginx only after `nginx -t` succeeds. It keeps
-old release directories and `previous-production` / `previous-demo` symlinks so
-rollback does not require rebuilding. A manual run accepts a commit, tag, or
-branch through the `ref` input.
-
-Each artifact contains a stamped `version.json` with the resolved commit SHA and
-runtime mode. Health checks verify the production entry, version, deep-link
-fallback, Demo's unauthenticated `401`, authenticated entry/version, `noindex`
-header, nginx config, and reload. Any failure after activation runs the rollback
-step; this workflow does not claim success when SSH or server configuration is
-missing.
-
-Required repository variable:
-
-- `DEMO_PATH` — the controlled Demo path segment, for example `talk-demo`.
+The workflow uploads a stamped tarball, extracts it under a commit-specific
+release directory, switches `/opt/ai-talk-teacher` to the new Web root, runs
+`nginx -t`, reloads nginx, and verifies the public entry point, deep-link
+fallback, and `version.json`. A failed post-activation check restores the
+previous production root. Demo and E2E builds remain CI/local test concerns and
+are not deployed by this workflow.
 
 ## Required GitHub environment secrets
 
-`ALIYUN_HOST`, `ALIYUN_USER`, `ALIYUN_SSH_KEY`, optional `ALIYUN_SSH_PORT`,
-`ALIYUN_RELEASE_ROOT`, `ALIYUN_PROD_TARGET`, `ALIYUN_DEMO_TARGET`,
-`ALIYUN_PROD_URL`, `ALIYUN_DEMO_URL`, `DEMO_BASIC_AUTH_USER`, and
-`DEMO_BASIC_AUTH_PASSWORD`.
+Configure these secrets in the `aliyun-production` environment:
 
-`ALIYUN_PROD_TARGET` and `ALIYUN_DEMO_TARGET` are symlink paths used as nginx
-roots. The server must already have nginx locations for `/talk/` and
-`/talk-demo/`, SPA fallback for each path, and `auth_basic` on the Demo location.
-The workflow validates the nginx configuration and public entry points but does
-not create credentials or weaken server access controls.
+`ALIYUN_HOST`, `ALIYUN_USER`, and `ALIYUN_SSH_KEY`. `ALIYUN_SSH_PORT` is
+optional and defaults to `22`.
 
-The legacy `scripts/deploy_web.sh` remains a manual production helper for the
-existing `/talk/` installation. It must not be used as proof of CI deployment;
-the GitHub workflow is the dual-environment release path.
+The current server layout used by the workflow is:
+
+- Public URL: `https://zoomlab.top/talk/`
+- Nginx Web root: `/opt/ai-talk-teacher`
+- Immutable release root: `/opt/ai-talk-teacher-releases`
+
+The workflow must not be considered successful unless the remote nginx test and
+public version/deep-link checks pass. Local builds or a manual rsync are not
+deployment evidence.

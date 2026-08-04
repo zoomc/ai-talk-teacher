@@ -34,23 +34,21 @@ Ready Player Me GLB + Three.js 仅在隐藏 Avatar Lab 中用于对比；后续�
 ## 发布（阿里云）
 
 - 线上地址：`https://zoomlab.top/talk/`（实际可用性以部署工作流健康检查为准）。
-- nginx：生产和受 Basic Auth 保护的 Demo 使用两个独立 location 与文档根，
-  各自启用 SPA 回退。
+- nginx：生产 Web 位于 `/talk/`，使用 SPA 回退。
 - 标准发布入口：`.github/workflows/deploy-aliyun.yml`。它从同一 commit 构建
-  Production 与 Demo，写入 commit/mode 版本元数据，原子切换 symlink，执行
-  `nginx -t`、入口/深链接/version/Basic Auth 校验，失败时恢复上一版 symlink。
-  Demo 路径由 GitHub repository variable `DEMO_PATH` 提供，不能用查询参数冒充
-  隔离环境。
+  Production Web，写入 commit/mode 版本元数据，原子切换生产 symlink，执行
+  `nginx -t`、入口/深链接/version 健康校验，失败时恢复上一版 symlink。
+- Demo/E2E 只用于本地和 CI 验证，不作为线上部署目标。
 
 部署不需要重启 nginx，因为仅更新静态资源。发布前由 workflow stamp
 `build/web/version.json`；不能把本地构建或手工 rsync 当作线上发布证据。
 
 ### 必经发布校验
 
-CI 先使用 `--pwa-strategy=offline-first` 构建 `/talk/` 与 Demo，使用
-`--pwa-strategy=none` 构建根路径 E2E，随后检查 base-href、worker、版本元数据、
-运行模式隔离和敏感代码标记。部署工作流再在服务器上检查公网入口；在缺少
-`DEMO_PATH` 或 Aliyun environment secrets 时必须报告阻塞，不得伪造健康。
+CI 使用 `--pwa-strategy=offline-first` 构建生产 Web `/talk/`，并使用独立的
+E2E 构建检查运行时隔离、base-href、worker、版本元数据和敏感代码标记。部署
+工作流再在服务器上检查生产公网入口；在缺少 Aliyun environment secrets 时
+必须报告阻塞，不得伪造健康。
 
 ## E2E 测试（Playwright + Flutter E2E Bridge）
 
