@@ -105,9 +105,25 @@ jobs:
         run: flutter pub get
 
       - name: Build E2E simulation web
-        run: flutter build web --release --no-wasm-dry-run \
-          --dart-define=APP_MODE=e2e \
-          --dart-define=E2E=true
+        id: build-e2e
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          flutter build web --release --no-wasm-dry-run \
+            --dart-define=APP_MODE=e2e \
+            --dart-define=E2E=true 2>&1 | tee e2e-build.log
+
+      - name: Upload E2E build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-build-log-${{ github.sha }}
+          path: e2e-build.log
+          if-no-files-found: ignore
+
+      - name: Fail if E2E build failed
+        if: steps.build-e2e.outcome == 'failure'
+        run: exit 1
 
       - name: Stamp E2E artifact
         run: bash scripts/stamp_web_release.sh build/web "$GITHUB_SHA" e2e
