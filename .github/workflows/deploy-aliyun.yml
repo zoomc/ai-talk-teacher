@@ -151,7 +151,10 @@ jobs:
             : "${DEMO_BASIC_AUTH_USER:?demo auth username is required}"
             : "${DEMO_BASIC_AUTH_PASSWORD:?demo auth password is required}"
             case "$DEMO_BASIC_AUTH_USER" in
-              *:*) echo 'Demo auth username must not contain a colon' >&2; exit 1 ;;
+              *:*)
+                echo 'Demo auth username must not contain a colon' >&2
+                exit 1
+                ;;
             esac
             auth_tmp="$(mktemp /tmp/speakflow-demo-auth.XXXXXX)"
             trap 'rm -f "$auth_tmp"' EXIT
