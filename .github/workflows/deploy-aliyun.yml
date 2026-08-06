@@ -140,7 +140,6 @@ jobs:
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: ${{ secrets.ALIYUN_SSH_PORT || 22 }}
           envs: RELEASE_SHA,PROD_TARGET,DEMO_TARGET,RELEASE_ROOT,DEMO_AUTH_FILE,DEMO_BASIC_AUTH_USER,DEMO_BASIC_AUTH_PASSWORD
-          script_stop: true
           script: |
             set -euo pipefail
             : "${RELEASE_SHA:?release SHA is required}"
@@ -212,7 +211,6 @@ jobs:
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: ${{ secrets.ALIYUN_SSH_PORT || 22 }}
           envs: RELEASE_SHA,PROD_URL,DEMO_URL,DEMO_BASIC_AUTH_USER,DEMO_BASIC_AUTH_PASSWORD
-          script_stop: true
           script: |
             set -euo pipefail
             curl -fsS "$PROD_URL/" | grep -q 'flutter_bootstrap.js'
@@ -237,7 +235,6 @@ jobs:
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: ${{ secrets.ALIYUN_SSH_PORT || 22 }}
           envs: RELEASE_SHA,PROD_TARGET,DEMO_TARGET,RELEASE_ROOT
-          script_stop: true
           script: |
             set -euo pipefail
             : "${RELEASE_SHA:?release SHA is required}"
