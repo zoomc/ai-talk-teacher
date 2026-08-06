@@ -38,6 +38,10 @@ class ChatMessageList extends ConsumerWidget {
   /// (VA-001, VA-211).
   final VoidCallback? onStartTap;
 
+  /// Callback for quick-start suggestions. The selected prompt is sent as a
+  /// real user turn instead of merely focusing an invisible text field.
+  final Future<void> Function(String text)? onSuggestionTap;
+
   const ChatMessageList({
     super.key,
     required this.sessionId,
@@ -50,6 +54,7 @@ class ChatMessageList extends ConsumerWidget {
     this.ttsFailedMessageIds = const {},
     this.onRetryTts,
     this.onStartTap,
+    this.onSuggestionTap,
   });
 
   @override
@@ -62,7 +67,11 @@ class ChatMessageList extends ConsumerWidget {
     return messagesAsync.when(
       data: (messages) {
         if (messages.isEmpty && !isAiThinking && streamingText == null) {
-          return _EmptyConversation(l: l, onStartTap: onStartTap);
+          return _EmptyConversation(
+            l: l,
+            onStartTap: onStartTap,
+            onSuggestionTap: onSuggestionTap,
+          );
         }
 
         final correctionsByMsg = correctionsAsync.valueOrNull ?? const {};
@@ -108,9 +117,9 @@ class ChatMessageList extends ConsumerWidget {
                     child: Text(
                       l.t('chat.thinking'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textMuted,
-                            fontSize: 12,
-                          ),
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -119,12 +128,11 @@ class ChatMessageList extends ConsumerWidget {
             final msg = messages[index];
             final isUser = msg.role == MessageRole.user;
             final phonemeSet = phonemeByMsg[msg.id];
-            final prevIsUser = index > 0 && messages[index - 1].role == MessageRole.user;
+            final prevIsUser =
+                index > 0 && messages[index - 1].role == MessageRole.user;
             final gapTop = index == 0
                 ? 0.0
-                : (prevIsUser == isUser
-                    ? AppSpacing.xxs
-                    : AppSpacing.md);
+                : (prevIsUser == isUser ? AppSpacing.xxs : AppSpacing.md);
             return Padding(
               padding: EdgeInsets.only(top: gapTop),
               child: ChatBubble(
@@ -148,10 +156,7 @@ class ChatMessageList extends ConsumerWidget {
         );
       },
       loading: () => const _LoadingConversation(),
-      error: (e, _) => _ErrorConversation(
-        l: l,
-        error: e.toString(),
-      ),
+      error: (e, _) => _ErrorConversation(l: l, error: e.toString()),
     );
   }
 }
@@ -160,13 +165,20 @@ class ChatMessageList extends ConsumerWidget {
 class _EmptyConversation extends StatelessWidget {
   final AppLocalizations l;
   final VoidCallback? onStartTap;
+  final Future<void> Function(String text)? onSuggestionTap;
 
-  const _EmptyConversation({required this.l, this.onStartTap});
+  const _EmptyConversation({
+    required this.l,
+    this.onStartTap,
+    this.onSuggestionTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final iconColor = isLight ? AppColors.lightAccentPrimary : AppColors.accentPrimary;
+    final iconColor = isLight
+        ? AppColors.lightAccentPrimary
+        : AppColors.accentPrimary;
     final suggestions = [
       l.t('chat.suggestion_1'),
       l.t('chat.suggestion_2'),
@@ -201,19 +213,19 @@ class _EmptyConversation extends StatelessWidget {
             const SizedBox(height: AppSpacing.lg),
             Text(
               l.t('chat.start_conversation'),
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               l.t('chat.start_hint'),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: isLight
-                        ? AppColors.lightTextSecondary
-                        : AppColors.textSecondary,
-                  ),
+                color: isLight
+                    ? AppColors.lightTextSecondary
+                    : AppColors.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -231,7 +243,9 @@ class _EmptyConversation extends StatelessWidget {
               children: suggestions.map((text) {
                 return ActionChip(
                   label: Text(text),
-                  onPressed: onStartTap,
+                  onPressed: onSuggestionTap == null
+                      ? onStartTap
+                      : () => onSuggestionTap!(text),
                   side: BorderSide(
                     color: isLight
                         ? AppColors.lightGlassBorder
@@ -257,7 +271,9 @@ class _LoadingConversation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final iconColor = isLight ? AppColors.lightAccentPrimary : AppColors.accentPrimary;
+    final iconColor = isLight
+        ? AppColors.lightAccentPrimary
+        : AppColors.accentPrimary;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -276,11 +292,11 @@ class _LoadingConversation extends StatelessWidget {
             Text(
               AppLocalizations.of(context).t('common.loading'),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: isLight
-                        ? AppColors.lightTextSecondary
-                        : AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
+                color: isLight
+                    ? AppColors.lightTextSecondary
+                    : AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -315,38 +331,32 @@ class _ErrorConversation extends StatelessWidget {
                 color: iconColor.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.error_outline,
-                size: 36,
-                color: iconColor,
-              ),
+              child: Icon(Icons.error_outline, size: 36, color: iconColor),
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
               l.t('common.error'),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               l.tArg('chat.error', {'error': detail}),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: isLight
-                        ? AppColors.lightTextSecondary
-                        : AppColors.textSecondary,
-                  ),
+                color: isLight
+                    ? AppColors.lightTextSecondary
+                    : AppColors.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
               l.t('common.retry_hint'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: isLight
-                        ? AppColors.lightTextMuted
-                        : AppColors.textMuted,
-                  ),
+                color: isLight ? AppColors.lightTextMuted : AppColors.textMuted,
+              ),
               textAlign: TextAlign.center,
             ),
           ],

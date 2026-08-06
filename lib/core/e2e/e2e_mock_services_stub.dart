@@ -10,6 +10,9 @@ class E2eMockServices {
   /// Returns a canned LLM reply for the given prompt, or null.
   static String? cannedLlmReply(String prompt) => null;
 
+  /// Returns only a per-test override; null when no override matches.
+  static String? cannedLlmOverride(String prompt) => null;
+
   /// Returns the canned STT transcript, or null.
   static String? get cannedSttTranscript => null;
 

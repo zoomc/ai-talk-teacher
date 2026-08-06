@@ -92,8 +92,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // E7 — thinking filler loop timer.
   Timer? _thinkingFillerTimer;
 
-  String _tutorName = 'AI Tutor';
-  String _tutorAvatar = '👩‍🏫';
+  String _tutorName = TutorRepository.getDefaultTutor().name;
+  String _tutorAvatar = TutorRepository.getDefaultTutor().avatar;
 
   bool _voiceConfigured = true;
   bool _continuousMode = false;
@@ -573,9 +573,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 streamingText: _streamingText,
                 ttsFailedMessageIds: _ttsFailedMessageIds,
                 onRetryTts: _retryTts,
-                onStartTap: () {
-                  _messageFocusNode.requestFocus();
-                },
+                onStartTap: _handleStartTap,
+                onSuggestionTap: _handleSuggestionTap,
               ),
             ),
           ),
@@ -889,6 +888,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         }
       }
     }
+  }
+
+  Future<void> _handleStartTap() async {
+    if (!_voiceConfigured) {
+      if (mounted) await context.push('/service-config');
+      return;
+    }
+    await _handleRecordToggle();
+  }
+
+  Future<void> _handleSuggestionTap(String text) async {
+    if (_isLoading) return;
+    _messageController.text = text;
+    await _handleSend();
   }
 
   Future<void> _handleRecordToggle() async {

@@ -59,6 +59,15 @@ test.describe('M03 — Chat: Text Messaging', () => {
 
   // ---------------- Happy Path ----------------
 
+  test('HP-0: empty-state quick suggestion sends a real user turn', async ({ page }) => {
+    await bridge.setMockLlmResponse(page, 'weather', LLM_MOCKS.greeting);
+    const suggestion = page.getByRole('checkbox', { name: /weather/i }).first();
+    await expect(suggestion).toBeVisible({ timeout: 10000 });
+    await suggestion.click();
+    await expectText(page, 'weather');
+    await expectNoException(page);
+  });
+
   test('HP-1: from Home Start Conversation creates a session → /chat/:id', async ({ page }) => {
     await expectRoute(page, CHAT_ROUTE);
     await expectNoException(page);

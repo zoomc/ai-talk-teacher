@@ -467,6 +467,7 @@ class AvatarStageState extends State<AvatarStage>
           },
           emotion: widget.emotion,
           gesture: widget.gesture,
+          tutorAvatar: widget.tutorAvatar,
           viseme: painterViseme,
           reduceMotion:
               widget.reduceMotion ?? MediaQuery.disableAnimationsOf(context),

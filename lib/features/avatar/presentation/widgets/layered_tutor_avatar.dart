@@ -18,6 +18,7 @@ class LayeredTutorAvatar extends StatelessWidget {
   final LayeredTutorState state;
   final TutorEmotion emotion;
   final TutorGestureCue gesture;
+  final String tutorAvatar;
   final Viseme viseme;
   final bool reduceMotion;
 
@@ -27,6 +28,7 @@ class LayeredTutorAvatar extends StatelessWidget {
     required this.state,
     required this.emotion,
     this.gesture = TutorGestureCue.idle,
+    this.tutorAvatar = '👩‍🏫',
     required this.viseme,
     this.reduceMotion = false,
   });
@@ -39,6 +41,7 @@ class LayeredTutorAvatar extends StatelessWidget {
         state: state,
         emotion: emotion,
         gesture: gesture,
+        tutorAvatar: tutorAvatar,
         viseme: viseme,
         reduceMotion: reduceMotion,
       ),
@@ -52,6 +55,7 @@ class _LayeredTutorPainter extends CustomPainter {
   final LayeredTutorState state;
   final TutorEmotion emotion;
   final TutorGestureCue gesture;
+  final String tutorAvatar;
   final Viseme viseme;
   final bool reduceMotion;
 
@@ -60,6 +64,7 @@ class _LayeredTutorPainter extends CustomPainter {
     required this.state,
     required this.emotion,
     required this.gesture,
+    required this.tutorAvatar,
     required this.viseme,
     required this.reduceMotion,
   });
@@ -95,8 +100,8 @@ class _LayeredTutorPainter extends CustomPainter {
         : 0.0;
     canvas.translate(headYaw + gestureYaw, chestLift * 0.35);
     canvas.rotate(headRoll + gestureRoll);
-    _paintNeckAndHead(canvas);
     _paintHairBack(canvas);
+    _paintNeckAndHead(canvas);
     _paintFace(canvas);
     _paintHairFront(canvas);
     canvas.restore();
@@ -112,7 +117,12 @@ class _LayeredTutorPainter extends CustomPainter {
   }
 
   void _paintBody(Canvas canvas, double lift, double sway) {
-    final body = Paint()..color = const Color(0xFF283C68);
+    final body = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF314A7A), Color(0xFF1C2D52)],
+      ).createShader(const Rect.fromLTWH(72, 230, 176, 140));
     final trim = Paint()
       ..color = AppColors.accentPrimary
       ..style = PaintingStyle.stroke
@@ -216,7 +226,12 @@ class _LayeredTutorPainter extends CustomPainter {
       ),
       skin,
     );
-    final face = Paint()..color = const Color(0xFFF7C7A4);
+    final face = Paint()
+      ..shader = const RadialGradient(
+        center: Alignment(-0.22, -0.3),
+        radius: 0.9,
+        colors: [Color(0xFFFFD9BE), Color(0xFFE9A983)],
+      ).createShader(const Rect.fromLTWH(88, 54, 144, 190));
     canvas.drawOval(const Rect.fromLTWH(94, 62, 132, 174), face);
     final ear = Paint()..color = const Color(0xFFE8A985);
     canvas.drawOval(const Rect.fromLTWH(88, 130, 20, 40), ear);
@@ -224,16 +239,76 @@ class _LayeredTutorPainter extends CustomPainter {
   }
 
   void _paintHairBack(Canvas canvas) {
-    final hair = Paint()..color = const Color(0xFF5B3A4B);
-    final path = Path()
-      ..moveTo(92, 144)
+    final feminine = tutorAvatar.contains('👩');
+    final hair = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: feminine
+            ? const [Color(0xFF7B6AA6), Color(0xFF4F477D)]
+            : const [Color(0xFF684159), Color(0xFF3F2B45)],
+      ).createShader(const Rect.fromLTWH(64, 18, 192, 330));
+    if (!feminine) {
+      final path = Path()
+        ..moveTo(92, 144)
+        ..quadraticBezierTo(64, 70, 112, 34)
+        ..quadraticBezierTo(160, 2, 208, 34)
+        ..quadraticBezierTo(256, 70, 228, 170)
+        ..lineTo(207, 204)
+        ..lineTo(100, 204)
+        ..close();
+      canvas.drawPath(path, hair);
+      return;
+    }
+
+    // Long hair is split into a crown plus two loose side locks. Keeping the
+    // center open below the jaw lets the neck, collar, and shoulder line read
+    // clearly instead of turning the upper body into a dark solid bib.
+    final crown = Path()
+      ..moveTo(92, 150)
       ..quadraticBezierTo(64, 70, 112, 34)
       ..quadraticBezierTo(160, 2, 208, 34)
-      ..quadraticBezierTo(256, 70, 228, 170)
-      ..lineTo(207, 204)
-      ..lineTo(100, 204)
+      ..quadraticBezierTo(256, 70, 228, 150)
+      ..lineTo(214, 218)
+      ..lineTo(106, 218)
       ..close();
-    canvas.drawPath(path, hair);
+    canvas.drawPath(crown, hair);
+    final leftLock = Path()
+      ..moveTo(104, 128)
+      ..quadraticBezierTo(72, 184, 78, 278)
+      ..quadraticBezierTo(80, 326, 108, 346)
+      ..quadraticBezierTo(132, 336, 128, 300)
+      ..lineTo(120, 208)
+      ..close();
+    final rightLock = Path()
+      ..moveTo(216, 128)
+      ..quadraticBezierTo(248, 184, 242, 278)
+      ..quadraticBezierTo(240, 326, 212, 346)
+      ..quadraticBezierTo(188, 336, 192, 300)
+      ..lineTo(200, 208)
+      ..close();
+    canvas.drawPath(leftLock, hair);
+    canvas.drawPath(rightLock, hair);
+
+    if (feminine) {
+      final strand = Paint()
+        ..color = const Color(0xFFB8AEDB).withValues(alpha: 0.72)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPath(
+        Path()
+          ..moveTo(96, 72)
+          ..quadraticBezierTo(70, 144, 96, 294),
+        strand,
+      );
+      canvas.drawPath(
+        Path()
+          ..moveTo(220, 70)
+          ..quadraticBezierTo(250, 150, 216, 296),
+        strand,
+      );
+    }
   }
 
   void _paintFace(Canvas canvas) {
@@ -442,6 +517,7 @@ class _LayeredTutorPainter extends CustomPainter {
       oldDelegate.state != state ||
       oldDelegate.emotion != emotion ||
       oldDelegate.gesture != gesture ||
+      oldDelegate.tutorAvatar != tutorAvatar ||
       oldDelegate.viseme != viseme ||
       oldDelegate.reduceMotion != reduceMotion;
 }

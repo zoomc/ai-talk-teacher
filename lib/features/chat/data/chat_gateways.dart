@@ -11,6 +11,7 @@ import 'llm_service.dart';
 import 'llm_streaming.dart';
 import 'stt_service.dart';
 import 'tts_service.dart';
+import '../../../core/e2e/e2e_mock_services.dart';
 
 /// A recoverable configuration error surfaced by Production gateways.
 class GatewayConfigurationException implements Exception {
@@ -104,6 +105,24 @@ class SimulationLlmGateway implements LlmGateway {
     if (runtime.fixture.id == 'llm_retry' && runtime.llmAttempts == 1) {
       throw LlmException('Simulation transient LLM failure');
     }
+
+    // E2E tests can override one turn through the bridge while retaining the
+    // fixture for all other turns. The latest user text is the stable key
+    // because the chat screen already persists it in history before calling
+    // the gateway.
+    final latestUserMessage = history.reversed
+        .where((message) => message.role == MessageRole.user)
+        .firstOrNull
+        ?.content;
+    final override = E2eMockServices.cannedLlmOverride(
+      userMessage ?? latestUserMessage ?? systemPrompt,
+    );
+    if (override != null) {
+      yield StreamChunk(delta: override);
+      yield const StreamChunk(done: true);
+      return;
+    }
+
     final turn = runtime.currentTurn;
     for (final chunk in turn.llmChunks) {
       await simulationDelay(turn.chunkDelay);
