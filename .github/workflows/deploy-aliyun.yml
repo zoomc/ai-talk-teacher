@@ -26,6 +26,7 @@ env:
   PROD_TARGET: /opt/ai-talk-teacher
   DEMO_TARGET: /opt/ai-talk-teacher-demo
   RELEASE_ROOT: /opt/ai-talk-teacher-releases
+  DEMO_AUTH_FILE: /etc/nginx/.htpasswd.ai-talk-teacher-demo
 
 jobs:
   build:
@@ -130,12 +131,15 @@ jobs:
           PROD_TARGET: ${{ env.PROD_TARGET }}
           DEMO_TARGET: ${{ env.DEMO_TARGET }}
           RELEASE_ROOT: ${{ env.RELEASE_ROOT }}
+          DEMO_AUTH_FILE: ${{ env.DEMO_AUTH_FILE }}
+          DEMO_BASIC_AUTH_USER: ${{ secrets.DEMO_BASIC_AUTH_USER }}
+          DEMO_BASIC_AUTH_PASSWORD: ${{ secrets.DEMO_BASIC_AUTH_PASSWORD }}
         with:
           host: ${{ secrets.ALIYUN_HOST }}
           username: ${{ secrets.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: ${{ secrets.ALIYUN_SSH_PORT || 22 }}
-          envs: RELEASE_SHA,PROD_TARGET,DEMO_TARGET,RELEASE_ROOT
+          envs: RELEASE_SHA,PROD_TARGET,DEMO_TARGET,RELEASE_ROOT,DEMO_AUTH_FILE,DEMO_BASIC_AUTH_USER,DEMO_BASIC_AUTH_PASSWORD
           script_stop: true
           script: |
             set -euo pipefail
@@ -143,6 +147,19 @@ jobs:
             : "${PROD_TARGET:?production target is required}"
             : "${DEMO_TARGET:?demo target is required}"
             : "${RELEASE_ROOT:?release root is required}"
+            : "${DEMO_AUTH_FILE:?demo auth file is required}"
+            : "${DEMO_BASIC_AUTH_USER:?demo auth username is required}"
+            : "${DEMO_BASIC_AUTH_PASSWORD:?demo auth password is required}"
+            case "$DEMO_BASIC_AUTH_USER" in
+              *:*) echo 'Demo auth username must not contain a colon' >&2; exit 1 ;;
+            esac
+            auth_tmp="$(mktemp /tmp/speakflow-demo-auth.XXXXXX)"
+            trap 'rm -f "$auth_tmp"' EXIT
+            auth_hash="$(printf '%s' "$DEMO_BASIC_AUTH_PASSWORD" | openssl passwd -apr1 -stdin)"
+            test -n "$auth_hash"
+            printf '%s:%s\n' "$DEMO_BASIC_AUTH_USER" "$auth_hash" > "$auth_tmp"
+            sudo -n install -o root -g nginx -m 640 "$auth_tmp" "${DEMO_AUTH_FILE}.next"
+            sudo -n mv -Tf "${DEMO_AUTH_FILE}.next" "$DEMO_AUTH_FILE"
             archive="/tmp/ai-talk-teacher-web.tgz"
             test -s "$archive"
             sudo -n install -d -o admin -g admin -m 755 "$RELEASE_ROOT"

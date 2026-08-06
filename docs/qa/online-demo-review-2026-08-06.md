@@ -12,6 +12,7 @@
 | --- | --- | --- |
 | Production reachability | Production returned HTTP 200 and exposed `version.json`. | Passed before and after release verification. |
 | Demo protection | Demo returned HTTP 401 with the expected `SpeakFlow Demo` Basic Auth challenge and `noindex` headers. The local browser session did not have demo credentials, so interactive browser assertions were not used for the protected page. | Deployment health check is the authoritative authenticated check; it validates 401 without credentials, authenticated HTML/assets, version SHA, and `noindex`. |
+| Demo auth loop | After entering the expected credentials, the browser could continue prompting because the deployment workflow validated GitHub Secrets but never synchronized them to nginx's `/etc/nginx/.htpasswd.ai-talk-teacher-demo`. | Deployment now atomically regenerates that file from the same Secrets before nginx reload; the health check remains an authenticated end-to-end gate. |
 | Tutor identity | Home selected Emma, while Chat initially fell back to `AI Tutor`. | Chat now uses the same default tutor identity as Home. |
 | Empty chat CTA | “Start conversation” did not enter a usable flow when voice was unavailable. | CTA now routes to service configuration when voice is not configured, otherwise starts recording. |
 | Quick suggestions | Empty-state suggestion chips did not submit a real turn. | Suggestions now populate and send the message through the normal chat path; HP-0 regression coverage added. |

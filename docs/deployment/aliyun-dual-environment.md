@@ -8,11 +8,13 @@ entrypoint. It builds two Flutter Web artifacts from the selected commit:
   Basic Auth
 
 The workflow uploads one stamped tarball, extracts it under a commit-specific
-release directory, atomically switches both Web roots, runs `nginx -t`, reloads
-nginx, and verifies both public entry points. Production and Demo must both
-report the current commit in `version.json`; the Demo must return `401` without
-credentials, pass with credentials, and send `X-Robots-Tag: noindex`. Any
-post-activation failure restores both previous roots.
+release directory, synchronizes the Demo credentials into
+`/etc/nginx/.htpasswd.ai-talk-teacher-demo`, atomically switches both Web roots,
+runs `nginx -t`, reloads nginx, and verifies both public entry points.
+Production and Demo must both report the current commit in `version.json`; the
+Demo must return `401` without credentials, pass with the configured credentials,
+and send `X-Robots-Tag: noindex`. Any post-activation failure restores both
+previous roots.
 
 ## Required GitHub environment secrets
 
