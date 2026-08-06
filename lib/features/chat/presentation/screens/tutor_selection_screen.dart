@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/util/responsive.dart';
 import '../../../../shared/widgets/glass_widgets.dart';
 import '../../../../shared/providers.dart';
@@ -27,7 +28,9 @@ class _TutorSelectionScreenState extends ConsumerState<TutorSelectionScreen> {
   }
 
   Future<void> _loadCurrentTutor() async {
-    final id = await ref.read(profileRepoProvider).getSetting('selected_tutor_id');
+    final id = await ref
+        .read(profileRepoProvider)
+        .getSetting('selected_tutor_id');
     if (mounted) {
       setState(() => _selectedTutorId = id);
     }
@@ -38,11 +41,19 @@ class _TutorSelectionScreenState extends ConsumerState<TutorSelectionScreen> {
     // The previous implementation only did context.pop(tutor.id), but the
     // caller never read the return value AND never wrote the setting — so
     // picking a tutor here had no effect on the actual chat.
-    await ref.read(profileRepoProvider).setSetting('selected_tutor_id', tutor.id);
+    await ref
+        .read(profileRepoProvider)
+        .setSetting('selected_tutor_id', tutor.id);
     if (mounted) {
       setState(() => _selectedTutorId = tutor.id);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${tutor.name} selected')),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(
+              context,
+            ).tArg('tutor_selection.selected', {'name': tutor.name}),
+          ),
+        ),
       );
       // Small delay so the user sees the selection highlight + snackbar before
       // we pop back to the chat.
@@ -59,14 +70,14 @@ class _TutorSelectionScreenState extends ConsumerState<TutorSelectionScreen> {
           icon: const Icon(Icons.arrow_back_ios_new),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Choose Your Tutor'),
+        title: Text(AppLocalizations.of(context).t('tutor_selection.title')),
       ),
       body: Container(
         decoration: BoxDecoration(
-            gradient:
-                Theme.of(context).brightness == Brightness.light
-                    ? AppColors.lightGradientBg
-                    : AppColors.gradientBg),
+          gradient: Theme.of(context).brightness == Brightness.light
+              ? AppColors.lightGradientBg
+              : AppColors.gradientBg,
+        ),
         child: SafeArea(
           // bottom:true keeps the last tutor card + trailing xxl spacing
           // out from behind the home indicator on notched iPhones.
@@ -82,12 +93,14 @@ class _TutorSelectionScreenState extends ConsumerState<TutorSelectionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'AI Tutors',
+                      AppLocalizations.of(context).t('tutor_selection.heading'),
                       style: Theme.of(context).textTheme.displayLarge,
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
-                      'Choose a tutor that matches your learning style',
+                      AppLocalizations.of(
+                        context,
+                      ).t('tutor_selection.subtitle'),
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -103,8 +116,8 @@ class _TutorSelectionScreenState extends ConsumerState<TutorSelectionScreen> {
                         final cellWidth = cols == 1
                             ? double.infinity
                             : (constraints.maxWidth -
-                                    AppSpacing.md * (cols - 1)) /
-                                cols;
+                                      AppSpacing.md * (cols - 1)) /
+                                  cols;
                         final tutors = TutorRepository.tutors;
                         return Wrap(
                           spacing: AppSpacing.md,
@@ -166,27 +179,13 @@ class _TutorCard extends StatelessWidget {
     }
   }
 
-  String _getStyleLabel(String style) {
-    switch (style) {
-      case 'friendly':
-        return 'Friendly';
-      case 'professional':
-        return 'Professional';
-      case 'casual':
-        return 'Casual';
-      case 'strict':
-        return 'Strict';
-      case 'exam':
-        return 'Exam Prep';
-      case 'pronunciation':
-        return 'Pronunciation';
-      default:
-        return style;
-    }
+  String _getStyleLabel(String style, AppLocalizations l) {
+    return l.t('tutor_selection.style.$style');
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final styleColor = _getStyleColor(tutor.style);
 
     return GlassCard(
@@ -240,7 +239,7 @@ class _TutorCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                       ),
                       child: Text(
-                        _getStyleLabel(tutor.style),
+                        _getStyleLabel(tutor.style, l),
                         style: TextStyle(
                           color: styleColor,
                           fontSize: 11,
@@ -252,14 +251,14 @@ class _TutorCard extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
-                  tutor.personality,
+                  l.t('tutor_selection.${tutor.id}.personality'),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  tutor.description,
+                  l.t('tutor_selection.${tutor.id}.description'),
                   style: Theme.of(context).textTheme.bodySmall,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,

@@ -370,7 +370,7 @@ const Map<String, String> _zh = {
   'settings.version': '版本 {version}',
   'settings.rerun_setup': '重新运行引导',
   'settings.rerun_setup_sub': '重新选择供应商并完成定级测试',
-  'settings.about_body': 'SpeakFlow 是一款 AI 英语口语练习应用。内置 3D 虚拟外教、实时语音对话与个性化纠错复习。',
+  'settings.about_body': 'SpeakFlow 是一款 AI 英语口语练习应用。内置 2D 虚拟外教、实时语音对话与个性化纠错复习。',
   'settings.licenses': '开源许可',
   'settings.docs': '使用文档',
   'settings.new_version_in_banner': '发现新版本 {version} — 见顶部横幅。',
@@ -538,6 +538,12 @@ const Map<String, String> _zh = {
   'review.title': '复习',
   'review.due_now': '待复习',
   'review.nothing_due': '没有需要复习的内容',
+  'review.all_caught_up': '全部完成！',
+  'review.no_starred': '还没有收藏的纠错',
+  'review.no_starred_hint': '点击任意纠错旁的星标，将它加入专项复习。',
+  'review.no_recent': '最近没有新的错误',
+  'review.no_recent_hint': '做得好！最近 3 天没有新的错误。',
+  'review.start_practicing': '开始练习',
   'review.starred_only': '仅看收藏',
   'review.rate_again': '不会',
   'review.rate_hard': '困难',
@@ -594,15 +600,41 @@ const Map<String, String> _zh = {
   'history.clear_search': '清除搜索',
   'history.score': '评分',
   // Scenarios
+  'scenarios.difficulty.all': '全部难度',
   'scenarios.difficulty.beginner': '初级',
   'scenarios.difficulty.intermediate': '中级',
   'scenarios.difficulty.advanced': '高级',
   'scenarios.practiced_count': '练习 {count} 次',
   'scenarios.last_practiced': '上次：{when}',
+  'scenarios.category.general': '综合',
+  'scenarios.category.career': '职场',
   'scenarios.category.daily': '日常',
   'scenarios.category.business': '商务',
   'scenarios.category.travel': '旅行',
   'scenarios.category.social': '社交',
+  // Tutor selection
+  'tutor_selection.title': '选择你的外教',
+  'tutor_selection.heading': 'AI 外教',
+  'tutor_selection.subtitle': '选择适合你学习风格的外教',
+  'tutor_selection.selected': '已选择 {name}',
+  'tutor_selection.style.friendly': '友好',
+  'tutor_selection.style.professional': '专业',
+  'tutor_selection.style.casual': '随和',
+  'tutor_selection.style.strict': '严格',
+  'tutor_selection.style.exam': '考试辅导',
+  'tutor_selection.style.pronunciation': '发音',
+  'tutor_selection.friendly_teacher.personality': '温暖、鼓励、耐心',
+  'tutor_selection.friendly_teacher.description': '一位友善支持型的老师，让学习变得有趣而舒适。',
+  'tutor_selection.professional_tutor.personality': '专业、有条理、知识丰富',
+  'tutor_selection.professional_tutor.description': '专注商务英语和正式沟通的专业导师。',
+  'tutor_selection.casual_friend.personality': '随和、有趣，像和朋友聊天',
+  'tutor_selection.casual_friend.description': '像母语朋友一样交流的轻松会话伙伴。',
+  'tutor_selection.strict_coach.personality': '严格但公平、注重细节',
+  'tutor_selection.strict_coach.description': '注重每个细节、追求卓越的严格教练。',
+  'tutor_selection.exam_prep.personality': '专注考试准备',
+  'tutor_selection.exam_prep.description': '专门辅导 IELTS/TOEFL，提供考试策略。',
+  'tutor_selection.pronunciation_expert.personality': '专注发音和口音',
+  'tutor_selection.pronunciation_expert.description': '帮助你完善口音和语调的发音专家。',
   // Progress
   'progress.heading': '你的进度',
   'progress.subtitle': '追踪你的英语学习之旅',
@@ -728,7 +760,7 @@ const Map<String, String> _zh = {
 
   // ── Phase-1 P0 #8: low bandwidth / dark mode polish ────────────────
   'settings.low_bandwidth': '低带宽模式',
-  'settings.low_bandwidth_desc': '关闭 3D 头像与高耗动画，节省流量。',
+  'settings.low_bandwidth_desc': '减少头像与高耗动画，节省流量。',
   'settings.voice_health': '语音健康诊断',
   'settings.voice_health_desc': '检查麦克风、网络、STT/TTS 是否就绪。',
 
@@ -806,7 +838,8 @@ const Map<String, String> _en = {
   'projects.subtitle': 'Organise your practice, scenarios, and review',
   'projects.new': 'New project',
   'projects.load_error': 'Failed to load',
-  'projects.empty.title': 'No projects yet\nCreate one to organise your learning',
+  'projects.empty.title':
+      'No projects yet\nCreate one to organise your learning',
   'projects.not_found': 'Project not found or deleted',
   'projects.status.active': 'Active',
   'projects.status.archived': 'Archived',
@@ -815,7 +848,8 @@ const Map<String, String> _en = {
   'projects.tabs.links': 'Linked content',
   'projects.tabs.activity': 'Activity',
   'projects.tabs.settings': 'Settings',
-  'projects.links.empty': 'Nothing linked yet\nTap “Join project” on a session, review, or scenario',
+  'projects.links.empty':
+      'Nothing linked yet\nTap “Join project” on a session, review, or scenario',
   'projects.links.type.chat_session': 'Chat sessions',
   'projects.links.type.scenario': 'Scenarios',
   'projects.links.type.correction': 'Corrections',
@@ -837,7 +871,8 @@ const Map<String, String> _en = {
   'projects.settings.edit': 'Edit project',
   'projects.settings.delete': 'Delete project',
   'projects.settings.confirm_delete_title': 'Confirm delete',
-  'projects.settings.confirm_delete_body': 'This will cascade-delete all links and activity. This cannot be undone.',
+  'projects.settings.confirm_delete_body':
+      'This will cascade-delete all links and activity. This cannot be undone.',
   'projects.join.title': 'Join project',
   'projects.join.empty': 'No projects yet — create one first',
   'projects.join.new_project': 'New project…',
@@ -1029,7 +1064,8 @@ const Map<String, String> _en = {
   'settings.clear_cache': 'Clear Cache',
   'settings.clear_cache_subtitle': 'Free up storage space',
   'settings.clear_cache_confirm_title': 'Clear cache?',
-  'settings.clear_cache_confirm_body': 'This will delete all cached audio files. This cannot be undone.',
+  'settings.clear_cache_confirm_body':
+      'This will delete all cached audio files. This cannot be undone.',
   'settings.cache_cleared': 'Cache cleared',
   'settings.cache_clear_failed': 'Failed to clear cache: {error}',
   'settings.app': 'App',
@@ -1047,7 +1083,7 @@ const Map<String, String> _en = {
   'settings.rerun_setup': 'Re-run setup',
   'settings.rerun_setup_sub': 'Re-pick providers and complete placement',
   'settings.about_body':
-      'SpeakFlow is an AI English speaking practice app with a built-in 3D virtual tutor, real-time voice conversation, and personalised correction review.',
+      'SpeakFlow is an AI English speaking practice app with a built-in 2D virtual tutor, real-time voice conversation, and personalised correction review.',
   'settings.licenses': 'Open-source licenses',
   'settings.docs': 'Documentation',
   'settings.new_version_in_banner':
@@ -1214,6 +1250,21 @@ const Map<String, String> _en = {
   'review.title': 'Review',
   'review.due_now': 'Due now',
   'review.nothing_due': 'Nothing due for review',
+  'review.all_caught_up': 'All caught up!',
+  'review.no_starred': 'No starred corrections',
+  'review.no_starred_hint':
+      'Tap the star on any correction to save it for focused review.',
+  'review.no_recent': 'No recent mistakes',
+  'review.no_recent_hint':
+      'Great job — you have not made any new errors in the last 3 days.',
+  'review.start_practicing': 'Start Practicing',
+  'review.ai_review': 'AI Review',
+  'review.recent_count': '{count} recent mistakes',
+  'review.recent_hint':
+      'These are corrections from the last 3 days. Tap a card to practice or rate them to update their schedule.',
+  'review.rating_hint':
+      'Rate how well you remember each correction — the schedule adapts to your answer. Tap the card to practice it in a conversation.',
+  'review.rated': 'Rated',
   'review.starred_only': 'Starred only',
   'review.rate_again': 'Again',
   'review.rate_hard': 'Hard',
@@ -1253,7 +1304,8 @@ const Map<String, String> _en = {
   'history.title': 'Chat history',
   'history.delete_conversation': 'Delete conversation',
   'history.delete_confirm': 'Delete this conversation?',
-  'history.delete_confirm_body': 'Are you sure you want to delete "{topic}"? Its messages and corrections will also be removed.',
+  'history.delete_confirm_body':
+      'Are you sure you want to delete "{topic}"? Its messages and corrections will also be removed.',
   'history.deleted': 'Conversation deleted',
   'history.delete_failed': 'Failed to delete: {error}',
   'history.go_home': 'Go home',
@@ -1269,15 +1321,51 @@ const Map<String, String> _en = {
   'history.clear_search': 'Clear search',
   'history.score': 'Score',
   // Scenarios
+  'scenarios.difficulty.all': 'All levels',
   'scenarios.difficulty.beginner': 'Beginner',
   'scenarios.difficulty.intermediate': 'Intermediate',
   'scenarios.difficulty.advanced': 'Advanced',
   'scenarios.practiced_count': 'Practiced {count} times',
   'scenarios.last_practiced': 'Last: {when}',
+  'scenarios.category.general': 'General',
+  'scenarios.category.career': 'Career',
   'scenarios.category.daily': 'Daily',
   'scenarios.category.business': 'Business',
   'scenarios.category.travel': 'Travel',
   'scenarios.category.social': 'Social',
+  // Tutor selection
+  'tutor_selection.title': 'Choose Your Tutor',
+  'tutor_selection.heading': 'AI Tutors',
+  'tutor_selection.subtitle': 'Choose a tutor that matches your learning style',
+  'tutor_selection.selected': '{name} selected',
+  'tutor_selection.style.friendly': 'Friendly',
+  'tutor_selection.style.professional': 'Professional',
+  'tutor_selection.style.casual': 'Casual',
+  'tutor_selection.style.strict': 'Strict',
+  'tutor_selection.style.exam': 'Exam Prep',
+  'tutor_selection.style.pronunciation': 'Pronunciation',
+  'tutor_selection.friendly_teacher.personality': 'Warm, encouraging, patient',
+  'tutor_selection.friendly_teacher.description':
+      'A friendly and supportive teacher who makes learning fun and comfortable.',
+  'tutor_selection.professional_tutor.personality':
+      'Professional, structured, knowledgeable',
+  'tutor_selection.professional_tutor.description':
+      'A professional tutor focused on business English and formal communication.',
+  'tutor_selection.casual_friend.personality':
+      'Casual, fun, like talking to a friend',
+  'tutor_selection.casual_friend.description':
+      'A casual conversation partner who speaks like a native friend.',
+  'tutor_selection.strict_coach.personality':
+      'Strict but fair, detail-oriented',
+  'tutor_selection.strict_coach.description':
+      'A strict coach who pays attention to every detail and pushes for excellence.',
+  'tutor_selection.exam_prep.personality': 'Focused on exam preparation',
+  'tutor_selection.exam_prep.description':
+      'Specialized in IELTS/TOEFL preparation with exam strategies.',
+  'tutor_selection.pronunciation_expert.personality':
+      'Focused on pronunciation and accent',
+  'tutor_selection.pronunciation_expert.description':
+      'A pronunciation expert who helps perfect your accent and intonation.',
   // Progress
   'progress.heading': 'Your Progress',
   'progress.subtitle': 'Track your English learning journey',
@@ -1395,7 +1483,8 @@ const Map<String, String> _en = {
   'content.last_score': 'Last score {n}',
   'dashboard.scenario_review_title': 'Scenarios to review',
   'plan.task.start_scenario': 'Start recommended scenario',
-  'plan.task.start_scenario_subtitle': "Practice today's recommended core expressions",
+  'plan.task.start_scenario_subtitle':
+      "Practice today's recommended core expressions",
   'persona.style_strict': 'Strict',
   'persona.style_encourage': 'Encouraging',
   'persona.style_humor': 'Humor',
@@ -1406,7 +1495,7 @@ const Map<String, String> _en = {
   // Phase-1 P0 #8: low bandwidth
   'settings.low_bandwidth': 'Low bandwidth mode',
   'settings.low_bandwidth_desc':
-      'Disable 3D avatar and heavy animations to save data.',
+      'Reduce avatar and heavy animations to save data.',
   'settings.voice_health': 'Voice Health Check',
   'settings.voice_health_desc': 'Check mic, network, STT/TTS are ready.',
 
@@ -1649,7 +1738,8 @@ const Map<String, String> _ja = {
   'settings.clear_cache': 'キャッシュクリア',
   'settings.clear_cache_subtitle': 'ストレージを解放',
   'settings.clear_cache_confirm_title': 'Clear cache?',
-  'settings.clear_cache_confirm_body': 'This will delete all cached audio files. This cannot be undone.',
+  'settings.clear_cache_confirm_body':
+      'This will delete all cached audio files. This cannot be undone.',
   'settings.cache_cleared': 'キャッシュをクリアしました',
   'settings.cache_clear_failed': 'キャッシュクリアに失敗：{error}',
   'settings.app': 'アプリ',
@@ -1764,9 +1854,23 @@ const Map<String, String> _ja = {
   'placement.complete': '完了',
   'scenarios.title': 'シーン',
   'scenarios.subtitle': 'シーンを選んで練習を開始',
+  'scenarios.difficulty.all': 'すべてのレベル',
+  'scenarios.category.general': '一般',
+  'scenarios.category.career': 'キャリア',
   'review.title': '復習',
   'review.due_now': '復習予定',
   'review.nothing_due': '復習予定はありません',
+  'review.all_caught_up': '復習はすべて完了！',
+  'review.no_starred': 'お気に入りの訂正はありません',
+  'review.no_starred_hint': '訂正の星をタップすると集中復習に保存できます。',
+  'review.no_recent': '最近のミスはありません',
+  'review.no_recent_hint': 'すばらしいです！過去3日間に新しいミスはありません。',
+  'review.start_practicing': '練習を始める',
+  'review.ai_review': 'AI復習',
+  'review.recent_count': '最近のミス {count} 件',
+  'review.recent_hint': '過去3日間の訂正です。カードをタップして練習するか、評価して復習スケジュールを更新できます。',
+  'review.rating_hint': '各訂正の覚えやすさを評価すると、復習スケジュールが調整されます。カードをタップして会話で練習できます。',
+  'review.rated': '評価済み',
   'review.rate_again': 'もう一度',
   'review.rate_hard': '難しい',
   'review.rate_good': '良い',
@@ -2001,7 +2105,8 @@ const Map<String, String> _ko = {
   'settings.clear_cache': '캐시 삭제',
   'settings.clear_cache_subtitle': '저장 공간 확보',
   'settings.clear_cache_confirm_title': 'Clear cache?',
-  'settings.clear_cache_confirm_body': 'This will delete all cached audio files. This cannot be undone.',
+  'settings.clear_cache_confirm_body':
+      'This will delete all cached audio files. This cannot be undone.',
   'settings.cache_cleared': '캐시가 삭제되었습니다',
   'settings.cache_clear_failed': '캐시 삭제 실패: {error}',
   'settings.app': '앱',
@@ -2114,9 +2219,24 @@ const Map<String, String> _ko = {
   'placement.complete': '완료',
   'scenarios.title': '상황',
   'scenarios.subtitle': '상황을 선택하여 연습 시작',
+  'scenarios.difficulty.all': '모든 수준',
+  'scenarios.category.general': '일반',
+  'scenarios.category.career': '커리어',
   'review.title': '복습',
   'review.due_now': '복습 예정',
   'review.nothing_due': '복습 예정 항목 없음',
+  'review.all_caught_up': '모두 완료했어요!',
+  'review.no_starred': '즐겨찾기한 교정이 없어요',
+  'review.no_starred_hint': '교정 항목의 별표를 누르면 집중 복습에 저장됩니다.',
+  'review.no_recent': '최근 실수가 없어요',
+  'review.no_recent_hint': '잘했어요! 지난 3일 동안 새로운 오류가 없어요.',
+  'review.start_practicing': '연습 시작',
+  'review.ai_review': 'AI 복습',
+  'review.recent_count': '최근 실수 {count}개',
+  'review.recent_hint': '지난 3일 동안의 교정 항목이에요. 카드를 눌러 연습하거나 평가하여 복습 일정을 업데이트하세요.',
+  'review.rating_hint':
+      '각 교정을 얼마나 잘 기억하는지 평가하면 복습 일정이 조정됩니다. 카드를 눌러 대화로 연습하세요.',
+  'review.rated': '평가됨',
   'review.rate_again': '다시',
   'review.rate_hard': '어려움',
   'review.rate_good': '좋음',
@@ -2167,7 +2287,8 @@ const Map<String, String> _es = {
   'projects.subtitle': 'Organiza práctica, escenarios y repaso',
   'projects.new': 'Nuevo proyecto',
   'projects.load_error': 'Error al cargar',
-  'projects.empty.title': 'Aún no hay proyectos\nCrea uno para organizar tu aprendizaje',
+  'projects.empty.title':
+      'Aún no hay proyectos\nCrea uno para organizar tu aprendizaje',
   'projects.not_found': 'Proyecto no encontrado',
   'projects.status.active': 'Activo',
   'projects.status.archived': 'Archivado',
@@ -2176,7 +2297,8 @@ const Map<String, String> _es = {
   'projects.tabs.links': 'Contenido vinculado',
   'projects.tabs.activity': 'Actividad',
   'projects.tabs.settings': 'Ajustes',
-  'projects.links.empty': 'Nada vinculado aún\nToca «Añadir a proyecto» en una sesión, repaso o escenario',
+  'projects.links.empty':
+      'Nada vinculado aún\nToca «Añadir a proyecto» en una sesión, repaso o escenario',
   'projects.links.type.chat_session': 'Sesiones de chat',
   'projects.links.type.scenario': 'Escenarios',
   'projects.links.type.correction': 'Correcciones',
@@ -2198,7 +2320,8 @@ const Map<String, String> _es = {
   'projects.settings.edit': 'Editar proyecto',
   'projects.settings.delete': 'Eliminar proyecto',
   'projects.settings.confirm_delete_title': 'Confirmar eliminación',
-  'projects.settings.confirm_delete_body': 'Se eliminarán todos los vínculos y actividades. No se puede deshacer.',
+  'projects.settings.confirm_delete_body':
+      'Se eliminarán todos los vínculos y actividades. No se puede deshacer.',
   'projects.join.title': 'Añadir a proyecto',
   'projects.join.empty': 'Aún no hay proyectos — crea uno primero',
   'projects.join.new_project': 'Nuevo proyecto…',
@@ -2460,9 +2583,27 @@ const Map<String, String> _es = {
   'placement.complete': 'Completar',
   'scenarios.title': 'Escenarios',
   'scenarios.subtitle': 'Elige un escenario para practicar',
+  'scenarios.difficulty.all': 'Todos los niveles',
+  'scenarios.category.general': 'General',
+  'scenarios.category.career': 'Profesional',
   'review.title': 'Repaso',
   'review.due_now': 'Pendientes',
   'review.nothing_due': 'Nada pendiente',
+  'review.all_caught_up': '¡Todo al día!',
+  'review.no_starred': 'No hay correcciones destacadas',
+  'review.no_starred_hint':
+      'Toca la estrella de una corrección para guardarla y repasarla.',
+  'review.no_recent': 'No hay errores recientes',
+  'review.no_recent_hint':
+      '¡Buen trabajo! No has cometido errores nuevos en los últimos 3 días.',
+  'review.start_practicing': 'Empezar a practicar',
+  'review.ai_review': 'Repaso con IA',
+  'review.recent_count': '{count} errores recientes',
+  'review.recent_hint':
+      'Estas son correcciones de los últimos 3 días. Toca una tarjeta para practicar o calificarla y actualizar el plan.',
+  'review.rating_hint':
+      'Califica cuánto recuerdas cada corrección; el plan se adapta a tu respuesta. Toca la tarjeta para practicar conversando.',
+  'review.rated': 'Calificado',
   'review.rate_again': 'Otra vez',
   'review.rate_hard': 'Difícil',
   'review.rate_good': 'Bien',
@@ -2479,7 +2620,8 @@ const Map<String, String> _es = {
   // S7/S8 — Structured content v1
   'content.section_title': 'Contenido estructurado',
   'content.enabled': 'Habilitar contenido estructurado',
-  'content.enabled_desc': 'Mostrar recomendaciones y repaso de escenarios en inicio',
+  'content.enabled_desc':
+      'Mostrar recomendaciones y repaso de escenarios en inicio',
   'content.daily_count': 'Recomendaciones diarias',
   'content.daily_count_value': '{n} por día',
   'content.persona': 'Personalidad del tutor',
@@ -2487,7 +2629,8 @@ const Map<String, String> _es = {
   'content.last_score': 'Última puntuación {n}',
   'dashboard.scenario_review_title': 'Escenarios para repasar',
   'plan.task.start_scenario': 'Iniciar escenario recomendado',
-  'plan.task.start_scenario_subtitle': 'Practicar las expresiones clave recomendadas hoy',
+  'plan.task.start_scenario_subtitle':
+      'Practicar las expresiones clave recomendadas hoy',
   'persona.style_strict': 'Estricto',
   'persona.style_encourage': 'Animador',
   'persona.style_humor': 'Humor',
@@ -2513,7 +2656,8 @@ const Map<String, String> _fr = {
   'projects.subtitle': 'Organisez pratique, scénarios et révision',
   'projects.new': 'Nouveau projet',
   'projects.load_error': 'Échec du chargement',
-  'projects.empty.title': 'Aucun projet\nCréez-en un pour organiser votre apprentissage',
+  'projects.empty.title':
+      'Aucun projet\nCréez-en un pour organiser votre apprentissage',
   'projects.not_found': 'Projet introuvable',
   'projects.status.active': 'Actif',
   'projects.status.archived': 'Archivé',
@@ -2522,7 +2666,8 @@ const Map<String, String> _fr = {
   'projects.tabs.links': 'Contenu lié',
   'projects.tabs.activity': 'Activité',
   'projects.tabs.settings': 'Réglages',
-  'projects.links.empty': 'Rien de lié\nTouchez « Ajouter au projet » sur une session, révision ou scénario',
+  'projects.links.empty':
+      'Rien de lié\nTouchez « Ajouter au projet » sur une session, révision ou scénario',
   'projects.links.type.chat_session': 'Sessions de chat',
   'projects.links.type.scenario': 'Scénarios',
   'projects.links.type.correction': 'Corrections',
@@ -2544,7 +2689,8 @@ const Map<String, String> _fr = {
   'projects.settings.edit': 'Modifier le projet',
   'projects.settings.delete': 'Supprimer le projet',
   'projects.settings.confirm_delete_title': 'Confirmer la suppression',
-  'projects.settings.confirm_delete_body': 'Tous les liens et activités seront supprimés. Irréversible.',
+  'projects.settings.confirm_delete_body':
+      'Tous les liens et activités seront supprimés. Irréversible.',
   'projects.join.title': 'Ajouter au projet',
   'projects.join.empty': 'Aucun projet — créez-en un d’abord',
   'projects.join.new_project': 'Nouveau projet…',
@@ -2804,9 +2950,27 @@ const Map<String, String> _fr = {
   'placement.complete': 'Terminer',
   'scenarios.title': 'Scénarios',
   'scenarios.subtitle': 'Choisissez un scénario',
+  'scenarios.difficulty.all': 'Tous les niveaux',
+  'scenarios.category.general': 'Général',
+  'scenarios.category.career': 'Carrière',
   'review.title': 'Réviser',
   'review.due_now': 'À réviser',
   'review.nothing_due': 'Rien à réviser',
+  'review.all_caught_up': 'Tout est à jour !',
+  'review.no_starred': 'Aucune correction favorite',
+  'review.no_starred_hint':
+      'Touchez l’étoile d’une correction pour la garder en révision ciblée.',
+  'review.no_recent': 'Aucune erreur récente',
+  'review.no_recent_hint':
+      'Bravo ! Vous n’avez fait aucune nouvelle erreur ces 3 derniers jours.',
+  'review.start_practicing': 'Commencer à pratiquer',
+  'review.ai_review': 'Révision IA',
+  'review.recent_count': '{count} erreurs récentes',
+  'review.recent_hint':
+      'Voici les corrections des 3 derniers jours. Touchez une carte pour pratiquer ou la noter et mettre à jour le planning.',
+  'review.rating_hint':
+      'Évaluez votre souvenir de chaque correction ; le planning s’adapte à votre réponse. Touchez la carte pour pratiquer en conversation.',
+  'review.rated': 'Évalué',
   'review.rate_again': 'Encore',
   'review.rate_hard': 'Difficile',
   'review.rate_good': 'Bien',
@@ -2823,7 +2987,8 @@ const Map<String, String> _fr = {
   // S7/S8 — Structured content v1
   'content.section_title': 'Contenu structuré',
   'content.enabled': 'Activer le contenu structuré',
-  'content.enabled_desc': "Afficher les recommandations et révisions de scénarios sur l'accueil",
+  'content.enabled_desc':
+      "Afficher les recommandations et révisions de scénarios sur l'accueil",
   'content.daily_count': 'Recommandations quotidiennes',
   'content.daily_count_value': '{n} par jour',
   'content.persona': 'Personnalité du tuteur',
@@ -2831,12 +2996,14 @@ const Map<String, String> _fr = {
   'content.last_score': 'Dernier score {n}',
   'dashboard.scenario_review_title': 'Scénarios à réviser',
   'plan.task.start_scenario': 'Démarrer le scénario recommandé',
-  'plan.task.start_scenario_subtitle': "Pratiquer les expressions clés recommandées aujourd'hui",
+  'plan.task.start_scenario_subtitle':
+      "Pratiquer les expressions clés recommandées aujourd'hui",
   'persona.style_strict': 'Strict',
   'persona.style_encourage': 'Encourageur',
   'persona.style_humor': 'Humour',
   'persona.style_strict_desc': 'Exigeant, axé sur les erreurs, éloges brefs',
-  'persona.style_encourage_desc': 'Chaleureux, positif, célèbre les petites victoires',
+  'persona.style_encourage_desc':
+      'Chaleureux, positif, célèbre les petites victoires',
   'persona.style_humor_desc': 'Ludique, léger, utilise humour',
 };
 
@@ -2857,7 +3024,8 @@ const Map<String, String> _pt = {
   'projects.subtitle': 'Organize prática, cenários e revisão',
   'projects.new': 'Novo projeto',
   'projects.load_error': 'Falha ao carregar',
-  'projects.empty.title': 'Sem projetos\nCrie um para organizar seu aprendizado',
+  'projects.empty.title':
+      'Sem projetos\nCrie um para organizar seu aprendizado',
   'projects.not_found': 'Projeto não encontrado',
   'projects.status.active': 'Ativo',
   'projects.status.archived': 'Arquivado',
@@ -2866,7 +3034,8 @@ const Map<String, String> _pt = {
   'projects.tabs.links': 'Conteúdo vinculado',
   'projects.tabs.activity': 'Atividade',
   'projects.tabs.settings': 'Configurações',
-  'projects.links.empty': 'Nada vinculado\nToque «Adicionar ao projeto» numa sessão, revisão ou cenário',
+  'projects.links.empty':
+      'Nada vinculado\nToque «Adicionar ao projeto» numa sessão, revisão ou cenário',
   'projects.links.type.chat_session': 'Sessões de chat',
   'projects.links.type.scenario': 'Cenários',
   'projects.links.type.correction': 'Correções',
@@ -2888,7 +3057,8 @@ const Map<String, String> _pt = {
   'projects.settings.edit': 'Editar projeto',
   'projects.settings.delete': 'Excluir projeto',
   'projects.settings.confirm_delete_title': 'Confirmar exclusão',
-  'projects.settings.confirm_delete_body': 'Todos os vínculos e atividades serão excluídos. Irreversível.',
+  'projects.settings.confirm_delete_body':
+      'Todos os vínculos e atividades serão excluídos. Irreversível.',
   'projects.join.title': 'Adicionar ao projeto',
   'projects.join.empty': 'Sem projetos — crie um primeiro',
   'projects.join.new_project': 'Novo projeto…',
@@ -3034,7 +3204,8 @@ const Map<String, String> _pt = {
   'settings.clear_cache': 'Limpar cache',
   'settings.clear_cache_subtitle': 'Liberar espaço',
   'settings.clear_cache_confirm_title': 'Clear cache?',
-  'settings.clear_cache_confirm_body': 'This will delete all cached audio files. This cannot be undone.',
+  'settings.clear_cache_confirm_body':
+      'This will delete all cached audio files. This cannot be undone.',
   'settings.cache_cleared': 'Cache limpo',
   'settings.cache_clear_failed': 'Falha ao limpar cache: {error}',
   'settings.app': 'App',
@@ -3150,9 +3321,27 @@ const Map<String, String> _pt = {
   'placement.complete': 'Concluir',
   'scenarios.title': 'Cenários',
   'scenarios.subtitle': 'Escolha um cenário para praticar',
+  'scenarios.difficulty.all': 'Todos os níveis',
+  'scenarios.category.general': 'Geral',
+  'scenarios.category.career': 'Carreira',
   'review.title': 'Revisão',
   'review.due_now': 'A revisar',
   'review.nothing_due': 'Nada a revisar',
+  'review.all_caught_up': 'Tudo em dia!',
+  'review.no_starred': 'Nenhuma correção favorita',
+  'review.no_starred_hint':
+      'Toque na estrela de uma correção para guardá-la para uma revisão focada.',
+  'review.no_recent': 'Nenhum erro recente',
+  'review.no_recent_hint':
+      'Muito bem! Você não cometeu novos erros nos últimos 3 dias.',
+  'review.start_practicing': 'Começar a praticar',
+  'review.ai_review': 'Revisão com IA',
+  'review.recent_count': '{count} erros recentes',
+  'review.recent_hint':
+      'Estas são correções dos últimos 3 dias. Toque em um cartão para praticar ou avaliá-lo e atualizar o plano.',
+  'review.rating_hint':
+      'Avalie o quanto você lembra de cada correção; o plano se adapta à sua resposta. Toque no cartão para praticar em uma conversa.',
+  'review.rated': 'Avaliado',
   'review.rate_again': 'De novo',
   'review.rate_hard': 'Difícil',
   'review.rate_good': 'Bom',
@@ -3169,7 +3358,8 @@ const Map<String, String> _pt = {
   // S7/S8 — Structured content v1
   'content.section_title': 'Conteúdo estruturado',
   'content.enabled': 'Ativar conteúdo estruturado',
-  'content.enabled_desc': 'Mostrar recomendações e revisão de cenários no início',
+  'content.enabled_desc':
+      'Mostrar recomendações e revisão de cenários no início',
   'content.daily_count': 'Recomendações diárias',
   'content.daily_count_value': '{n} por dia',
   'content.persona': 'Personalidade do tutor',
@@ -3177,11 +3367,13 @@ const Map<String, String> _pt = {
   'content.last_score': 'Última pontuação {n}',
   'dashboard.scenario_review_title': 'Cenários para revisar',
   'plan.task.start_scenario': 'Iniciar cenário recomendado',
-  'plan.task.start_scenario_subtitle': 'Praticar as expressões-chave recomendadas hoje',
+  'plan.task.start_scenario_subtitle':
+      'Praticar as expressões-chave recomendadas hoje',
   'persona.style_strict': 'Estrito',
   'persona.style_encourage': 'Encorajador',
   'persona.style_humor': 'Humor',
   'persona.style_strict_desc': 'Exigente, focado em erros, elogio breve',
-  'persona.style_encourage_desc': 'Caloroso, positivo, celebra pequenas vitórias',
+  'persona.style_encourage_desc':
+      'Caloroso, positivo, celebra pequenas vitórias',
   'persona.style_humor_desc': 'Brincalhão, leve, usa humor',
 };
