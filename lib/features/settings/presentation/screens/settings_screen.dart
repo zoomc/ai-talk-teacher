@@ -216,8 +216,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  String _capitalize(String s) =>
-      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+  String _correctionStrengthLabel() {
+    switch (_correctionStrength) {
+      case 'gentle':
+        return _l.t('settings.correction_gentle');
+      case 'strict':
+        return _l.t('settings.correction_strict');
+      case 'moderate':
+      default:
+        return _l.t('settings.correction_moderate');
+    }
+  }
 
   ThemeMode _parseThemeMode(String s) {
     switch (s) {
@@ -315,7 +324,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     _SettingsTile(
                       icon: Icons.speed,
                       title: _l.t('settings.correction_strength'),
-                      subtitle: _capitalize(_correctionStrength),
+                      subtitle: _correctionStrengthLabel(),
                       onTap: _showCorrectionStrengthDialog,
                     ),
                     _SettingsTile(

@@ -39,14 +39,23 @@ class ProjectsScreen extends ConsumerWidget {
               onNew: () => _openNewDialog(context, ref),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('${l.t('projects.load_error')}: $e')),
+            error: (e, _) =>
+                Center(child: Text('${l.t('projects.load_error')}: $e')),
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openNewDialog(context, ref),
-        icon: const Icon(Icons.add),
-        label: Text(l.t('projects.new')),
+      // The empty state already has a prominent inline CTA. Showing a second
+      // FAB at the same time makes the mobile layout feel duplicated.
+      floatingActionButton: async.when<Widget?>(
+        data: (projects) => projects.isEmpty
+            ? null
+            : FloatingActionButton.extended(
+                onPressed: () => _openNewDialog(context, ref),
+                icon: const Icon(Icons.add),
+                label: Text(l.t('projects.new')),
+              ),
+        loading: () => null,
+        error: (_, _) => null,
       ),
     );
   }
@@ -87,13 +96,16 @@ class _ProjectsBody extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l.t('projects.title'),
-                    style: Theme.of(context).textTheme.displayLarge),
+                Text(
+                  l.t('projects.title'),
+                  style: Theme.of(context).textTheme.displayLarge,
+                ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   l.t('projects.subtitle'),
-                  style: Theme.of(context).textTheme.bodyLarge
-                      ?.copyWith(color: AppColors.textSecondary),
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -136,12 +148,13 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.folder_open,
-                size: 64, color: AppColors.textMuted),
+            Icon(Icons.folder_open, size: 64, color: AppColors.textMuted),
             const SizedBox(height: AppSpacing.md),
-            Text(label,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: AppSpacing.lg),
             FilledButton.icon(
               onPressed: onNew,

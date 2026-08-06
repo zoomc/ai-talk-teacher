@@ -81,15 +81,14 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-            // P0 #8 — flat color in low-bandwidth mode.
-            color: lowBandwidth
-                ? (isLight ? AppColors.lightFlatBg : AppColors.darkFlatBg)
-                : null,
-            gradient: lowBandwidth
-                ? null
-                : (isLight
-                    ? AppColors.lightGradientBg
-                    : AppColors.gradientBg)),
+          // P0 #8 — flat color in low-bandwidth mode.
+          color: lowBandwidth
+              ? (isLight ? AppColors.lightFlatBg : AppColors.darkFlatBg)
+              : null,
+          gradient: lowBandwidth
+              ? null
+              : (isLight ? AppColors.lightGradientBg : AppColors.gradientBg),
+        ),
         child: SafeArea(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -107,23 +106,23 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     final isRecent = _showRecentOnly;
     final (title, body, icon, color) = switch ((isStarred, isRecent)) {
       (true, _) => (
-          'No starred corrections',
-          'Tap the star on any correction to save it for focused review.',
-          Icons.star_border_rounded,
-          AppColors.warning,
-        ),
+        l.t('review.no_starred'),
+        l.t('review.no_starred_hint'),
+        Icons.star_border_rounded,
+        AppColors.warning,
+      ),
       (_, true) => (
-          'No recent mistakes',
-          'Great job — you have not made any new errors in the last 3 days.',
-          Icons.check_circle,
-          AppColors.success,
-        ),
+        l.t('review.no_recent'),
+        l.t('review.no_recent_hint'),
+        Icons.check_circle,
+        AppColors.success,
+      ),
       _ => (
-          'All caught up!',
-          l.t('review.nothing_due'),
-          Icons.check_circle,
-          AppColors.success,
-        ),
+        l.t('review.all_caught_up'),
+        l.t('review.nothing_due'),
+        Icons.check_circle,
+        AppColors.success,
+      ),
     };
     return Center(
       child: Column(
@@ -136,17 +135,10 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(AppRadius.xl),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 40,
-            ),
+            child: Icon(icon, color: color, size: 40),
           ),
           const SizedBox(height: AppSpacing.lg),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.headlineLarge,
-          ),
+          Text(title, style: Theme.of(context).textTheme.headlineLarge),
           const SizedBox(height: AppSpacing.sm),
           Text(
             body,
@@ -159,7 +151,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           ElevatedButton.icon(
             onPressed: () => context.go('/'),
             icon: const Icon(Icons.chat_bubble_outline),
-            label: const Text('Start Practicing'),
+            label: Text(l.t('review.start_practicing')),
           ),
         ],
       ),
@@ -193,7 +185,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                           const SizedBox(height: AppSpacing.xs),
                           Text(
                             _showRecentOnly
-                                ? '${_corrections.length} recent mistake${_corrections.length == 1 ? '' : 's'}'
+                                ? l.tArg('review.recent_count', {
+                                    'count': '${_corrections.length}',
+                                  })
                                 : '${_corrections.length} ${l.t('review.due_now')}',
                             style: Theme.of(context).textTheme.bodyLarge
                                 ?.copyWith(color: AppColors.textSecondary),
@@ -207,7 +201,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                       child: ElevatedButton.icon(
                         onPressed: () => _startAIReview(context),
                         icon: const Icon(Icons.auto_awesome, size: 18),
-                        label: const Text('AI Review'),
+                        label: Text(l.t('review.ai_review')),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.accentPrimary,
                         ),
@@ -218,8 +212,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                 const SizedBox(height: AppSpacing.lg),
                 Text(
                   _showRecentOnly
-                      ? 'These are corrections from the last 3 days. Tap a card to practice or rate them to update their schedule.'
-                      : 'Rate how well you remember each correction — the schedule adapts to your answer. Tap the card to practice it in a conversation.',
+                      ? l.t('review.recent_hint')
+                      : l.t('review.rating_hint'),
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
@@ -276,20 +270,25 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     // generic conversation.
     final buffer = StringBuffer();
     buffer.writeln(
-        'You are conducting a focused English review session. The user has the following corrections due for review today:');
+      'You are conducting a focused English review session. The user has the following corrections due for review today:',
+    );
     for (final c in _corrections.take(20)) {
       buffer.writeln(
-          '- [${c.type.name}] "${c.original}" → "${c.corrected}"${c.explanation != null ? ' (${c.explanation})' : ''}');
+        '- [${c.type.name}] "${c.original}" → "${c.corrected}"${c.explanation != null ? ' (${c.explanation})' : ''}',
+      );
     }
     buffer.writeln();
     buffer.writeln(
-        'Guide the user through these items naturally. Ask them to produce sentences using the corrected forms, explain why the original was wrong when helpful, and keep the conversation focused on these weak areas.');
+      'Guide the user through these items naturally. Ask them to produce sentences using the corrected forms, explain why the original was wrong when helpful, and keep the conversation focused on these weak areas.',
+    );
 
-    await repo.saveMessage(ChatMessage(
-      sessionId: session.id,
-      role: MessageRole.system,
-      content: buffer.toString(),
-    ));
+    await repo.saveMessage(
+      ChatMessage(
+        sessionId: session.id,
+        role: MessageRole.system,
+        content: buffer.toString(),
+      ),
+    );
 
     if (context.mounted) {
       context.push('/chat/${session.id}');
@@ -307,7 +306,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
     // Inject a system prompt that focuses the AI on this specific correction
     // so tapping "practice" has real pedagogical value.
-    final prompt = '''You are helping the user practice a specific correction.
+    final prompt =
+        '''You are helping the user practice a specific correction.
 
 Original mistake: "${correction.original}"
 Corrected form: "${correction.corrected}"
@@ -317,11 +317,13 @@ ${correction.skill != null ? 'Skill tag: ${correction.skill}' : ''}
 
 Your goal is to help the user internalize this correction. Ask them to produce sentences using "${correction.corrected}" in different contexts, gently correct them if they revert to "${correction.original}", and stay focused on this error until the user demonstrates mastery.''';
 
-    await repo.saveMessage(ChatMessage(
-      sessionId: session.id,
-      role: MessageRole.system,
-      content: prompt,
-    ));
+    await repo.saveMessage(
+      ChatMessage(
+        sessionId: session.id,
+        role: MessageRole.system,
+        content: prompt,
+      ),
+    );
 
     if (context.mounted) {
       context.push('/chat/${session.id}');
@@ -370,7 +372,9 @@ Your goal is to help the user internalize this correction. Ask them to produce s
       // succeeded above). Use the minimum practice threshold so a single
       // rating session is substantial enough to count toward the streak.
       try {
-        await ref.read(streakServiceProvider).recordPractice(
+        await ref
+            .read(streakServiceProvider)
+            .recordPractice(
               durationSeconds: StreakService.kMinPracticeSeconds,
               completed: true,
             );
@@ -385,9 +389,7 @@ Your goal is to help the user internalize this correction. Ask them to produce s
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '$label — ${l.tArg('review.next_review', {
-                'when': Sm2Service.getNextReviewText(updated),
-              })}',
+              '$label — ${l.tArg('review.next_review', {'when': Sm2Service.getNextReviewText(updated)})}',
             ),
             duration: const Duration(seconds: 2),
           ),
@@ -444,7 +446,7 @@ Your goal is to help the user internalize this correction. Ask them to produce s
       case 5:
         return l.t('review.rate_easy');
       default:
-        return 'Rated';
+        return l.t('review.rated');
     }
   }
 }
@@ -452,6 +454,7 @@ Your goal is to help the user internalize this correction. Ask them to produce s
 class _CorrectionCard extends ConsumerStatefulWidget {
   final Correction correction;
   final VoidCallback onTap;
+
   /// Called with the SM-2 quality (1 / 3 / 4 / 5) when a rating button is tapped.
   final ValueChanged<int> onRate;
   final bool isSubmitting;
@@ -526,8 +529,9 @@ class _CorrectionCardState extends ConsumerState<_CorrectionCard> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content:
-                  Text(AppLocalizations.of(context).t('guest.unavailable')),
+              content: Text(
+                AppLocalizations.of(context).t('guest.unavailable'),
+              ),
             ),
           );
         }
@@ -540,9 +544,9 @@ class _CorrectionCardState extends ConsumerState<_CorrectionCard> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('TTS: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('TTS: ${e.toString()}')));
       }
     } finally {
       if (mounted) setState(() => _isPlayingDemo = false);
@@ -705,8 +709,11 @@ class _CorrectionCardState extends ConsumerState<_CorrectionCard> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.volume_up_rounded,
-                        size: 18, color: AppColors.accentPrimary),
+                    : const Icon(
+                        Icons.volume_up_rounded,
+                        size: 18,
+                        color: AppColors.accentPrimary,
+                      ),
                 tooltip: l.t('correction.play_demo'),
                 onPressed: _isPlayingDemo ? null : _playDemo,
               ),
@@ -726,8 +733,11 @@ class _CorrectionCardState extends ConsumerState<_CorrectionCard> {
               ),
               const SizedBox(width: AppSpacing.xs),
               _CardIconAction(
-                icon: const Icon(Icons.folder_outlined,
-                    size: 18, color: AppColors.accentPrimary),
+                icon: const Icon(
+                  Icons.folder_outlined,
+                  size: 18,
+                  color: AppColors.accentPrimary,
+                ),
                 tooltip: l.t('projects.join.title'),
                 onPressed: () async {
                   final linked = await JoinProjectSheet.show(
@@ -797,10 +807,7 @@ class _CardIconAction extends StatelessWidget {
       child: InkResponse(
         onTap: onPressed,
         radius: 20,
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: icon,
-        ),
+        child: Padding(padding: const EdgeInsets.all(4), child: icon),
       ),
     );
   }
@@ -823,13 +830,41 @@ class _RatingBar extends StatelessWidget {
     final l = AppLocalizations.of(context);
     return Row(
       children: [
-        Expanded(child: _ratingButton(context, label: l.t('review.rate_again'), quality: 1, color: AppColors.error)),
+        Expanded(
+          child: _ratingButton(
+            context,
+            label: l.t('review.rate_again'),
+            quality: 1,
+            color: AppColors.error,
+          ),
+        ),
         const SizedBox(width: AppSpacing.xs),
-        Expanded(child: _ratingButton(context, label: l.t('review.rate_hard'), quality: 3, color: AppColors.warning)),
+        Expanded(
+          child: _ratingButton(
+            context,
+            label: l.t('review.rate_hard'),
+            quality: 3,
+            color: AppColors.warning,
+          ),
+        ),
         const SizedBox(width: AppSpacing.xs),
-        Expanded(child: _ratingButton(context, label: l.t('review.rate_good'), quality: 4, color: AppColors.success)),
+        Expanded(
+          child: _ratingButton(
+            context,
+            label: l.t('review.rate_good'),
+            quality: 4,
+            color: AppColors.success,
+          ),
+        ),
         const SizedBox(width: AppSpacing.xs),
-        Expanded(child: _ratingButton(context, label: l.t('review.rate_easy'), quality: 5, color: AppColors.accentPrimary)),
+        Expanded(
+          child: _ratingButton(
+            context,
+            label: l.t('review.rate_easy'),
+            quality: 5,
+            color: AppColors.accentPrimary,
+          ),
+        ),
       ],
     );
   }
@@ -848,7 +883,9 @@ class _RatingBar extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           foregroundColor: color,
           side: BorderSide(color: color.withValues(alpha: 0.5)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
           minimumSize: const Size.fromHeight(Responsive.minTapTarget),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
