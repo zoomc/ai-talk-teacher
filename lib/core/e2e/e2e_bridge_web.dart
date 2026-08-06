@@ -94,11 +94,25 @@ String? cannedLlmReply(String prompt) {
   return _defaultLlmReply;
 }
 
+/// Returns only a test-specific LLM override, without falling back to the
+/// generic canned reply. Simulation fixtures use this distinction so a test
+/// can override one turn while the rest of the fixture keeps its deterministic
+/// conversation.
+String? cannedLlmOverride(String prompt) {
+  if (!mockModeEnabled) return null;
+  final lower = prompt.toLowerCase();
+  for (final entry in _llmOverrides.entries) {
+    if (lower.contains(entry.key)) return entry.value;
+  }
+  return null;
+}
+
 /// Returns the mock STT transcript, or null if mock mode is disabled.
 String? get cannedSttTranscript => mockModeEnabled ? _mockSttTranscript : null;
 
 /// Returns the mock TTS audio bytes (base64), or null if mock mode is disabled.
-String? get cannedTtsAudioBase64 => mockModeEnabled ? _mockTtsAudioBase64 : null;
+String? get cannedTtsAudioBase64 =>
+    mockModeEnabled ? _mockTtsAudioBase64 : null;
 
 // ============================================================================
 //  E2eBridge — called from main.dart
@@ -141,26 +155,32 @@ class E2eBridge {
 SpeakflowE2E _buildJsBridge() {
   return SpeakflowE2E(
     resetDatabase: (() => _resetDatabase().toJS).toJS,
-    seedFixture: ((JSString name, JSString json) =>
-            _seedFixture(name.toDart, json.toDart).toJS)
-        .toJS,
-    seedProjects:
-        ((JSString json) => _seedTable('projects', json.toDart).toJS).toJS,
-    seedChatSessions: ((JSString json) =>
-            _seedTable('chat_sessions', json.toDart).toJS)
-        .toJS,
-    seedMessages:
-        ((JSString json) => _seedTable('chat_messages', json.toDart).toJS).toJS,
-    seedCorrections: ((JSString json) =>
-            _seedTable('corrections', json.toDart).toJS)
-        .toJS,
-    seedReviewQueue: ((JSString json) =>
-            _seedTable('review_queue', json.toDart).toJS)
-        .toJS,
-    seedScenarios:
-        ((JSString json) => _seedScenarios(json.toDart).toJS).toJS,
-    seedProfiles:
-        ((JSString json) => _seedProfiles(json.toDart).toJS).toJS,
+    seedFixture: ((JSString name, JSString json) => _seedFixture(
+      name.toDart,
+      json.toDart,
+    ).toJS).toJS,
+    seedProjects: ((JSString json) => _seedTable(
+      'projects',
+      json.toDart,
+    ).toJS).toJS,
+    seedChatSessions: ((JSString json) => _seedTable(
+      'chat_sessions',
+      json.toDart,
+    ).toJS).toJS,
+    seedMessages: ((JSString json) => _seedTable(
+      'chat_messages',
+      json.toDart,
+    ).toJS).toJS,
+    seedCorrections: ((JSString json) => _seedTable(
+      'corrections',
+      json.toDart,
+    ).toJS).toJS,
+    seedReviewQueue: ((JSString json) => _seedTable(
+      'review_queue',
+      json.toDart,
+    ).toJS).toJS,
+    seedScenarios: ((JSString json) => _seedScenarios(json.toDart).toJS).toJS,
+    seedProfiles: ((JSString json) => _seedProfiles(json.toDart).toJS).toJS,
     setMockMode: ((JSBoolean enabled) {
       _mockModeEnabled = enabled.toDart;
       return Future<void>.value().toJS;
@@ -177,11 +197,11 @@ SpeakflowE2E _buildJsBridge() {
       _mockTtsAudioBase64 = base64Audio.toDart;
       return Future<void>.value().toJS;
     }).toJS,
-    getDatabaseSnapshot:
-        (() => _getSnapshot().then((s) => s.toJS).toJS).toJS,
-    setSetting: ((JSString key, JSString value) =>
-            _setSetting(key.toDart, value.toDart).toJS)
-        .toJS,
+    getDatabaseSnapshot: (() => _getSnapshot().then((s) => s.toJS).toJS).toJS,
+    setSetting: ((JSString key, JSString value) => _setSetting(
+      key.toDart,
+      value.toDart,
+    ).toJS).toJS,
     completeOnboarding: (() => _completeOnboarding().toJS).toJS,
   );
 }
@@ -212,8 +232,7 @@ Future<void> _seedFixture(String name, String json) async {
   try {
     // A "fixture" is a JSON object with optional arrays per table.
     // Example: {"projects": [...], "chat_sessions": [...]}
-    final Map<String, dynamic> data =
-        jsonDecode(json) as Map<String, dynamic>;
+    final Map<String, dynamic> data = jsonDecode(json) as Map<String, dynamic>;
     if (data['projects'] is List) {
       await _seedTable('projects', jsonEncode(data['projects']));
     }
@@ -255,7 +274,9 @@ Future<void> _seedTable(String table, String json) async {
     final db = await DatabaseHelper.database;
     await db.transaction((txn) async {
       for (final row in rows) {
-        final Map<String, dynamic> rowMap = Map<String, dynamic>.from(row as Map);
+        final Map<String, dynamic> rowMap = Map<String, dynamic>.from(
+          row as Map,
+        );
         await txn.insert(
           table,
           rowMap,
@@ -288,9 +309,12 @@ Future<void> _seedProfiles(String json) async {
     final db = await DatabaseHelper.database;
     await db.transaction((txn) async {
       for (final row in rows) {
-        final Map<String, dynamic> rowMap = Map<String, dynamic>.from(row as Map);
+        final Map<String, dynamic> rowMap = Map<String, dynamic>.from(
+          row as Map,
+        );
         String table;
-        if (rowMap.containsKey('voice_id') || rowMap.containsKey('voice_name')) {
+        if (rowMap.containsKey('voice_id') ||
+            rowMap.containsKey('voice_name')) {
           table = 'tts_profiles';
         } else if (rowMap.containsKey('language')) {
           table = 'stt_profiles';
@@ -327,14 +351,10 @@ Future<String> _getSnapshot() async {
 Future<void> _setSetting(String key, String value) async {
   try {
     final db = await DatabaseHelper.database;
-    await db.insert(
-      'user_settings',
-      <String, dynamic>{
-        'key': key,
-        'value': value,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('user_settings', <String, dynamic>{
+      'key': key,
+      'value': value,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   } catch (e, st) {
     throw Exception('E2E bridge error in _setSetting: $e\n$st');
   }

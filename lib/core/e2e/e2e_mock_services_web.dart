@@ -9,8 +9,14 @@
 // and services proceed with real HTTP.
 
 // Use a prefix import to avoid name collision with the static methods below.
-import 'e2e_bridge_web.dart' as bridge
-    show cannedLlmReply, cannedSttTranscript, cannedTtsAudioBase64, mockModeEnabled;
+import 'e2e_bridge_web.dart'
+    as bridge
+    show
+        cannedLlmOverride,
+        cannedLlmReply,
+        cannedSttTranscript,
+        cannedTtsAudioBase64,
+        mockModeEnabled;
 
 /// Web-only E2E mock services. Returns canned responses when mock mode is on.
 class E2eMockServices {
@@ -21,6 +27,11 @@ class E2eMockServices {
   /// mode is off.
   static String? cannedLlmReply(String prompt) =>
       bridge.mockModeEnabled ? bridge.cannedLlmReply(prompt) : null;
+
+  /// Returns only a matching per-test override, preserving simulation
+  /// fixtures when no override was registered for the current turn.
+  static String? cannedLlmOverride(String prompt) =>
+      bridge.mockModeEnabled ? bridge.cannedLlmOverride(prompt) : null;
 
   /// Returns the canned STT transcript, or null if mock mode is off.
   static String? get cannedSttTranscript =>
