@@ -1,6 +1,6 @@
 # Avatar 技术选型与 Spike
 
-核查日期：2026-08-04。以下版本、许可证和浏览器判断以官方仓库/文档为证据；模型、贴图、动画素材仍需单独核查其授权，不能因渲染器许可证宽松而自动获得素材授权。
+核查日期：2026-08-07。以下版本、许可证和浏览器判断以官方仓库/文档为证据；模型、贴图、动画素材仍需单独核查其授权，不能因渲染器许可证宽松而自动获得素材授权。
 
 ## 需求与非目标
 
@@ -16,6 +16,7 @@
 | Babylon.js + glTF | [Babylon.js releases](https://github.com/BabylonJS/Babylon.js/releases) 9.19.0（2026-07-30） | Apache-2.0；素材另行核查；浏览器本地 | WebGL/WebGPU、glTF、Web Audio，工程能力强 | 入围但迁移成本高 |
 | three-vrm + VRM | [three-vrm](https://github.com/pixiv/three-vrm) v3.5.5（2026-07-09） | MIT；VRM/模型素材另行核查 | VRM humanoid、表情和 SpringBone；更适合 VRM 资产而非当前 RPM GLB | Spike 备选 |
 | TalkingHead | [TalkingHead npm](https://www.npmjs.com/package/@met4citizen/talkinghead)、[GitHub](https://github.com/met4citizen/TalkingHead) | 版本与素材/依赖需按仓库核查；浏览器本地 | 已包含音频口型、文本/音频播放和打断语义 | 作为对照，不直接替换 |
+| Microsoft Rocketbox | [官方仓库](https://github.com/microsoft/Microsoft-Rocketbox) | MIT；具体 FBX/纹理按仓库 notice 归档；本地自托管 | 115 个高分辨率 rigged avatar，Female facial FBX 含 ARKit/viseme targets；可转换为 GLB | 当前最合适的免费人类-CG 资产；需处理 FBX/glTF 绑定和手势 retarget |
 | Live2D Cubism | [CubismWebFramework](https://github.com/Live2D/CubismWebFramework)、[官方 Web SDK](https://docs.live2d.com/en/cubism-sdk-manual/cubism-sdk-for-web/) | Framework 源码与 Core/发布许可不同；Core 不在 GitHub，发布需遵守 Live2D 许可 | 2D 表情和动作强，但需要已绑定的 moc3、Core、发布授权 | 淘汰为当前默认 |
 
 对比项：Rhubarb 是口型分析工具而不是 Avatar 引擎；官方仓库最新 release 为 [1.14.0](https://github.com/DanielSWolf/rhubarb-lip-sync/releases)（2026-04-03），保留为桌面/服务端可选增强，不把它作为 Web 必需依赖。照片驱动与 Wav2Lip/MuseTalk 需要持续推理资源，不符合本次非目标。
@@ -28,6 +29,7 @@
 | Babylon.js | Apache-2.0 | 不需持续 GPU | WebGL/WebGPU | 引入新引擎与 Dart bridge，超出当前增量范围 |
 | three-vrm | MIT | 不需持续 GPU | WebGL/WebGPU | 当前资产不是 VRM；迁移模型和表情映射 |
 | TalkingHead | 需按其仓库和依赖逐项核查 | 依实现而定 | Web-first | API/资产/维护方向与现有 Flutter 边界不一致 |
+| Rocketbox + Three.js/TalkingHead | MIT 资产 + MIT/开源运行时；各素材分别留 notice | 不需持续 GPU | 本地 GLB + iframe/WebView | 免费资产不是 MetaHuman；手部动作需要专用 retarget |
 | Live2D | 发布/商业许可需遵守官方协议 | 本地 GPU/CPU | WebGL | Core 不随开源仓库发布，商业发布授权成本和绑定资产风险 |
 
 Ready Player Me 官方说明：Avatar Creator 产出的头像非商业使用按 CC4.0；商业产品需要注册开发者/合作方。当前仓库的远端 GLB URL 不能在未确认项目商业资格和该具体资产条款前宣称“商业授权已清楚”。
@@ -43,9 +45,13 @@ Ready Player Me 官方说明：Avatar Creator 产出的头像非商业使用按 
 
 ## 真实 Spike
 
-### Spike A：当前 Three.js + RPM GLB
+### Spike A：Three.js + Rocketbox GLB
 
-隔离入口：`assets/3d/avatar.html`。代码核查确认：GLTFLoader 加载合法 GLB URL；模型加载后收集 Mixamo bones 和 ARKit morph dictionary；`setGesture`、`setViseme`、`setAudioLevel` bridge 可驱动状态；idle 状态跳帧到约 30fps；GLB 失败调用 `_onError`。
+隔离入口：`tools/avatar-v2-lab` 和 `assets/3d/avatar.html`。Rocketbox facial FBX 通过
+`convert-rocketbox.py` 转换，`rebind-rocketbox.mjs` 重建与 Three.js 运行时一致的 inverse
+bind matrices；验证了本地 GLB、176 facial targets、15 visemes、52 ARKit names、HeadAudio
+真实 WAV 口型和 Flutter same-origin bridge。通用 TalkingHead hand clips 的骨骼轴与
+Rocketbox 不匹配，因此手势按钮保留语义时间线，使用 gaze/emotion cue，避免肢体拉伸。
 
 在 Flutter 集成中，`VirtualCharacter3D` 已验证 loading → ready3d → painter fallback 三态；`AvatarStage` 现接入该 3D 路径，并保留 Flutter painter fallback。Spike 的明确限制是模型来自远端 CDN，当前环境未把该 GLB 下载进仓库，无法把远端可用性写成稳定离线证据。
 
@@ -53,7 +59,7 @@ Ready Player Me 官方说明：Avatar Creator 产出的头像非商业使用按 
 
 | Spike | 入口 | 已验证 | 未验证 |
 |---|---|---|---|
-| A：Three.js/GLB | `assets/3d/avatar.html`、`VirtualCharacter3D`、`AvatarStage` | iframe/canvas fallback、idle/语义姿态、resize、destroy/清理路径 | 固定许可资产、真实移动 FPS/内存、离线 CDN |
+| A：Three.js/Rocketbox GLB | `tools/avatar-v2-lab`、`assets/3d/avatar.html`、`VirtualCharacter3D`、`AvatarStage` | 本地 GLB、iframe/canvas fallback、idle/语义 gaze cue、resize、destroy、真实音频口型 | 专用手部 retarget、真实设备长时内存/移动端 profiling |
 | B：Flutter painter | `VirtualCharacter`、`AvatarStage`、`RhubarbService` | 无 3D/低带宽 fallback、振幅口型、可选 viseme timeline | Web native Rhubarb binary、真实音频口型质量 |
 
 执行入口：`flutter test`、`flutter build web --release --base-href /talk/`、以及
@@ -68,7 +74,7 @@ Spike 失败不应阻塞主对话；回滚开关是 low-bandwidth/fallback 路�
 
 ## 选择
 
-主方案：Three.js + GLB（当前 `VirtualCharacter3D`/`avatar.html`），状态由 Flutter AvatarStage 的语义输入驱动，口型优先振幅、可选 Viseme 增强。备选：Flutter painter + Rhubarb/振幅 fallback；不是另一套产品路线，而是可靠降级。
+主方案：Three.js + MIT Rocketbox GLB（当前 `VirtualCharacter3D`/`avatar.html`），状态由 Flutter AvatarStage 的语义输入驱动，口型优先真实音频 HeadAudio、可选 Viseme 增强。备选：Flutter painter + Rhubarb/振幅 fallback；不是另一套产品路线，而是可靠降级。
 
 选择理由：迁移成本最低、已有跨 Web/WebView bridge、glTF/GLB 标准化、无需服务端 GPU、能在 WebGL 可用的手机浏览器上运行；相比 Live2D，不引入 Core/发布许可绑定；相比 VRM，不要求替换当前 GLB 资产。
 
@@ -76,4 +82,4 @@ Spike 失败不应阻塞主对话；回滚开关是 low-bandwidth/fallback 路�
 
 - 任意设备检测失败、模型加载超时或用户开启低带宽时，`AvatarStage(prefer3d: false)` 直接回到 painter。
 - 保留 `VirtualCharacter3D` 和 `avatar.html` 作为可替换边界；业务层只传 phase/emotion/text/amplitude，不传骨骼名或 morph 数值。
-- 主要未解决风险：RPM 商业授权需确认、CDN/CORS/网络延迟、WebView 对远端模块加载的限制、未取得真实目标手机帧率/内存测量。
+- 主要未解决风险：Rocketbox 不是电影级资产、专用手势 retarget 尚未完成、真实目标手机帧率/内存长时测量仍需补齐。

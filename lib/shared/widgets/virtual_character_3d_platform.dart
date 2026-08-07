@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 /// Default (stub) avatar host.
@@ -17,11 +19,17 @@ class AvatarHost {
 
   void setState(String stateName) {}
 
+  void setEmotion(String emotionName) {}
+
   void setViseme(String visemeName) {}
 
   void setGesture(String gestureName) {}
 
   void setAudioLevel(double level) {}
+
+  void setSpeechAudio(Uint8List bytes, {DateTime? startedAt}) {}
+
+  void clearSpeechAudio() {}
 
   Future<bool> isReady() async => false;
 
@@ -30,8 +38,7 @@ class AvatarHost {
     required double size,
     required bool showLabel,
     required String tutorName,
-  }) =>
-      const SizedBox.shrink();
+  }) => const SizedBox.shrink();
 
   void dispose() {}
 }

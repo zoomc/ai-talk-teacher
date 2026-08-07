@@ -1,0 +1,85 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0d1424;
+  color: #f6f7fb;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: #0d1424; }
+button, textarea { font: inherit; }
+button { cursor: pointer; }
+
+.app-shell {
+  width: min(1320px, calc(100% - 36px));
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 28px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(340px, .8fr);
+  align-content: center;
+  gap: 18px;
+}
+
+.stage-card, .control-card {
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 26px;
+  background: rgba(20, 30, 51, .9);
+  box-shadow: 0 30px 100px rgba(0,0,0,.3);
+}
+
+.stage-card { min-height: min(760px, calc(100vh - 56px)); padding: 26px; display: flex; flex-direction: column; }
+.control-card { padding: 24px; align-self: center; }
+.stage-topline, .control-heading, .stage-caption, .metric-row, .utility-row, .button-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.eyebrow { display: block; color: #95a4c9; font-size: 10px; letter-spacing: .2em; font-weight: 700; }
+h1, h2 { margin: 6px 0 0; letter-spacing: -.04em; }
+h1 { font-size: clamp(24px, 3vw, 38px); }
+h1 span { color: #97a6cb; font-weight: 400; }
+h2 { font-size: 21px; }
+.runtime-badge, .protocol-chip { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 8px 11px; font-size: 11px; color: #c9d5f1; background: rgba(93,117,170,.18); }
+.protocol-chip { color: #d9c4ff; background: rgba(146,94,235,.22); font-weight: 700; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: #f6b76b; box-shadow: 0 0 12px #f6b76b; }
+.status-dot.ready { background: #76e1b2; box-shadow: 0 0 12px #76e1b2; }
+
+.avatar-stage { position: relative; flex: 1; min-height: 440px; margin: 22px 0 18px; overflow: hidden; border-radius: 20px; background: radial-gradient(circle at 50% 25%, #f5f7ff 0%, #b5c3de 34%, #4c5d80 100%); }
+.avatar-stage::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 50% 18%, rgba(255,255,255,.5), transparent 32%), linear-gradient(120deg, rgba(139,174,255,.2), transparent 32%, rgba(243,194,133,.18)); pointer-events: none; z-index: 1; }
+.avatar-stage canvas { position: relative; z-index: 2; display: block; width: 100%; height: 100%; }
+.stage-caption { color: #f5f7ff; font-size: 13px; }
+.stage-caption span { color: #93a2c5; }
+#caption-note { font-size: 11px; }
+
+.field-label, .section-title { display: block; margin: 20px 0 9px; color: #9eadd0; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+textarea { width: 100%; resize: vertical; min-height: 78px; border: 1px solid rgba(255,255,255,.1); border-radius: 13px; padding: 12px; color: #f7f8fc; background: rgba(8,14,26,.44); outline: none; }
+textarea:focus { border-color: #a88cff; box-shadow: 0 0 0 3px rgba(168,140,255,.12); }
+.button { border: 1px solid rgba(255,255,255,.12); border-radius: 11px; padding: 10px 13px; color: #dce5fa; background: rgba(255,255,255,.07); transition: .18s ease; }
+.button:hover, .segmented button:hover, .choice-grid button:hover { border-color: rgba(180,162,255,.72); transform: translateY(-1px); }
+.button.primary { border-color: #9c83f4; color: white; background: linear-gradient(135deg, #8b67e8, #b88af6); box-shadow: 0 10px 28px rgba(132,93,225,.28); }
+.button-row { justify-content: flex-start; margin-top: 12px; }
+.button-row .button:first-child { flex: 1; }
+.segmented, .choice-grid { display: grid; gap: 7px; }
+.segmented { grid-template-columns: repeat(4, 1fr); }
+.choice-grid { grid-template-columns: repeat(2, 1fr); }
+.segmented button, .choice-grid button { border: 1px solid rgba(255,255,255,.08); border-radius: 9px; min-height: 33px; padding: 7px 6px; color: #aab8d5; background: rgba(255,255,255,.045); font-size: 11px; transition: .18s ease; }
+.segmented button.active, .choice-grid button.active { border-color: #9a7df3; color: white; background: rgba(135,103,232,.3); }
+.utility-row { justify-content: stretch; margin-top: 22px; }
+.utility-row .button { flex: 1; }
+.metric-row { border-top: 1px solid rgba(255,255,255,.08); margin-top: 22px; padding-top: 17px; }
+.metric-row span { display: grid; gap: 3px; }
+.metric-row small { color: #7f8eaf; font-size: 10px; }
+.metric-row strong { color: #dbe5fc; font-size: 12px; }
+
+@media (max-width: 860px) {
+  .app-shell { grid-template-columns: 1fr; width: min(620px, calc(100% - 24px)); padding: 12px 0 24px; }
+  .stage-card { min-height: 620px; }
+  .control-card { align-self: stretch; }
+}
+
+@media (max-width: 480px) {
+  .stage-card { min-height: 560px; padding: 18px; border-radius: 20px; }
+  .stage-topline { align-items: flex-start; }
+  .runtime-badge { max-width: 100px; text-align: right; }
+  .avatar-stage { min-height: 360px; }
+  .segmented { grid-template-columns: repeat(2, 1fr); }
+  .stage-caption { align-items: flex-start; flex-direction: column; }
+}

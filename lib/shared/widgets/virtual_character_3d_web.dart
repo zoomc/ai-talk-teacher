@@ -1,35 +1,33 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:html' as html;
+import 'dart:typed_data';
 import 'dart:ui_web' show platformViewRegistry;
 
 import 'package:flutter/material.dart';
 
 /// Web avatar host.
 ///
-/// Renders the avatar inside an `<iframe>` whose `src` is the bundled
-/// `assets/3d/avatar.html` (served same-origin by Flutter web, so the
-/// three.js + Ready Player Me GLB pipeline runs in an isolated browsing
-/// context). The iframe is registered as an [HtmlElementView] platform view
-/// so it composes inside the Flutter widget tree. Dart drives the avatar by
-/// `eval`-ing one-liners against the iframe's content window — the HTML
-/// exposes a `window.speakflowAvatar` bridge (see avatar.html).
-///
-/// Same-origin assets mean `contentWindow` is reachable; if anything goes
-/// cross-origin the call is swallowed and the caller's painter fallback
-/// covers total load failure.
+/// The iframe is an isolated WebGL runtime. Flutter sends only semantic
+/// Avatar V2 messages through an origin-checked `postMessage` protocol; the
+/// browser runtime owns the GLB, morph targets, animation blending and gaze.
 class AvatarHost {
   bool get isSupported => true;
 
   html.IFrameElement? _iframe;
   String? _viewType;
   bool _disposed = false;
+  bool _ready = false;
+  final List<Map<String, Object?>> _pending = [];
+  StreamSubscription<html.MessageEvent>? _messageSubscription;
 
   void init({String? avatarUrl, void Function()? onError}) {
-    final base = 'assets/3d/avatar.html';
+    // Flutter Web serves declared assets below /assets/assets/. The native
+    // WebView keeps the logical Flutter asset path without this prefix.
+    final base = 'assets/assets/3d/avatar.html';
     final src = avatarUrl == null
         ? base
         : '$base?avatar=${Uri.encodeComponent(avatarUrl)}';
-    // Per-instance viewType so multiple avatars don't share one iframe.
     final viewType = 'speakflow-avatar-${identityHashCode(this)}';
     _viewType = viewType;
     platformViewRegistry.registerViewFactory(viewType, (int viewId) {
@@ -41,56 +39,66 @@ class AvatarHost {
         ..style.display = 'block'
         ..allow = 'autoplay';
       _iframe = iframe;
-      // iframe-level load failure (asset 404 etc.) → surface to Dart so the
-      // caller can switch to the painter fallback. GLB-load failure is
-      // detected via isReady() polling instead.
       iframe.onError.listen((_) => onError?.call());
       return iframe;
     });
+    _messageSubscription?.cancel();
+    _messageSubscription = html.window.onMessage.listen((event) {
+      if (_disposed || event.origin != html.window.location.origin) return;
+      if (event.source != _iframe?.contentWindow) return;
+      final data = event.data;
+      if (data is! Map) return;
+      if (data['type'] == 'avatar:ready') {
+        _ready = true;
+        final queued = List<Map<String, Object?>>.from(_pending);
+        _pending.clear();
+        for (final message in queued) _post(message);
+      } else if (data['type'] == 'avatar:error') {
+        onError?.call();
+      }
+    });
   }
 
-  void _eval(String expr) {
+  void _post(Map<String, Object?> message) {
     if (_disposed) return;
     final cw = _iframe?.contentWindow;
     if (cw == null) return;
-    try {
-      // dart:js_util is no longer available in current Flutter web builds.
-      // The iframe is same-origin, so its JS window can safely evaluate the
-      // bridge call through the browser's native eval method.
-      (cw as dynamic).eval(expr);
-    } catch (_) {
-      // Iframe not ready yet, or a rare cross-origin hiccup — ignore. The
-      // next state change retries, and the painter fallback covers total
-      // load failure.
+    cw.postMessage(message, html.window.location.origin);
+  }
+
+  void _send(String type, [Map<String, Object?> payload = const {}]) {
+    final message = <String, Object?>{'type': type, ...payload};
+    if (!_ready) {
+      _pending.add(message);
+    } else {
+      _post(message);
     }
   }
 
-  void setState(String stateName) => _eval(
-    'window.speakflowAvatar&&window.speakflowAvatar.setState(${jsonEncode(stateName)})',
-  );
-  void setViseme(String visemeName) => _eval(
-    'window.speakflowAvatar&&window.speakflowAvatar.setViseme(${jsonEncode(visemeName)})',
-  );
-  void setGesture(String gestureName) => _eval(
-    'window.speakflowAvatar&&window.speakflowAvatar.setGesture(${jsonEncode(gestureName)})',
-  );
-  void setAudioLevel(double level) => _eval(
-    'window.speakflowAvatar&&window.speakflowAvatar.setAudioLevel($level)',
-  );
+  void setState(String stateName) =>
+      _send('avatar:setState', {'state': stateName});
 
-  Future<bool> isReady() async {
-    if (_disposed) return false;
-    final cw = _iframe?.contentWindow;
-    if (cw == null) return false;
-    try {
-      final bridge = (cw as dynamic).speakflowAvatar;
-      if (bridge == null) return false;
-      final r = (bridge as dynamic).isReady();
-      return r == true;
-    } catch (_) {
-      return false;
-    }
-  }
+  void setEmotion(String emotionName) =>
+      _send('avatar:setEmotion', {'emotion': emotionName});
+
+  void setViseme(String visemeName) =>
+      _send('avatar:setViseme', {'viseme': visemeName});
+
+  void setGesture(String gestureName) =>
+      _send('avatar:gesture', {'gesture': gestureName});
+
+  void setAudioLevel(double level) =>
+      _send('avatar:setAudioLevel', {'level': level});
+
+  void setSpeechAudio(Uint8List bytes, {DateTime? startedAt}) =>
+      _send('avatar:speakAudio', {
+        'audioBase64': base64Encode(bytes),
+        'startedAtMs': startedAt?.millisecondsSinceEpoch,
+      });
+
+  void clearSpeechAudio() => _send('avatar:stopSpeechAudio');
+
+  Future<bool> isReady() async => !_disposed && _ready;
 
   Widget buildView(
     BuildContext context, {
@@ -103,10 +111,12 @@ class AvatarHost {
   }
 
   void dispose() {
+    _send('avatar:dispose');
     _disposed = true;
+    _ready = false;
+    _pending.clear();
+    _messageSubscription?.cancel();
+    _messageSubscription = null;
     _iframe = null;
-    // registerViewFactory is global and has no unregister API; the
-    // per-instance viewType (identityHashCode) prevents collisions and the
-    // entry is a no-op once the iframe is GC'd.
   }
 }

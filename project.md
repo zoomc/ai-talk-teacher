@@ -4,25 +4,29 @@
 
 SpeakFlow 是一个 Flutter 多端 AI 英语口语练习应用，支持 Web、iOS、Android
 和 macOS。核心体验是语音转写、AI 对话、气泡内即时纠错、自动语音回复和可见的
-分层 2D AI 外教；3D 角色保留为实验路径。
+自托管 WebGL 3D AI 外教；分层 2D painter 仅作为明确的安全/测试降级。
 
 ## 当前架构
 
 - Flutter + Riverpod + SQLite（Web 使用 sqflite Common FFI）。
 - LLM、STT、TTS 由用户配置的 Provider Profile 驱动，密钥本地安全保存。
-- 3D 实验外教为 Three.js + Ready Player Me GLB：Web 使用同源 iframe，移动/桌面
-  使用 `webview_flutter`，TTS 振幅驱动口型；失败时回退到 Flutter 绘制角色。
+- 3D 外教为 Three.js + TalkingHead + 本地 MIT Rocketbox facial GLB：Web 使用同源 iframe，
+  移动/桌面使用 `webview_flutter`，HeadAudio 分析真实 TTS 字节驱动口型；失败时
+  回退到 Flutter 绘制角色。
 - 界面语言的优先级：用户设置 > 浏览器语言（Web）> 系统语言 > 中文。
 - 默认入口 `/` 是聚焦式练习准备页：展示当前 AI 老师、自由对话主题和一次主操作；旧学习仪表盘保留在 `/dashboard`，场景、历史、项目等保留为二级路由。
 - 主导航收敛为练习、复习、设置三项；设置承载“我的”下的 Provider、人物、语音健康、进度、项目和数据管理入口。
 
 ## 3D 方案与性能策略
 
-默认采用 `LayeredTutorAvatar` 的本地 2D 分层 painter：不依赖模型下载、WebGL、
-持续 GPU 或未核准素材，可在手机和离线 Demo 中稳定显示。它单独控制身体、手臂、
-头发、眼睛、眉毛、脸颊和嘴部；Rhubarb/振幅没有数据时仍可用文本驱动的口型降级。
-Ready Player Me GLB + Three.js 仅在隐藏 Avatar Lab 中用于对比；后续如要将其变为
-生产默认，必须先完成资产商业许可、移动 FPS/内存和离线失败证据。
+默认采用 TalkingHead 的本地 WebGL 3D runtime：模型、Three.js、HeadAudio
+worklet 与 viseme 模型都随 `assets/3d/` 自托管，Web/原生 WebView 不依赖在线角色
+服务。DPR capped、动态骨骼、眼神、眨眼、呼吸、情绪、语义手势和真实音频口型都在
+runtime 内完成；WebGL/模型/AudioWorklet 失败时才回退到分层 2D painter。
+当前 Rocketbox 是明显优于旧卡通 fallback 的人类 CG prototype，不是 MetaHuman/电影级
+资产；若要达到真正 3A/film fidelity，应替换为经过授权的高模、PBR/法线/眼睛/毛发/服装
+资产，桥接协议不变。通用 TalkingHead 手势片段与 Rocketbox 骨骼轴不兼容，当前手势语义
+时间线使用安全的眼神/表情 cue，待专用 retarget body-motion set 再恢复手部动作。
 
 生产级 Live2D 仍需要定稿原画的分层 PSD、Cubism 绑定产物（`.moc3` / motions）和
 发布授权，因此当前不随仓库捆绑。

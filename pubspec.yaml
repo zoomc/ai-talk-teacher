@@ -70,6 +70,19 @@ flutter:
     - assets/animations/
     - assets/images/
     - assets/3d/
+    # Flutter's asset bundler includes directory entries directly; declare
+    # Avatar V2's nested model/worklet folders explicitly so Web and WebView
+    # resolve the GLB and HeadAudio files at runtime.
+    - assets/3d/avatar-v2/
+    - assets/3d/vendor/
+    - assets/3d/vendor/headaudio/
+    - assets/3d/vendor/talkinghead/
+    - assets/3d/vendor/three/examples/jsm/controls/
+    - assets/3d/vendor/three/examples/jsm/curves/
+    - assets/3d/vendor/three/examples/jsm/environments/
+    - assets/3d/vendor/three/examples/jsm/libs/
+    - assets/3d/vendor/three/examples/jsm/loaders/
+    - assets/3d/vendor/three/examples/jsm/utils/
     - assets/simulation/
     # Phase 3 — Live2D model folder. Empty in this commit; when a model
     # ships (outsourced Live2D art), drop the .model3.json + .moc3 +

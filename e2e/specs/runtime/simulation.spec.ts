@@ -97,7 +97,7 @@ test.describe('compile-time E2E simulation runtime', () => {
 
     await goTo(page, '/lab/avatar');
     await expectText(page, 'Avatar Lab');
-    await expectText(page, 'Experimental 3D');
+    await expectText(page, 'Cinematic 3D');
     await page.screenshot({
       path: testInfo.outputPath('avatar-lab.png'),
       fullPage: true,

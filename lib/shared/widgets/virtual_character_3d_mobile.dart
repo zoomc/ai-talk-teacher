@@ -1,18 +1,21 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
 import 'package:webview_flutter/webview_flutter.dart';
 
 /// Mobile/desktop avatar host backed by `webview_flutter`.
 ///
 /// Loads the same bundled `assets/3d/avatar.html` that the web host uses,
-/// so the three.js + Ready Player Me GLB pipeline is shared verbatim across
-/// platforms. Dart drives the avatar through `runJavaScript` one-liners
-/// against the `window.speakflowAvatar` bridge defined in avatar.html.
+/// so the three.js + self-hosted GLB pipeline is shared verbatim across
+/// platforms. Dart drives the avatar through the same typed postMessage
+/// protocol used by the web iframe.
 ///
 /// `webview_flutter` supports Android, iOS and macOS — covering every
 /// non-web target SpeakFlow ships to. The WebView does NOT need microphone
 /// permission: TTS audio is played by `just_audio` on the Dart side and the
-/// amplitude stream is forwarded here to drive lip-sync, so no extra
-/// manifest/Info.plist entries are required.
+/// exact bytes are forwarded for local HeadAudio analysis; amplitude is only
+/// a compatibility fallback, so no extra manifest/Info.plist entries are
+/// required.
 class AvatarHost {
   bool get isSupported => true;
 
@@ -50,18 +53,27 @@ class AvatarHost {
     }
   }
 
-  void setState(String stateName) => _run(
-    'window.speakflowAvatar&&window.speakflowAvatar.setState(${_js(stateName)})',
-  );
-  void setViseme(String visemeName) => _run(
-    'window.speakflowAvatar&&window.speakflowAvatar.setViseme(${_js(visemeName)})',
-  );
-  void setGesture(String gestureName) => _run(
-    'window.speakflowAvatar&&window.speakflowAvatar.setGesture(${_js(gestureName)})',
-  );
+  void setState(String stateName) =>
+      _post('avatar:setState', 'state', stateName);
+  void setEmotion(String emotionName) =>
+      _post('avatar:setEmotion', 'emotion', emotionName);
+  void setViseme(String visemeName) =>
+      _post('avatar:setViseme', 'viseme', visemeName);
+  void setGesture(String gestureName) =>
+      _post('avatar:gesture', 'gesture', gestureName);
   void setAudioLevel(double level) => _run(
-    'window.speakflowAvatar&&window.speakflowAvatar.setAudioLevel($level)',
+    'window.postMessage({type:"avatar:setAudioLevel",level:$level},"*")',
   );
+
+  void setSpeechAudio(Uint8List bytes, {DateTime? startedAt}) => _run(
+    'window.postMessage({type:"avatar:speakAudio",audioBase64:${_js(base64Encode(bytes))},startedAtMs:${startedAt?.millisecondsSinceEpoch ?? 'null'}},"*")',
+  );
+
+  void clearSpeechAudio() =>
+      _run('window.postMessage({type:"avatar:stopSpeechAudio"},"*")');
+
+  void _post(String type, String key, String value) =>
+      _run('window.postMessage({type:${_js(type)},$key:${_js(value)}},"*")');
 
   Future<bool> isReady() async {
     if (_disposed || !_pageLoaded) return false;
@@ -80,7 +92,7 @@ class AvatarHost {
     }
   }
 
-  // JSON-encode a string arg so quotes/escapes are safe inside the eval.
+  // JSON-encode a string arg so quotes/escapes are safe in the message.
   String _js(String s) {
     return '"${s.replaceAll('\\', r'\\').replaceAll('"', r'\"').replaceAll('\n', r'\n').replaceAll('\r', r'\r')}"';
   }
@@ -97,6 +109,7 @@ class AvatarHost {
   }
 
   void dispose() {
+    _run('window.postMessage({type:"avatar:dispose"},"*")');
     _disposed = true;
     _controller = null;
   }
