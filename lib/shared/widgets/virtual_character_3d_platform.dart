@@ -17,6 +17,8 @@ class AvatarHost {
 
   void setState(String stateName) {}
 
+  void setEmotion(String emotionName) {}
+
   void setViseme(String visemeName) {}
 
   void setGesture(String gestureName) {}
@@ -30,8 +32,7 @@ class AvatarHost {
     required double size,
     required bool showLabel,
     required String tutorName,
-  }) =>
-      const SizedBox.shrink();
+  }) => const SizedBox.shrink();
 
   void dispose() {}
 }

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#10192d" />
+    <title>Avatar V2 · Cinematic Web Runtime Lab</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="stage-card" aria-label="Avatar preview">
+        <div class="stage-topline">
+          <div>
+            <span class="eyebrow">AI TALK TEACHER</span>
+            <h1>Avatar V2 <span>· runtime lab</span></h1>
+          </div>
+          <div class="runtime-badge"><span class="status-dot"></span><span id="runtime-status">Booting runtime</span></div>
+        </div>
+        <div id="avatar" class="avatar-stage"></div>
+        <div class="stage-caption">
+          <div><strong id="caption-state">Idle</strong><span id="caption-emotion">· neutral</span></div>
+          <span id="caption-note">Real-time GLB · local asset · WebGL</span>
+        </div>
+      </section>
+
+      <aside class="control-card" aria-label="Avatar controls">
+        <div class="control-heading">
+          <div><span class="eyebrow">PLAYGROUND</span><h2>Performance controls</h2></div>
+          <span class="protocol-chip">V2</span>
+        </div>
+
+        <label class="field-label" for="speech-text">Speech sample</label>
+        <textarea id="speech-text" rows="3">Welcome back. Take a breath, and let’s solve this together.</textarea>
+        <div class="button-row">
+          <button class="button primary" id="play-speech">▶ Play speech</button>
+          <button class="button" id="interrupt">■ Interrupt</button>
+        </div>
+
+        <div class="control-section">
+          <div class="section-title">Phase</div>
+          <div class="segmented" id="phase-controls">
+            <button data-phase="idle" class="active">Idle</button>
+            <button data-phase="listening">Listening</button>
+            <button data-phase="thinking">Thinking</button>
+            <button data-phase="speaking">Speaking</button>
+          </div>
+        </div>
+
+        <div class="control-section">
+          <div class="section-title">Expression</div>
+          <div class="choice-grid" id="emotion-controls">
+            <button data-emotion="neutral" class="active">Neutral</button>
+            <button data-emotion="warm">Warm</button>
+            <button data-emotion="happy">Happy</button>
+            <button data-emotion="encouraging">Encouraging</button>
+            <button data-emotion="curious">Curious</button>
+            <button data-emotion="thinking">Thinking</button>
+            <button data-emotion="surprised">Surprised</button>
+            <button data-emotion="serious">Serious</button>
+          </div>
+        </div>
+
+        <div class="control-section">
+          <div class="section-title">Gesture timeline</div>
+          <div class="choice-grid" id="gesture-controls">
+            <button data-gesture="small nod">Small nod</button>
+            <button data-gesture="large nod">Large nod</button>
+            <button data-gesture="shake head">Shake head</button>
+            <button data-gesture="open palm">Open palm</button>
+            <button data-gesture="explain">Explain</button>
+            <button data-gesture="praise">Praise</button>
+            <button data-gesture="greeting">Greeting</button>
+            <button data-gesture="thinking">Thinking</button>
+          </div>
+        </div>
+
+        <div class="control-section utility-row">
+          <button class="button" id="look-camera">Look at camera</button>
+          <button class="button" id="random-idle">Random idle</button>
+        </div>
+        <div class="metric-row">
+          <span><small>FPS</small><strong id="fps">—</strong></span>
+          <span><small>Asset</small><strong>MPFB · CC0</strong></span>
+          <span><small>Audio</small><strong id="audio-state">Ready</strong></span>
+        </div>
+      </aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

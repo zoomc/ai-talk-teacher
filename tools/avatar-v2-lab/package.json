@@ -1,0 +1,23 @@
+{
+  "name": "ai-talk-teacher-avatar-v2-lab",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "build:runtime": "node scripts/build-avatar-runtime.mjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@met4citizen/headaudio": "^0.1.0",
+    "@met4citizen/talkinghead": "^1.7.0",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.180.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0"
+  }
+}

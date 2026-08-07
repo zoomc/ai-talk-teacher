@@ -6,9 +6,9 @@
 ///   ┌───────────────────────────────────────────────────────────────────┐
 ///   │  Renderer        │  Default behaviour                            │
 ///   ├─────────────────┼────────────────────────────────────────────────┤
-///   │  layered 2D      │  asset-free upper-body painter                │
-///   │  optional Live2D │  used only when a legal model is bundled       │
-///   │  experimental 3D │  available from the hidden Avatar Lab         │
+///   │  3D primary       │  WebGL/GLB stage with 2D safety fallback      │
+///   │  layered 2D      │  fallback when WebGL/model loading fails      │
+///   │  optional Live2D  │  reserved for a licensed model               │
 ///   └───────────────────────────────────────────────────────────────────┘
 ///
 /// The widget is *parameter-set driven*: every frame the idle controller,
@@ -19,9 +19,8 @@
 /// native Live2D binding lands, only the `_renderLive2D` branch needs to be
 /// flipped from `throw UnimplementedError()` to "drive the binding".
 ///
-/// The production-safe path is the layered 2D tutor. It uses the existing
-/// [VirtualCharacter] viseme mapping only to choose a mouth shape when a
-/// timeline is not available; the face and upper body remain separate layers.
+/// The production path is the WebGL 3D tutor. The layered 2D painter remains
+/// a safety fallback for blocked WebGL, CDN, or model loads.
 library;
 
 import 'dart:async';
@@ -195,6 +194,10 @@ class AvatarStageState extends State<AvatarStage>
   /// Current merged parameter set, recomputed every tick.
   Map<String, double> _merged = const {};
 
+  /// High-level viseme name sent to the WebGL runtime. The runtime maps this
+  /// to its own Oculus/ARKit targets; Flutter never reaches a morph index.
+  String? _active3dViseme;
+
   @override
   void initState() {
     super.initState();
@@ -202,7 +205,7 @@ class AvatarStageState extends State<AvatarStage>
     _emotion = EmotionController();
     _visemePlayer = VisemeTimelinePlayer(VisemeTimeline.empty);
     _ticker = createTicker(_onTick);
-    if (!widget.prefer3d) _ticker.start();
+    _ticker.start();
     if (!widget.prefer3d) _probeForLive2DModel();
     _subscribeAmplitude();
     if (widget.phase == AvatarPhase.speaking) {
@@ -236,12 +239,7 @@ class AvatarStageState extends State<AvatarStage>
       }
     }
     if (oldWidget.prefer3d != widget.prefer3d) {
-      if (widget.prefer3d) {
-        _ticker.stop();
-      } else if (!_ticker.isActive) {
-        _ticker.start();
-        _probeForLive2DModel();
-      }
+      if (!widget.prefer3d) _probeForLive2DModel();
     }
   }
 
@@ -254,7 +252,6 @@ class AvatarStageState extends State<AvatarStage>
   }
 
   void _onTick(Duration elapsed) {
-    if (widget.prefer3d) return;
     _elapsed = elapsed;
     _recompute();
   }
@@ -279,6 +276,16 @@ class AvatarStageState extends State<AvatarStage>
         _hasActiveTimeline = false;
         visemeFrame = null;
       }
+    }
+
+    if (widget.prefer3d) {
+      final next = visemeFrame == null
+          ? (isSpeaking ? _active3dViseme : null)
+          : _visemeFor3d(visemeFrame.viseme);
+      if (_active3dViseme != next && mounted) {
+        setState(() => _active3dViseme = next);
+      }
+      return;
     }
 
     // Merge: idle is the base, emotion overrides its parameters, then the
@@ -411,14 +418,30 @@ class AvatarStageState extends State<AvatarStage>
             tutorName: widget.tutorName,
             tutorAvatar: widget.tutorAvatar,
             state: state,
+            emotion: widget.emotion,
             size: size,
             showLabel: false,
             speakingText: widget.speakingText,
             audioLevelStream: widget.amplitudeStream,
+            viseme: _active3dViseme,
           ),
         );
       },
     );
+  }
+
+  String? _visemeFor3d(RhubarbViseme viseme) {
+    return switch (viseme) {
+      RhubarbViseme.a => 'closed',
+      RhubarbViseme.b => 'slightOpen',
+      RhubarbViseme.c => 'smallOpen',
+      RhubarbViseme.d => 'pucker',
+      RhubarbViseme.e => 'biteLip',
+      RhubarbViseme.f => 'smileOpen',
+      RhubarbViseme.g => 'wideOpen',
+      RhubarbViseme.h => 'roundedLarge',
+      RhubarbViseme.x => 'closed',
+    };
   }
 
   Widget _renderFallback() {

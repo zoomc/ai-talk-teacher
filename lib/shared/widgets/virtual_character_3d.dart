@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../features/chat/domain/tutor_emotion.dart';
 import 'virtual_character.dart';
 import 'virtual_character_3d_platform.dart'
     if (dart.library.js_interop) 'virtual_character_3d_web.dart'
@@ -32,6 +33,7 @@ class VirtualCharacter3D extends StatefulWidget {
   // Kept for API parity with [VirtualCharacter]; unused by the 3D render.
   final String tutorAvatar;
   final CharacterState state;
+  final TutorEmotion emotion;
   final Color accentColor;
 
   /// Diameter of the character circle in pixels.
@@ -48,21 +50,27 @@ class VirtualCharacter3D extends StatefulWidget {
   /// openness is blended with the live audio level for natural lip-sync.
   final Stream<double>? audioLevelStream;
 
-  /// Optional Ready Player Me GLB URL override (per-tutor avatar). When null
-  /// a default female avatar is used (see avatar.html).
+  /// Optional GLB URL override (per-tutor avatar). When null the bundled
+  /// Avatar V2 teacher is used (see avatar.html).
   final String? avatarUrl;
+
+  /// Optional high-level viseme from a real TTS audio timeline. When set,
+  /// this takes precedence over the legacy text fallback.
+  final String? viseme;
 
   const VirtualCharacter3D({
     super.key,
     required this.tutorName,
     required this.tutorAvatar,
     this.state = CharacterState.idle,
+    this.emotion = TutorEmotion.neutral,
     this.accentColor = AppColors.accentPrimary,
     this.size = 120,
     this.showLabel = true,
     this.speakingText,
     this.audioLevelStream,
     this.avatarUrl,
+    this.viseme,
   });
 
   @override
@@ -108,8 +116,10 @@ class _VirtualCharacter3DState extends State<VirtualCharacter3D> {
   void didUpdateWidget(covariant VirtualCharacter3D oldWidget) {
     super.didUpdateWidget(oldWidget);
     final stateChanged = oldWidget.state != widget.state;
+    final emotionChanged = oldWidget.emotion != widget.emotion;
+    final visemeChanged = oldWidget.viseme != widget.viseme;
     final textChanged = oldWidget.speakingText != widget.speakingText;
-    if (stateChanged || textChanged) {
+    if (stateChanged || emotionChanged || visemeChanged || textChanged) {
       _applyState();
     }
     if (oldWidget.audioLevelStream != widget.audioLevelStream) {
@@ -152,6 +162,7 @@ class _VirtualCharacter3DState extends State<VirtualCharacter3D> {
     // Send the semantic state first so each host can reset stale gesture and
     // mouth state, then apply the more precise text/audio inputs below.
     _host.setState(s.name);
+    _host.setEmotion(widget.emotion.id);
     switch (s) {
       case CharacterState.idle:
         _host.setGesture('idle');
@@ -170,7 +181,10 @@ class _VirtualCharacter3DState extends State<VirtualCharacter3D> {
         break;
       case CharacterState.speaking:
         _host.setGesture(VirtualCharacter.gestureForKeyword(text).name);
-        if (text.isEmpty) {
+        if (widget.viseme != null) {
+          _host.setViseme(widget.viseme!);
+          _stopViseme();
+        } else if (text.isEmpty) {
           _host.setViseme('mediumOpen');
           _stopViseme();
         } else {

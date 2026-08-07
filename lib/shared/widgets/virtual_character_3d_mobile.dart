@@ -4,9 +4,9 @@ import 'package:webview_flutter/webview_flutter.dart';
 /// Mobile/desktop avatar host backed by `webview_flutter`.
 ///
 /// Loads the same bundled `assets/3d/avatar.html` that the web host uses,
-/// so the three.js + Ready Player Me GLB pipeline is shared verbatim across
-/// platforms. Dart drives the avatar through `runJavaScript` one-liners
-/// against the `window.speakflowAvatar` bridge defined in avatar.html.
+/// so the three.js + self-hosted GLB pipeline is shared verbatim across
+/// platforms. Dart drives the avatar through the same typed postMessage
+/// protocol used by the web iframe.
 ///
 /// `webview_flutter` supports Android, iOS and macOS — covering every
 /// non-web target SpeakFlow ships to. The WebView does NOT need microphone
@@ -50,18 +50,20 @@ class AvatarHost {
     }
   }
 
-  void setState(String stateName) => _run(
-    'window.speakflowAvatar&&window.speakflowAvatar.setState(${_js(stateName)})',
-  );
-  void setViseme(String visemeName) => _run(
-    'window.speakflowAvatar&&window.speakflowAvatar.setViseme(${_js(visemeName)})',
-  );
-  void setGesture(String gestureName) => _run(
-    'window.speakflowAvatar&&window.speakflowAvatar.setGesture(${_js(gestureName)})',
-  );
+  void setState(String stateName) =>
+      _post('avatar:setState', 'state', stateName);
+  void setEmotion(String emotionName) =>
+      _post('avatar:setEmotion', 'emotion', emotionName);
+  void setViseme(String visemeName) =>
+      _post('avatar:setViseme', 'viseme', visemeName);
+  void setGesture(String gestureName) =>
+      _post('avatar:setGesture', 'gesture', gestureName);
   void setAudioLevel(double level) => _run(
-    'window.speakflowAvatar&&window.speakflowAvatar.setAudioLevel($level)',
+    'window.postMessage({type:"avatar:setAudioLevel",level:$level},"*")',
   );
+
+  void _post(String type, String key, String value) =>
+      _run('window.postMessage({type:${_js(type)},$key:${_js(value)}},"*")');
 
   Future<bool> isReady() async {
     if (_disposed || !_pageLoaded) return false;
@@ -80,7 +82,7 @@ class AvatarHost {
     }
   }
 
-  // JSON-encode a string arg so quotes/escapes are safe inside the eval.
+  // JSON-encode a string arg so quotes/escapes are safe in the message.
   String _js(String s) {
     return '"${s.replaceAll('\\', r'\\').replaceAll('"', r'\"').replaceAll('\n', r'\n').replaceAll('\r', r'\r')}"';
   }

@@ -466,9 +466,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       state: _characterState,
                       tutorName: _tutorName,
                       tutorAvatar: _tutorAvatar,
-                      // 2D is the default production teacher; 3D remains an
-                      // experimental Avatar Lab renderer.
-                      prefer3d: false,
+                      // The cinematic WebGL teacher is the production path;
+                      // AvatarStage keeps the 2D painter as a safety fallback.
+                      prefer3d: true,
                       speakingText: _speakingText,
                       emotion: _tutorEmotion,
                       gesture: _tutorGesture,
@@ -491,7 +491,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       state: _characterState,
                       tutorName: _tutorName,
                       tutorAvatar: _tutorAvatar,
-                      prefer3d: false,
+                      prefer3d: true,
                       speakingText: _speakingText,
                       emotion: _tutorEmotion,
                       gesture: _tutorGesture,

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Avatar V2 cinematic Web runtime — 2026-08-07
+
+- Replaced the experimental 2D-first avatar path with a self-hosted WebGL/GLB
+  Avatar V2 runtime: CC0 MPFB character, local Three.js modules, TalkingHead
+  animation/state blending, and HeadAudio audio-driven visemes.
+- Added an independent `tools/avatar-v2-lab` with real local WAV playback,
+  idle breathing/blinking/eye motion, emotion presets, gesture timelines,
+  interruption, and responsive visual QA controls.
+- Connected Flutter Web through a typed same-origin `postMessage` protocol;
+  native WebView uses the same protocol. 3D is primary in chat and the
+  existing 2D tutor remains an explicit safety fallback.
+- Removed the old online-avatar and dynamic iframe-script paths. All runtime
+  assets are bundled under `assets/3d/` with third-party notices.
+
 ### Runtime isolation and layered tutor — 2026-08-04
 
 - Added compile-time `APP_MODE=production|demo|e2e` with isolated database,

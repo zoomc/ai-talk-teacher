@@ -140,8 +140,8 @@ class _AvatarLabScreenState extends State<AvatarLabScreen> {
             const SizedBox(height: AppSpacing.sm),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Experimental 3D'),
-              subtitle: const Text('Use only for renderer comparison'),
+              title: const Text('Cinematic 3D'),
+              subtitle: const Text('Use the WebGL teacher with 2D fallback'),
               value: _prefer3d,
               onChanged: (value) => setState(() => _prefer3d = value),
             ),
@@ -163,7 +163,7 @@ class _AvatarLabScreenState extends State<AvatarLabScreen> {
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              '2D renderer: layered vector fallback · 3D: experimental · '
+              '2D renderer: layered vector fallback · 3D: WebGL/GLB · '
               'visemes: ${visemePreview ? 'ready' : 'switch to speaking'}',
               style: Theme.of(
                 context,
