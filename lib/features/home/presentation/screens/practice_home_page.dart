@@ -116,9 +116,9 @@ class _PracticeHomePageState extends ConsumerState<PracticeHomePage> {
                             phase: AvatarPhase.idle,
                             tutorName: _tutor.name,
                             tutorAvatar: _tutor.avatar,
-                            // The layered 2D tutor is the default; 3D is
-                            // kept for the hidden Demo/Debug Avatar Lab.
-                            prefer3d: false,
+                            // Avatar V2 is the production renderer; the
+                            // layered painter remains a debug/test fallback.
+                            prefer3d: true,
                             panelHeight: Responsive.isMobile(context)
                                 ? 300
                                 : 360,

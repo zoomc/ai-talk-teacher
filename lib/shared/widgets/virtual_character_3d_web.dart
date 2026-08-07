@@ -1,4 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:html' as html;
+import 'dart:typed_data';
 import 'dart:ui_web' show platformViewRegistry;
 
 import 'package:flutter/material.dart';
@@ -16,9 +19,12 @@ class AvatarHost {
   bool _disposed = false;
   bool _ready = false;
   final List<Map<String, Object?>> _pending = [];
+  StreamSubscription<html.MessageEvent>? _messageSubscription;
 
   void init({String? avatarUrl, void Function()? onError}) {
-    final base = 'assets/3d/avatar.html';
+    // Flutter Web serves declared assets below /assets/assets/. The native
+    // WebView keeps the logical Flutter asset path without this prefix.
+    final base = 'assets/assets/3d/avatar.html';
     final src = avatarUrl == null
         ? base
         : '$base?avatar=${Uri.encodeComponent(avatarUrl)}';
@@ -36,7 +42,8 @@ class AvatarHost {
       iframe.onError.listen((_) => onError?.call());
       return iframe;
     });
-    html.window.onMessage.listen((event) {
+    _messageSubscription?.cancel();
+    _messageSubscription = html.window.onMessage.listen((event) {
       if (_disposed || event.origin != html.window.location.origin) return;
       if (event.source != _iframe?.contentWindow) return;
       final data = event.data;
@@ -83,6 +90,14 @@ class AvatarHost {
   void setAudioLevel(double level) =>
       _send('avatar:setAudioLevel', {'level': level});
 
+  void setSpeechAudio(Uint8List bytes, {DateTime? startedAt}) =>
+      _send('avatar:speakAudio', {
+        'audioBase64': base64Encode(bytes),
+        'startedAtMs': startedAt?.millisecondsSinceEpoch,
+      });
+
+  void clearSpeechAudio() => _send('avatar:stopSpeechAudio');
+
   Future<bool> isReady() async => !_disposed && _ready;
 
   Widget buildView(
@@ -96,9 +111,12 @@ class AvatarHost {
   }
 
   void dispose() {
+    _send('avatar:dispose');
     _disposed = true;
     _ready = false;
     _pending.clear();
+    _messageSubscription?.cancel();
+    _messageSubscription = null;
     _iframe = null;
   }
 }

@@ -20,10 +20,11 @@
 /// flipped from `throw UnimplementedError()` to "drive the binding".
 ///
 /// The production path is the WebGL 3D tutor. The layered 2D painter remains
-/// a safety fallback for blocked WebGL, CDN, or model loads.
+/// a safety fallback for blocked WebGL, local model, or audio-runtime loads.
 library;
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -148,7 +149,7 @@ class AvatarStage extends StatefulWidget {
     this.gesture = TutorGestureCue.idle,
     this.speakingText,
     this.amplitudeStream,
-    this.prefer3d = false,
+    this.prefer3d = true,
     this.reduceMotion,
     this.panelWidth,
     this.panelHeight,
@@ -198,6 +199,11 @@ class AvatarStageState extends State<AvatarStage>
   /// to its own Oculus/ARKit targets; Flutter never reaches a morph index.
   String? _active3dViseme;
 
+  /// Encoded TTS bytes and the native playback start clock. The WebGL host
+  /// uses these to run HeadAudio against the exact audio being heard.
+  Uint8List? _speechAudio;
+  DateTime? _speechStartedAt;
+
   @override
   void initState() {
     super.initState();
@@ -236,6 +242,8 @@ class AvatarStageState extends State<AvatarStage>
         _latestAmplitude = 0.0;
         _hasActiveTimeline = false;
         _visemePlayer.stop();
+        _speechAudio = null;
+        _speechStartedAt = null;
       }
     }
     if (oldWidget.prefer3d != widget.prefer3d) {
@@ -371,6 +379,27 @@ class AvatarStageState extends State<AvatarStage>
     _visemePlayer.stop();
     _hasActiveTimeline = false;
     _speakingStartedAt = null;
+    clearSpeechAudio();
+  }
+
+  /// Public API: hand the exact encoded TTS bytes to the platform avatar
+  /// host. This is the production lip-sync path; text and amplitude remain
+  /// final fallbacks only.
+  void setSpeechAudio(Uint8List bytes, {DateTime? startedAt}) {
+    if (!mounted) return;
+    setState(() {
+      _speechAudio = bytes;
+      _speechStartedAt = startedAt;
+    });
+  }
+
+  /// Stop any in-flight browser-side audio analysis.
+  void clearSpeechAudio() {
+    if (!mounted) return;
+    setState(() {
+      _speechAudio = null;
+      _speechStartedAt = null;
+    });
   }
 
   /// Whether the stage has detected a bundled Live2D model. Exposed for
@@ -419,11 +448,14 @@ class AvatarStageState extends State<AvatarStage>
             tutorAvatar: widget.tutorAvatar,
             state: state,
             emotion: widget.emotion,
+            gesture: widget.gesture,
             size: size,
             showLabel: false,
             speakingText: widget.speakingText,
             audioLevelStream: widget.amplitudeStream,
             viseme: _active3dViseme,
+            speechAudio: _speechAudio,
+            speechStartedAt: _speechStartedAt,
           ),
         );
       },

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
@@ -13,20 +14,18 @@ import 'virtual_character_3d_platform.dart'
 
 /// 3D virtual character widget.
 ///
-/// Renders a real, WebGL-based humanoid avatar (Ready Player Me female GLB
-/// with ARKit + Oculus viseme morph targets) driven by Three.js, embedded
-/// via [HtmlElementView] on web and `webview_flutter` on mobile/desktop —
-/// see [platform.AvatarHost] for the per-platform plumbing.
+/// Renders a real, WebGL-based humanoid avatar from the bundled self-hosted
+/// Avatar V2 GLB with Oculus viseme morph targets, driven by Three.js and
+/// TalkingHead. It is embedded via [HtmlElementView] on web and
+/// `webview_flutter` on mobile/desktop — see [platform.AvatarHost] for the
+/// per-platform plumbing.
 ///
-/// Behaviour mirrors [VirtualCharacter] (the painter fallback): 20 visemes
-/// stepped per character at ~90 ms while speaking, 20 gestures matched by
-/// keyword, state-driven defaults for idle/listening/thinking. On top of
-/// that, an optional [audioLevelStream] forwards TTS amplitude to the avatar
-/// so the mouth tracks real audio (the JS side blends amplitude onto
-/// `jawOpen`).
+/// The host receives only high-level phase, emotion, gesture, viseme and
+/// audio-level messages. A real TTS viseme timeline is the primary mouth
+/// clock; amplitude and text are only fallbacks when timing data is absent.
 ///
 /// If the 3D pipeline can't initialise within a short grace period (no
-/// WebGL, CDN unreachable, GLB load failure), the widget transparently
+/// WebGL, local GLB load failure), the widget transparently
 /// falls back to [VirtualCharacter] so the app is always usable.
 class VirtualCharacter3D extends StatefulWidget {
   final String tutorName;
@@ -34,6 +33,7 @@ class VirtualCharacter3D extends StatefulWidget {
   final String tutorAvatar;
   final CharacterState state;
   final TutorEmotion emotion;
+  final TutorGestureCue gesture;
   final Color accentColor;
 
   /// Diameter of the character circle in pixels.
@@ -42,8 +42,8 @@ class VirtualCharacter3D extends StatefulWidget {
   /// Whether to render the name + state pill below the avatar.
   final bool showLabel;
 
-  /// Optional text the avatar is currently "speaking" — drives per-character
-  /// viseme stepping and keyword gesture matching.
+  /// Optional visible text the avatar is currently speaking. It is only used
+  /// as the final mouth fallback when no audio timeline is available.
   final String? speakingText;
 
   /// Optional TTS amplitude stream (0..1). When provided, the avatar's jaw
@@ -58,12 +58,19 @@ class VirtualCharacter3D extends StatefulWidget {
   /// this takes precedence over the legacy text fallback.
   final String? viseme;
 
+  /// The same TTS bytes currently being played by the app. The Web runtime
+  /// analyzes these bytes with HeadAudio without creating a second audible
+  /// playback path.
+  final Uint8List? speechAudio;
+  final DateTime? speechStartedAt;
+
   const VirtualCharacter3D({
     super.key,
     required this.tutorName,
     required this.tutorAvatar,
     this.state = CharacterState.idle,
     this.emotion = TutorEmotion.neutral,
+    this.gesture = TutorGestureCue.idle,
     this.accentColor = AppColors.accentPrimary,
     this.size = 120,
     this.showLabel = true,
@@ -71,6 +78,8 @@ class VirtualCharacter3D extends StatefulWidget {
     this.audioLevelStream,
     this.avatarUrl,
     this.viseme,
+    this.speechAudio,
+    this.speechStartedAt,
   });
 
   @override
@@ -83,7 +92,7 @@ class _VirtualCharacter3DState extends State<VirtualCharacter3D> {
   late final platform.AvatarHost _host;
   _AvatarMode _mode = _AvatarMode.loading;
 
-  // Viseme stepper (text-driven lip-sync), mirroring VirtualCharacter.
+  // Viseme stepper is the final fallback when no audio timeline is available.
   Timer? _visemeTimer;
   int _visemeCharIndex = 0;
 
@@ -109,6 +118,12 @@ class _VirtualCharacter3DState extends State<VirtualCharacter3D> {
       _mode = _AvatarMode.fallback;
     }
     _applyState();
+    if (widget.speechAudio != null) {
+      _host.setSpeechAudio(
+        widget.speechAudio!,
+        startedAt: widget.speechStartedAt,
+      );
+    }
     _attachAudio();
   }
 
@@ -117,13 +132,33 @@ class _VirtualCharacter3DState extends State<VirtualCharacter3D> {
     super.didUpdateWidget(oldWidget);
     final stateChanged = oldWidget.state != widget.state;
     final emotionChanged = oldWidget.emotion != widget.emotion;
+    final gestureChanged = oldWidget.gesture != widget.gesture;
     final visemeChanged = oldWidget.viseme != widget.viseme;
     final textChanged = oldWidget.speakingText != widget.speakingText;
-    if (stateChanged || emotionChanged || visemeChanged || textChanged) {
+    if (stateChanged || gestureChanged || textChanged) {
       _applyState();
+    } else if (emotionChanged) {
+      _host.setEmotion(widget.emotion.id);
+    }
+    if (visemeChanged &&
+        !stateChanged &&
+        !gestureChanged &&
+        !textChanged &&
+        widget.state == CharacterState.speaking &&
+        widget.viseme != null) {
+      _host.setViseme(widget.viseme!);
     }
     if (oldWidget.audioLevelStream != widget.audioLevelStream) {
       _attachAudio();
+    }
+    if (oldWidget.speechAudio != widget.speechAudio ||
+        oldWidget.speechStartedAt != widget.speechStartedAt) {
+      final audio = widget.speechAudio;
+      if (audio != null) {
+        _host.setSpeechAudio(audio, startedAt: widget.speechStartedAt);
+      } else {
+        _host.clearSpeechAudio();
+      }
     }
   }
 
@@ -163,24 +198,35 @@ class _VirtualCharacter3DState extends State<VirtualCharacter3D> {
     // mouth state, then apply the more precise text/audio inputs below.
     _host.setState(s.name);
     _host.setEmotion(widget.emotion.id);
+    final requestedGesture = widget.gesture.id;
+    final gesture = requestedGesture == 'idle'
+        ? switch (s) {
+            CharacterState.idle => 'idle',
+            CharacterState.listening => 'gentle_nod',
+            CharacterState.thinking => 'confused',
+            CharacterState.speaking => 'gentle_nod',
+          }
+        : requestedGesture;
     switch (s) {
       case CharacterState.idle:
-        _host.setGesture('idle');
+        _host.setGesture(gesture);
         _host.setViseme('closed');
         _stopViseme();
         break;
       case CharacterState.listening:
-        _host.setGesture('nod');
+        _host.setGesture(gesture);
         _host.setViseme('slightOpen');
         _stopViseme();
         break;
       case CharacterState.thinking:
-        _host.setGesture('thinkPose');
+        _host.setGesture(gesture);
         _host.setViseme('biteLip');
         _stopViseme();
         break;
       case CharacterState.speaking:
-        _host.setGesture(VirtualCharacter.gestureForKeyword(text).name);
+        // Semantic cues are supplied by the conversation layer. Do not infer
+        // body language from visible reply text in the primary 3D path.
+        _host.setGesture(gesture);
         if (widget.viseme != null) {
           _host.setViseme(widget.viseme!);
           _stopViseme();
@@ -260,16 +306,47 @@ class _VirtualCharacter3DState extends State<VirtualCharacter3D> {
 
   @override
   Widget build(BuildContext context) {
-    // Fallback (no WebGL / load failure / unsupported): painter avatar.
+    // If WebGL or the local asset is unavailable, keep the conversation
+    // usable without presenting the old low-fidelity cartoon as production
+    // output. The layered painter remains opt-in through AvatarStage for
+    // tests/debugging.
     if (_mode == _AvatarMode.fallback) {
-      return VirtualCharacter(
-        tutorName: widget.tutorName,
-        tutorAvatar: widget.tutorAvatar,
-        state: widget.state,
-        accentColor: widget.accentColor,
-        size: widget.size,
-        showLabel: widget.showLabel,
-        speakingText: widget.speakingText,
+      return Container(
+        width: widget.size + AppSpacing.lg * 2,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              widget.accentColor.withValues(alpha: 0.2),
+              Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+            ],
+          ),
+          border: Border.all(color: widget.accentColor.withValues(alpha: 0.32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.person_outline_rounded,
+              size: widget.size * 0.42,
+              color: widget.accentColor.withValues(alpha: 0.82),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              widget.tutorName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            Text(
+              '3D unavailable · ${_stateText.replaceAll('…', '')}',
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ],
+        ),
       );
     }
 
@@ -285,21 +362,28 @@ class _VirtualCharacter3DState extends State<VirtualCharacter3D> {
           SizedBox(
             width: size,
             height: size,
-            // While loading, layer the painter behind the (still-loading)
-            // 3D view so the user sees a live avatar immediately and the 3D
-            // takes over once ready.
+            // Keep the loading surface visually consistent with Avatar V2;
+            // the legacy painter is never shown in the 3D production path.
             child: Stack(
               fit: StackFit.expand,
               children: [
                 if (_mode == _AvatarMode.loading)
-                  VirtualCharacter(
-                    tutorName: widget.tutorName,
-                    tutorAvatar: widget.tutorAvatar,
-                    state: widget.state,
-                    accentColor: widget.accentColor,
-                    size: size,
-                    showLabel: false,
-                    speakingText: widget.speakingText,
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          widget.accentColor.withValues(alpha: 0.26),
+                          Theme.of(context).colorScheme.surface,
+                        ],
+                      ),
+                    ),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: widget.accentColor.withValues(alpha: 0.75),
+                      ),
+                    ),
                   ),
                 ClipOval(
                   child: _host.buildView(

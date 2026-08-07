@@ -4,7 +4,7 @@ import 'package:speakflow/features/avatar/presentation/widgets/avatar_stage.dart
 import 'package:speakflow/features/avatar/presentation/widgets/layered_tutor_avatar.dart';
 
 void main() {
-  testWidgets('AvatarStage uses the layered 2D renderer by default', (
+  testWidgets('AvatarStage can render the layered 2D fallback explicitly', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -12,7 +12,11 @@ void main() {
         home: SizedBox(
           width: 320,
           height: 380,
-          child: AvatarStage(phase: AvatarPhase.idle, tutorName: 'Maya'),
+          child: AvatarStage(
+            phase: AvatarPhase.idle,
+            tutorName: 'Maya',
+            prefer3d: false,
+          ),
         ),
       ),
     );

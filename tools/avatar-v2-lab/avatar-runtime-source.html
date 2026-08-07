@@ -32,6 +32,7 @@
 </script>
 <script type="module">
 import {TalkingHead} from 'talkinghead';
+import {HeadAudio} from '@met4citizen/headaudio/modules/headaudio.mjs';
 
 // Avatar V2 runtime boundary:
 // Flutter sends phase, emotion, viseme, audio level and gesture intent.
@@ -39,12 +40,17 @@ import {TalkingHead} from 'talkinghead';
 // blending, idle motion and gesture timelines. No Dart-side bone control.
 const statusEl = document.getElementById('s');
 const root = document.body;
+const deviceDpr = Math.max(window.devicePixelRatio || 1, 1);
+const targetDpr = Math.min(deviceDpr, window.innerWidth < 600 ? 1.25 : 1.5);
 const head = new TalkingHead(root, {
   cameraView:'upper',
   cameraDistance:0.05,
   cameraRotateEnable:false,
   cameraZoomEnable:false,
-  modelPixelRatio:Math.min(window.devicePixelRatio, 1.75),
+  // TalkingHead multiplies this by window.devicePixelRatio internally. Keep
+  // the final renderer DPR capped so high-density phones do not render the
+  // 35 MB avatar at an unbounded 4x pixel cost.
+  modelPixelRatio:targetDpr / deviceDpr,
   modelFPS:60,
   avatarMood:'neutral',
   avatarIdleEyeContact:0.38,
@@ -52,13 +58,13 @@ const head = new TalkingHead(root, {
   avatarListeningEyeContact:0.82,
   avatarSpeakingHeadMove:0.32,
   lightAmbientColor:0xeef3ff,
-  lightAmbientIntensity:1.3,
+  lightAmbientIntensity:1.0,
   lightDirectColor:0xfff7ed,
-  lightDirectIntensity:17,
+  lightDirectIntensity:12,
   lightDirectPhi:0.9,
   lightDirectTheta:2.1,
   lightSpotColor:0x94b8ff,
-  lightSpotIntensity:7,
+  lightSpotIntensity:3.5,
   lightSpotPhi:0.9,
   lightSpotTheta:3.4,
   lightSpotDispersion:1.8,
@@ -74,6 +80,11 @@ let disposed = false;
 let pending = [];
 let lastGestureAt = 0;
 let gestureTimers = [];
+let headaudio = null;
+let analysisSource = null;
+let audioAnalysisAvailable = false;
+let audioAnalysisActive = false;
+let fallbackInterval = null;
 
 const emotionMood = {
   neutral:'neutral', warm:'love', happy:'happy', encouraging:'happy',
@@ -94,21 +105,51 @@ const visemeMap = {
   oval:['viseme_O'], wideFlat:['viseme_I'],
 };
 
-function setMorph(name, value) {
+function setMorph(name, value, transition = 220) {
   const target = head.mtAvatar && head.mtAvatar[name];
   if (!target) return;
-  target.newvalue = Math.max(0, Math.min(1, Number(value) || 0));
-  target.needsUpdate = true;
+  head.setValue(name, Math.max(0, Math.min(1, Number(value) || 0)), transition);
 }
 
-function clearMorphs(keys) { keys.forEach((key) => setMorph(key, 0)); }
+function clearMorphs(keys, transition = 180) {
+  keys.forEach((key) => {
+    const target = head.mtAvatar && head.mtAvatar[key];
+    if (target) head.setValue(key, 0, transition);
+  });
+}
+
+function finishMaterials() {
+  // MPFB is deliberately kept CC0 and self-hosted. A restrained PBR finish
+  // makes its skin, hair and suit respond more like a studio CG asset while
+  // leaving the texture maps and rig untouched.
+  head.armature?.traverse((object) => {
+    if (!object.isMesh || !object.material) return;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    materials.forEach((material) => {
+      const name = String(material.name || '').toLowerCase();
+      material.envMapIntensity = name.includes('ponytail') ? 0.85 : 0.65;
+      if (name.includes('female_casualsuit')) {
+        material.color?.setRGB(0.58, 0.72, 0.98);
+        material.metalness = 0.12;
+        material.roughness = 0.58;
+      } else if (name.includes('ponytail')) {
+        material.roughness = 0.42;
+      } else if (name.includes('body') || name.includes('high-poly')) {
+        material.roughness = 0.56;
+      }
+    });
+  });
+}
 
 function applyViseme(name) {
   current.viseme = String(name || 'closed');
-  clearMorphs(visemeKeys);
+  clearMorphs(visemeKeys, 70);
   const keys = visemeMap[current.viseme] || visemeMap.closed;
   const weight = current.viseme === 'wideOpen' || current.viseme === 'mediumOpen' ? 0.78 : 0.62;
-  keys.forEach((key) => setMorph(key, weight));
+  keys.forEach((key) => {
+    const target = head.mtAvatar && head.mtAvatar[key];
+    if (target) head.setValue(key, weight, 70);
+  });
 }
 
 function applyEmotion(name) {
@@ -134,10 +175,12 @@ function applyEmotion(name) {
 
 function applyAudioLevel(level) {
   current.audio = Math.max(0, Math.min(1, Number(level) || 0));
-  // The real TTS playback amplitude is the fallback clock when a phoneme
-  // timeline is unavailable. It is layered on top of the current viseme.
-  setMorph('mouthOpen', current.audio * 0.72);
-  setMorph('jawOpen', current.audio * 0.68);
+  // Flutter still sends a portable amplitude fallback. When HeadAudio is
+  // available, its audio-driven visemes are authoritative and this path is
+  // intentionally ignored to avoid synthetic motion fighting the worklet.
+  if (audioAnalysisAvailable) return;
+  setMorph('mouthOpen', current.audio * 0.72, 70);
+  setMorph('jawOpen', current.audio * 0.68, 70);
 }
 
 function clearGestureTimers() {
@@ -159,10 +202,19 @@ function runGesture(name) {
   if (now - lastGestureAt < 650) return;
   lastGestureAt = now;
   stopGesture();
-  const gesture = String(name || 'idle').toLowerCase();
+  const aliases = {
+    gentle_nod:'small_nod', thumbs_up:'praise', open_hand:'open_palm',
+    goodbye:'greeting',
+  };
+  const requested = String(name || 'idle').toLowerCase();
+  const gesture = aliases[requested] || requested;
   // TalkingHead owns the retargeted animation and crossfade. These cues are
   // semantic; no caller can reach a bone or morph index.
   switch (gesture) {
+    case 'idle':
+      // An explicit idle cue must not fall through to an explanatory hand
+      // gesture. TalkingHead's own idle eye/pose loop remains active.
+      return;
     case 'small_nod':
     case 'nod':
     case 'gentle_nod':
@@ -217,7 +269,87 @@ function applyState(name) {
     case 'synthesizing':
       head.makeEyeContact(1200); break;
     default:
+      stopSpeechAnalysis();
       stopGesture(); applyViseme('closed'); break;
+  }
+}
+
+function stopSpeechAnalysis() {
+  audioAnalysisActive = false;
+  if (analysisSource) {
+    analysisSource.onended = null;
+    try { analysisSource.stop(); } catch (_) { /* already ended */ }
+    analysisSource.disconnect();
+    analysisSource = null;
+  }
+  headaudio?.resetAll();
+  if (!audioAnalysisAvailable) applyAudioLevel(0);
+}
+
+function bytesFromBase64(value) {
+  const binary = atob(String(value || ''));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+async function playSpeechAnalysis(audioBase64, startedAtMs) {
+  if (!audioAnalysisAvailable || disposed) return;
+  const generation = (playSpeechAnalysis.generation || 0) + 1;
+  playSpeechAnalysis.generation = generation;
+  stopSpeechAnalysis();
+  try {
+    await head.audioCtx.resume();
+    const bytes = bytesFromBase64(audioBase64);
+    const buffer = await head.audioCtx.decodeAudioData(bytes.buffer);
+    if (disposed || generation !== playSpeechAnalysis.generation) return;
+    const source = head.audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(head.audioAnalyzerNode);
+    const elapsed = Number.isFinite(Number(startedAtMs))
+      ? Math.max(0, (Date.now() - Number(startedAtMs)) / 1000)
+      : 0;
+    const offset = Math.min(Math.max(0, buffer.duration - 0.02), elapsed);
+    analysisSource = source;
+    audioAnalysisActive = true;
+    source.onended = () => {
+      if (analysisSource !== source) return;
+      analysisSource = null;
+      audioAnalysisActive = false;
+      headaudio?.resetAll();
+    };
+    source.start(head.audioCtx.currentTime, offset);
+  } catch (error) {
+    console.warn('Avatar audio analysis unavailable', error);
+    audioAnalysisActive = false;
+  }
+}
+
+async function setupSpeechAnalysis() {
+  try {
+    await head.audioCtx.audioWorklet.addModule('./vendor/headaudio/headworklet.mjs');
+    headaudio = new HeadAudio(head.audioCtx, {
+      processorOptions:{vadEventsEnabled:true},
+      parameterData:{vadGateActiveDb:-42, vadGateInactiveDb:-58},
+    });
+    await headaudio.loadModel('./vendor/headaudio/model-en-mixed.bin');
+    // External Flutter playback is connected to the analyser only. The
+    // browser copy is muted so the same TTS bytes are never heard twice.
+    head.audioAnalyzerNode.connect(headaudio);
+    head.audioSpeechGainNode.gain.value = 0;
+    headaudio.onvalue = (key, value) => {
+      const target = head.mtAvatar && head.mtAvatar[key];
+      if (target) { target.newvalue = value; target.needsUpdate = true; }
+    };
+    headaudio.onstarted = () => { audioAnalysisActive = true; };
+    headaudio.onended = () => { audioAnalysisActive = false; };
+    head.opt.update = headaudio.update.bind(headaudio);
+    audioAnalysisAvailable = true;
+    return true;
+  } catch (error) {
+    console.warn('HeadAudio setup failed; using amplitude fallback', error);
+    audioAnalysisAvailable = false;
+    return false;
   }
 }
 
@@ -229,8 +361,11 @@ function handleCommand(data) {
     case 'avatar:setViseme': applyViseme(data.viseme); break;
     case 'avatar:setAudioLevel': applyAudioLevel(data.level); break;
     case 'avatar:gesture': runGesture(data.gesture); break;
+    case 'avatar:speakAudio': void playSpeechAnalysis(data.audioBase64, data.startedAtMs); break;
+    case 'avatar:stopSpeechAudio': stopSpeechAnalysis(); break;
     case 'avatar:interrupt': stopGesture(); applyViseme('closed'); applyAudioLevel(0); applyState('idle'); break;
     case 'avatar:lookAt': head.lookAtCamera(Number(data.duration) || 800); break;
+    case 'avatar:dispose': disposeRuntime(); break;
   }
 }
 
@@ -247,10 +382,20 @@ window.addEventListener('message', (event) => {
 
 async function boot() {
   try {
-    await head.showAvatar({url:AVATAR_URL, body:'F', avatarMood:'neutral', baseline:{headRotateX:-0.025, eyeBlinkLeft:0.15, eyeBlinkRight:0.15}});
+    await head.showAvatar({
+      url:AVATAR_URL, body:'F', avatarMood:'neutral',
+      baseline:{headRotateX:-0.025, eyeBlinkLeft:0.15, eyeBlinkRight:0.15},
+      modelDynamicBones:[
+        {bone:'Ponytail1', type:'full', stiffness:20, damping:2, external:0.7},
+        {bone:'Ponytail2', type:'full', stiffness:160, damping:8, external:0.8, pivot:true},
+        {bone:'Ponytail3', type:'full', stiffness:320, damping:14, external:0.85},
+      ],
+    });
+    finishMaterials();
+    const audioReady = await setupSpeechAnalysis();
     ready = true;
-    statusEl.textContent = '';
-    send('avatar:ready');
+    statusEl.textContent = audioReady ? '' : 'Audio worklet fallback';
+    send('avatar:ready', {audioAnalysis:audioReady});
     pending.splice(0).forEach(handleCommand);
     applyState(current.state);
     applyEmotion(current.emotion);
@@ -262,13 +407,26 @@ async function boot() {
   }
 }
 
+function disposeRuntime() {
+  if (disposed) return;
+  disposed = true;
+  stopSpeechAnalysis();
+  stopGesture();
+  if (fallbackInterval !== null) clearInterval(fallbackInterval);
+  fallbackInterval = null;
+  head.dispose();
+  ready = false;
+}
+
 window.speakflowAvatar = {
   isReady: () => ready,
-  dispose: () => { disposed = true; stopGesture(); head.stop(); },
+  dispose: disposeRuntime,
 };
 
 // Keep the audio fallback smooth even when the Dart stream is sparse.
-setInterval(() => { if (!disposed && current.audio > 0.01) applyAudioLevel(current.audio * 0.86); }, 70);
+fallbackInterval = setInterval(() => {
+  if (!disposed && current.audio > 0.01) applyAudioLevel(current.audio * 0.86);
+}, 70);
 boot();
 </script>
 </body>

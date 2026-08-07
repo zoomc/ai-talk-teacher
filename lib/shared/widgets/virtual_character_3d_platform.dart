@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 /// Default (stub) avatar host.
@@ -24,6 +26,10 @@ class AvatarHost {
   void setGesture(String gestureName) {}
 
   void setAudioLevel(double level) {}
+
+  void setSpeechAudio(Uint8List bytes, {DateTime? startedAt}) {}
+
+  void clearSpeechAudio() {}
 
   Future<bool> isReady() async => false;
 

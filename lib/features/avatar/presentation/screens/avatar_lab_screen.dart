@@ -22,7 +22,7 @@ class _AvatarLabScreenState extends State<AvatarLabScreen> {
   AvatarPhase _phase = AvatarPhase.idle;
   TutorEmotion _emotion = TutorEmotion.neutral;
   TutorGestureCue _gesture = TutorGestureCue.idle;
-  bool _prefer3d = false;
+  bool _prefer3d = true;
   bool _reduceMotion = false;
 
   @override

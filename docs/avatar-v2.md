@@ -8,7 +8,9 @@ into an independently testable web lab and a thin Flutter host bridge.
 - Three.js + `GLTFLoader` render a local glTF/GLB character.
 - `@met4citizen/talkinghead` provides animation blending, gaze, blink,
   breathing, emotion/mood control, and semantic gesture playback.
-- `@met4citizen/headaudio` extracts audio-driven Oculus visemes in the lab.
+- `@met4citizen/headaudio` extracts audio-driven Oculus visemes in the lab and
+  in the production iframe. Flutter forwards the exact encoded TTS bytes plus
+  the native playback start clock; synthetic amplitude is only a fallback.
 - The bundled `mpfb.glb` is the CC0 MakeHuman/MPFB character supplied by the
   TalkingHead project. No Ready Player Me URL, CDN model, iframe evaluation,
   or paid avatar service is required.
@@ -32,9 +34,12 @@ npm run build:runtime
 ## Flutter integration
 
 Flutter chat uses 3D as the primary renderer. `AvatarStage` forwards the
-native TTS viseme timeline to the WebGL host; text visemes and the 2D painter
-remain fallbacks when audio timing is unavailable. The web host validates both
-message origin and iframe source before accepting commands.
+encoded TTS bytes, playback clock and optional native viseme timeline to the
+WebGL host; text visemes and amplitude remain final fallbacks when audio
+analysis is unavailable. The web host validates both message origin and
+iframe source before accepting commands. On Flutter Web the iframe is served
+from `assets/assets/3d/avatar.html`; the model and worklet are bundled under
+the same asset tree.
 
 ## Quality boundary
 

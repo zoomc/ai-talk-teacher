@@ -17,9 +17,18 @@ const talkingHeadModule = path.join(
   labRoot,
   'node_modules/@met4citizen/talkinghead/modules/talkinghead.mjs',
 );
+const headAudioModule = path.join(
+  labRoot,
+  'node_modules/@met4citizen/headaudio/modules/headaudio.mjs',
+);
 fs.writeFileSync(
   entry,
-  match[1].replace("from 'talkinghead'", `from ${JSON.stringify(talkingHeadModule)}`),
+  match[1]
+    .replace("from 'talkinghead'", `from ${JSON.stringify(talkingHeadModule)}`)
+    .replace(
+      "from '@met4citizen/headaudio/modules/headaudio.mjs'",
+      `from ${JSON.stringify(headAudioModule)}`,
+    ),
 );
 
 try {

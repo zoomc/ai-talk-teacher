@@ -7,6 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "build:runtime": "node scripts/build-avatar-runtime.mjs",
+    "verify": "node scripts/verify-runtime.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "tsc --noEmit"
   },

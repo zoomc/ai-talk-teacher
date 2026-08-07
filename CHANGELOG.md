@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   existing 2D tutor remains an explicit safety fallback.
 - Removed the old online-avatar and dynamic iframe-script paths. All runtime
   assets are bundled under `assets/3d/` with third-party notices.
+- Follow-up quality pass: real TTS bytes now reach HeadAudio before playback
+  completion, Flutter Web explicitly bundles nested GLB/worklet assets,
+  semantic idle/gesture aliases are synchronized, ponytail dynamic bones are
+  enabled, and renderer DPR is capped for high-density devices.
 
 ### Runtime isolation and layered tutor — 2026-08-04
 

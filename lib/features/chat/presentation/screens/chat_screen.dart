@@ -405,6 +405,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _maybeAnalyzeVisemes({
     required String text,
     required Uint8List audioBytes,
+    required int playbackToken,
   }) async {
     final svc = _resolveRhubarb();
     if (svc == null) return;
@@ -418,7 +419,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (!mounted) return;
       // Only push the timeline when we're still speaking the same text —
       // avoids a stale timeline being applied to a newer reply.
-      if (_speakingText == text) {
+      if (_playbackToken == playbackToken && _speakingText == text) {
         _avatarKey.currentState?.setVisemeTimeline(timeline);
       }
     } catch (e) {
@@ -1091,6 +1092,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final bytes = await _ttsPlaybackService.playCached(
         text,
         () => ttsGateway.synthesize(text),
+        waitForCompletion: false,
+      );
+      if (!mounted || playbackToken != _playbackToken) return;
+      _avatarKey.currentState?.setSpeechAudio(
+        bytes,
+        startedAt: _ttsPlaybackService.lastPlaybackStartedAt,
       );
       final simulationVisemes = ttsGateway.visemesFor(text);
       if (simulationVisemes != null &&
@@ -1101,7 +1108,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       // Phase 3 — analyse the just-played audio with Rhubarb and push the
       // timeline into the avatar stage. Runs in the background; the stage
       // falls back to amplitude-driven motion until the timeline lands.
-      unawaited(_maybeAnalyzeVisemes(text: text, audioBytes: bytes));
+      unawaited(
+        _maybeAnalyzeVisemes(
+          text: text,
+          audioBytes: bytes,
+          playbackToken: playbackToken,
+        ),
+      );
     } catch (e) {
       debugPrint('Auto TTS failed: $e');
       if (mounted && playbackToken == _playbackToken) {
@@ -1158,6 +1171,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           () => _ttsPlaybackService.playCached(
             text,
             () => ttsGateway.synthesize(text),
+            waitForCompletion: false,
           ),
           shouldRetry: isTransientRetryable,
           onProgress: (p) {
@@ -1173,13 +1187,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         );
         if (mounted) setState(() => _retryHint = null);
         if (!mounted || playbackToken != _playbackToken) return;
+        _avatarKey.currentState?.setSpeechAudio(
+          bytes,
+          startedAt: _ttsPlaybackService.lastPlaybackStartedAt,
+        );
         final simulationVisemes = ttsGateway.visemesFor(text);
         if (simulationVisemes != null) {
           _avatarKey.currentState?.setVisemeTimeline(simulationVisemes);
         }
         // Phase 3 — Rhubarb viseme analysis runs after playback started so
         // it doesn't delay the retry loop. Best-effort.
-        unawaited(_maybeAnalyzeVisemes(text: text, audioBytes: bytes));
+        unawaited(
+          _maybeAnalyzeVisemes(
+            text: text,
+            audioBytes: bytes,
+            playbackToken: playbackToken,
+          ),
+        );
       } on RetryExhausted catch (e) {
         if (mounted && playbackToken == _playbackToken) {
           setState(() {

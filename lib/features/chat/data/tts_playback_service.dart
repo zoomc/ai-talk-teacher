@@ -15,12 +15,16 @@ class TtsPlaybackService {
   // having to re-synthesize audio — the same cached bytes play faster.
   double _speed = 1.0;
 
-  // ── Amplitude stream for avatar lip-sync ──────────────────────────────
-  // just_audio does not expose real-time PCM amplitude, so we synthesise a
-  // speech-like envelope (0..1) while the player is playing and emit 0 when
-  // idle. The 3D avatar blends this onto `jawOpen` on top of the
-  // text-driven viseme, giving natural-looking motion without a real
-  // analyser. Cheap (50 ms tick) and only runs during playback.
+  // ── Playback clock + amplitude fallback ───────────────────────────────
+  // The exact encoded bytes and the wall-clock start time are also forwarded
+  // to the WebGL runtime, where HeadAudio performs the primary viseme
+  // analysis. just_audio does not expose a portable PCM analyser, so this
+  // lightweight envelope remains only as a fallback for hosts where the
+  // WebAudio worklet is unavailable.
+  DateTime? _lastPlaybackStartedAt;
+
+  DateTime? get lastPlaybackStartedAt => _lastPlaybackStartedAt;
+
   final StreamController<double> _amplitudeController =
       StreamController<double>.broadcast();
   Timer? _amplitudeTimer;
@@ -65,6 +69,20 @@ class TtsPlaybackService {
   /// not playing. The stream is broadcast so multiple listeners (e.g. the
   /// 3D avatar) can listen without conflict.
   Stream<double> get amplitudeStream => _amplitudeController.stream;
+
+  /// Start native playback. In just_audio the returned Future completes when
+  /// the track ends or is interrupted; chat passes `false` so it can forward
+  /// the bytes to the avatar immediately while other callers preserve the
+  /// historical wait-until-complete behaviour.
+  Future<void> _startPlayback({required bool waitForCompletion}) async {
+    _lastPlaybackStartedAt = DateTime.now();
+    final playback = player.play().catchError((Object _) {});
+    if (waitForCompletion) {
+      await playback;
+    } else {
+      unawaited(playback);
+    }
+  }
 
   /// In-memory cache: text key -> audio bytes, to avoid re-writing files.
   static final Map<String, Uint8List> _memCache = {};
@@ -119,7 +137,7 @@ class TtsPlaybackService {
       await file.writeAsBytes(audioBytes);
 
       await player.setFilePath(file.path);
-      await player.play();
+      await _startPlayback(waitForCompletion: true);
     } catch (e) {
       throw TtsPlaybackException('Failed to play audio: $e');
     }
@@ -134,8 +152,9 @@ class TtsPlaybackService {
   /// to derive a viseme timeline for phoneme-synced lip motion.
   Future<Uint8List> playCached(
     String text,
-    Future<Uint8List> Function() synthesize,
-  ) async {
+    Future<Uint8List> Function() synthesize, {
+    bool waitForCompletion = true,
+  }) async {
     try {
       final key = _keyOf(text);
       Uint8List bytes;
@@ -188,7 +207,7 @@ class TtsPlaybackService {
           // Speed adjustment is best-effort — never block playback on it.
         }
       }
-      await player.play();
+      await _startPlayback(waitForCompletion: waitForCompletion);
       return bytes;
     } catch (e) {
       throw TtsPlaybackException('Failed to play audio: $e');

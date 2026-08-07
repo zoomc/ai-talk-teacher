@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
 import 'package:webview_flutter/webview_flutter.dart';
 
 /// Mobile/desktop avatar host backed by `webview_flutter`.
@@ -11,8 +13,9 @@ import 'package:webview_flutter/webview_flutter.dart';
 /// `webview_flutter` supports Android, iOS and macOS — covering every
 /// non-web target SpeakFlow ships to. The WebView does NOT need microphone
 /// permission: TTS audio is played by `just_audio` on the Dart side and the
-/// amplitude stream is forwarded here to drive lip-sync, so no extra
-/// manifest/Info.plist entries are required.
+/// exact bytes are forwarded for local HeadAudio analysis; amplitude is only
+/// a compatibility fallback, so no extra manifest/Info.plist entries are
+/// required.
 class AvatarHost {
   bool get isSupported => true;
 
@@ -57,10 +60,17 @@ class AvatarHost {
   void setViseme(String visemeName) =>
       _post('avatar:setViseme', 'viseme', visemeName);
   void setGesture(String gestureName) =>
-      _post('avatar:setGesture', 'gesture', gestureName);
+      _post('avatar:gesture', 'gesture', gestureName);
   void setAudioLevel(double level) => _run(
     'window.postMessage({type:"avatar:setAudioLevel",level:$level},"*")',
   );
+
+  void setSpeechAudio(Uint8List bytes, {DateTime? startedAt}) => _run(
+    'window.postMessage({type:"avatar:speakAudio",audioBase64:${_js(base64Encode(bytes))},startedAtMs:${startedAt?.millisecondsSinceEpoch ?? 'null'}},"*")',
+  );
+
+  void clearSpeechAudio() =>
+      _run('window.postMessage({type:"avatar:stopSpeechAudio"},"*")');
 
   void _post(String type, String key, String value) =>
       _run('window.postMessage({type:${_js(type)},$key:${_js(value)}},"*")');
@@ -99,6 +109,7 @@ class AvatarHost {
   }
 
   void dispose() {
+    _run('window.postMessage({type:"avatar:dispose"},"*")');
     _disposed = true;
     _controller = null;
   }
