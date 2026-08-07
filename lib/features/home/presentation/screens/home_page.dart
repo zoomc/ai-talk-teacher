@@ -60,7 +60,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          0,
+                        ),
                         child: Row(
                           children: [
                             Container(
@@ -68,11 +72,15 @@ class _HomePageState extends ConsumerState<HomePage> {
                               height: 48,
                               decoration: BoxDecoration(
                                 gradient: AppColors.gradientPrimary,
-                                borderRadius:
-                                    BorderRadius.circular(AppRadius.lg),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.lg,
+                                ),
                               ),
-                              child: const Icon(Icons.mic,
-                                  color: Colors.white, size: 24),
+                              child: const Icon(
+                                Icons.mic,
+                                color: Colors.white,
+                                size: 24,
+                              ),
                             ),
                             const SizedBox(width: AppSpacing.md),
                             Expanded(
@@ -81,17 +89,16 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 children: [
                                   Text(
                                     _greeting(l),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .headlineSmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.headlineSmall,
                                   ),
                                   Text(
                                     l.t('dashboard.subtitle'),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
+                                    style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(
-                                            color: AppColors.textSecondary),
+                                          color: AppColors.textSecondary,
+                                        ),
                                   ),
                                 ],
                               ),
@@ -115,12 +122,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.lg),
+                          horizontal: AppSpacing.lg,
+                        ),
                         child: _QuickActionButtons(
                           onConversation: () => _startConversation(context),
                           onReview: () => _openReview(context),
-                          onPronunciation: () =>
-                              _openPronunciation(context),
+                          onPronunciation: () => _openPronunciation(context),
                         ),
                       ),
                     ),
@@ -129,7 +136,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(
-                            AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          0,
+                        ),
                         child: _GoalSection(
                           onStartScenario: (scenario) =>
                               _startScenario(context, scenario),
@@ -141,7 +152,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(
-                            AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          0,
+                        ),
                         child: Text(
                           l.t('dashboard.today_tasks'),
                           style: Theme.of(context).textTheme.titleLarge,
@@ -152,8 +167,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       child: Padding(
                         padding: const EdgeInsets.all(AppSpacing.lg),
                         child: _TodayTasksSection(
-                          onTap: (task) =>
-                              _handlePlanAction(context, task),
+                          onTap: (task) => _handlePlanAction(context, task),
                         ),
                       ),
                     ),
@@ -163,23 +177,22 @@ class _HomePageState extends ConsumerState<HomePage> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.lg),
+                          horizontal: AppSpacing.lg,
+                        ),
                         child: LayoutBuilder(
                           builder: (context, constraints) {
-                            final wide =
-                                constraints.maxWidth >= 720;
+                            final wide = constraints.maxWidth >= 720;
                             if (wide) {
                               return Row(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                      child: _AbilityOverviewSection()),
+                                  Expanded(child: _AbilityOverviewSection()),
                                   const SizedBox(width: AppSpacing.md),
                                   Expanded(
-                                      child: _ReviewQueueSection(
-                                    onTap: () => context.push('/review'),
-                                  )),
+                                    child: _ReviewQueueSection(
+                                      onTap: () => context.push('/review'),
+                                    ),
+                                  ),
                                 ],
                               );
                             }
@@ -204,7 +217,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(
-                            AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          0,
+                        ),
                         child: _StructuredContentSection(
                           onStartScenario: (scenario) =>
                               _startScenario(context, scenario),
@@ -362,7 +379,9 @@ class _StreakBadge extends StatelessWidget {
     return streak.when(
       data: (v) => Container(
         padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
         decoration: BoxDecoration(
           color: AppColors.warning.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(AppRadius.full),
@@ -370,8 +389,11 @@ class _StreakBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.local_fire_department,
-                color: AppColors.warning, size: 18),
+            const Icon(
+              Icons.local_fire_department,
+              color: AppColors.warning,
+              size: 18,
+            ),
             const SizedBox(width: 4),
             Text(
               '$v',
@@ -384,7 +406,10 @@ class _StreakBadge extends StatelessWidget {
         ),
       ),
       loading: () => const SizedBox(
-          width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      ),
       error: (_, _) => const SizedBox.shrink(),
     );
   }
@@ -418,8 +443,8 @@ class _StreakProgressBar extends ConsumerWidget {
                   data: (v) => Text(
                     l.tArg('dashboard.streak_days', {'n': '$v'}),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   loading: () => const SizedBox.shrink(),
                   error: (_, _) => const SizedBox.shrink(),
@@ -430,8 +455,8 @@ class _StreakProgressBar extends ConsumerWidget {
             // 30-day dot bar
             history.when(
               data: (logs) => _StreakDots(logs: logs),
-              loading: () => const ShimmerBox(
-                  width: double.infinity, height: 48),
+              loading: () =>
+                  const ShimmerBox(width: double.infinity, height: 48),
               error: (_, _) => _StreakDots(logs: const []),
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -532,11 +557,12 @@ class _MilestoneBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        reached ? AppColors.accentPrimary : AppColors.textMuted;
+    final color = reached ? AppColors.accentPrimary : AppColors.textMuted;
     return Container(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs, vertical: 4),
+        horizontal: AppSpacing.xs,
+        vertical: 4,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: reached ? 0.18 : 0.06),
         borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -644,7 +670,9 @@ class _BigActionButton extends StatelessWidget {
     return GlassCard(
       onTap: onTap,
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm, vertical: AppSpacing.md),
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.md,
+      ),
       glowColor: color,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -667,13 +695,16 @@ class _BigActionButton extends StatelessWidget {
                   top: -6,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 5, vertical: 1),
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.error,
                       borderRadius: BorderRadius.circular(AppRadius.full),
                       border: Border.all(
-                          color: Theme.of(context).scaffoldBackgroundColor,
-                          width: 1.5),
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        width: 1.5,
+                      ),
                     ),
                     child: Text(
                       badge!,
@@ -693,9 +724,9 @@ class _BigActionButton extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -725,8 +756,8 @@ class _TodayTasksSection extends ConsumerWidget {
               child: Text(
                 l.t('plan.empty'),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
           );
@@ -738,25 +769,24 @@ class _TodayTasksSection extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: Row(
                 children: [
-                  const Icon(Icons.timer_outlined,
-                      size: 18, color: AppColors.textSecondary),
+                  const Icon(
+                    Icons.timer_outlined,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
                   const SizedBox(width: AppSpacing.xs),
                   Text(
                     l.tArg('plan.total_minutes', {'n': '${p.totalMinutes}'}),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
             for (int i = 0; i < p.tasks.length; i++) ...[
-              _TaskCard(
-                task: p.tasks[i],
-                onTap: () => onTap(p.tasks[i]),
-              ),
-              if (i < p.tasks.length - 1)
-                const SizedBox(height: AppSpacing.sm),
+              _TaskCard(task: p.tasks[i], onTap: () => onTap(p.tasks[i])),
+              if (i < p.tasks.length - 1) const SizedBox(height: AppSpacing.sm),
             ],
           ],
         );
@@ -767,9 +797,9 @@ class _TodayTasksSection extends ConsumerWidget {
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Text(
             l.t('plan.empty'),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
           ),
         ),
       ),
@@ -789,7 +819,9 @@ class _TaskCard extends StatelessWidget {
     return GlassCard(
       onTap: onTap,
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.md),
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.md,
+      ),
       child: Row(
         children: [
           // Priority pill
@@ -825,8 +857,8 @@ class _TaskCard extends StatelessWidget {
                 Text(
                   l.t(task.subtitleKey),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -838,7 +870,9 @@ class _TaskCard extends StatelessWidget {
                 Container(
                   margin: const EdgeInsets.only(bottom: 4),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 2),
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.warning.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -854,9 +888,9 @@ class _TaskCard extends StatelessWidget {
                 ),
               Text(
                 l.tArg('plan.minutes', {'n': '${task.durationMinutes}'}),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textMuted,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
               ),
             ],
           ),
@@ -908,8 +942,8 @@ class _AbilityOverviewSection extends ConsumerWidget {
                   data: (s) => Text(
                     '${s.overall}',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: AppColors.accentPrimary,
-                        ),
+                      color: AppColors.accentPrimary,
+                    ),
                   ),
                   orElse: () => const SizedBox.shrink(),
                 ),
@@ -919,9 +953,7 @@ class _AbilityOverviewSection extends ConsumerWidget {
             scores.when(
               data: (s) => PlacementRadarChart(
                 values: s.values,
-                labels: AbilityScores.dimensionKeys
-                    .map((k) => l.t(k))
-                    .toList(),
+                labels: AbilityScores.dimensionKeys.map((k) => l.t(k)).toList(),
                 color: AppColors.accentPrimary,
               ),
               loading: () => const Center(
@@ -972,8 +1004,11 @@ class _ReviewQueueSection extends ConsumerWidget {
                   l.t('dashboard.review_queue_title'),
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                const Icon(Icons.arrow_forward_ios,
-                    size: 14, color: AppColors.textMuted),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: AppColors.textMuted,
+                ),
               ],
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -982,12 +1017,13 @@ class _ReviewQueueSection extends ConsumerWidget {
                 if (items.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.md),
+                      vertical: AppSpacing.md,
+                    ),
                     child: Text(
                       l.t('review.nothing_due'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   );
                 }
@@ -1001,11 +1037,10 @@ class _ReviewQueueSection extends ConsumerWidget {
                   ],
                 );
               },
-              loading: () => const ShimmerBox(
-                  width: double.infinity, height: 120),
+              loading: () =>
+                  const ShimmerBox(width: double.infinity, height: 120),
               error: (_, _) => Padding(
-                padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.md),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                 child: Text(
                   l.t('common.empty'),
                   style: Theme.of(context).textTheme.bodySmall,
@@ -1034,10 +1069,7 @@ class _ReviewQueueTile extends StatelessWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(
-              color: typeColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: typeColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -1048,18 +1080,18 @@ class _ReviewQueueTile extends StatelessWidget {
                   item.correction.corrected,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.success,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: AppColors.success),
                 ),
                 Text(
                   item.correction.original,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textMuted,
-                        decoration: TextDecoration.lineThrough,
-                      ),
+                    color: AppColors.textMuted,
+                    decoration: TextDecoration.lineThrough,
+                  ),
                 ),
               ],
             ),
@@ -1068,9 +1100,9 @@ class _ReviewQueueTile extends StatelessWidget {
           Text(
             dueText,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.warning,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: AppColors.warning,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -1126,16 +1158,25 @@ class _GoalSection extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.flag_outlined,
-                        size: 18, color: AppColors.accentPrimary),
-                    const SizedBox(width: AppSpacing.xs),
-                    Text(
-                      l.t('goal.section_title'),
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ],
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.flag_outlined,
+                        size: 18,
+                        color: AppColors.accentPrimary,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          l.t('goal.section_title'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 TextButton.icon(
                   onPressed: () => _openSetGoalDialog(context),
@@ -1152,15 +1193,17 @@ class _GoalSection extends ConsumerWidget {
                   return Text(
                     l.t('goal.no_goal'),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                      color: AppColors.textSecondary,
+                    ),
                   );
                 }
                 return Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm, vertical: 2),
+                        horizontal: AppSpacing.sm,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.accentPrimary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -1181,9 +1224,7 @@ class _GoalSection extends ConsumerWidget {
                           goal.target,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
+                          style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: AppColors.textSecondary),
                         ),
                       ),
@@ -1192,9 +1233,10 @@ class _GoalSection extends ConsumerWidget {
                 );
               },
               loading: () => const SizedBox(
-                  height: 16,
-                  width: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2)),
+                height: 16,
+                width: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
               error: (_, _) => const SizedBox.shrink(),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -1202,9 +1244,9 @@ class _GoalSection extends ConsumerWidget {
             Text(
               l.t('goal.recommended'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: AppColors.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: AppSpacing.xs),
             scenariosAsync.when(
@@ -1212,10 +1254,9 @@ class _GoalSection extends ConsumerWidget {
                 if (scenarios.isEmpty) {
                   return Text(
                     l.t('common.empty'),
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: AppColors.textSecondary),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   );
                 }
                 return SizedBox(
@@ -1235,7 +1276,8 @@ class _GoalSection extends ConsumerWidget {
                   ),
                 );
               },
-              loading: () => const ShimmerBox(width: double.infinity, height: 80),
+              loading: () =>
+                  const ShimmerBox(width: double.infinity, height: 80),
               error: (_, _) => const SizedBox.shrink(),
             ),
           ],
@@ -1262,7 +1304,9 @@ class _ScenarioChip extends StatelessWidget {
     return GlassCard(
       onTap: onTap,
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       child: SizedBox(
         width: 140,
         child: Column(
@@ -1271,8 +1315,11 @@ class _ScenarioChip extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(_iconFor(scenario.icon),
-                    size: 16, color: AppColors.accentPrimary),
+                Icon(
+                  _iconFor(scenario.icon),
+                  size: 16,
+                  color: AppColors.accentPrimary,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -1280,8 +1327,8 @@ class _ScenarioChip extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -1291,9 +1338,9 @@ class _ScenarioChip extends StatelessWidget {
               scenario.description,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -1352,8 +1399,11 @@ class _StructuredContentSection extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.school_outlined,
-                            size: 18, color: AppColors.accentPrimary),
+                        Icon(
+                          Icons.school_outlined,
+                          size: 18,
+                          color: AppColors.accentPrimary,
+                        ),
                         const SizedBox(width: AppSpacing.xs),
                         Text(
                           l.t('content.section_title'),
@@ -1369,9 +1419,9 @@ class _StructuredContentSection extends ConsumerWidget {
                 Text(
                   l.t('content.recommended_today'),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textMuted,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 _RecommendedScenariosStrip(onStartScenario: onStartScenario),
@@ -1400,7 +1450,9 @@ class _ActivePersonaBadge extends ConsumerWidget {
     return personaAsync.when(
       data: (p) => Container(
         padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm, vertical: 2),
+          horizontal: AppSpacing.sm,
+          vertical: 2,
+        ),
         decoration: BoxDecoration(
           color: AppColors.accentSecondary.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -1408,8 +1460,11 @@ class _ActivePersonaBadge extends ConsumerWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.person_outline,
-                size: 12, color: AppColors.accentSecondary),
+            Icon(
+              Icons.person_outline,
+              size: 12,
+              color: AppColors.accentSecondary,
+            ),
             const SizedBox(width: 4),
             Text(
               l.t(TeacherPersonaStyle.labelKey(p.style)),
@@ -1441,10 +1496,9 @@ class _RecommendedScenariosStrip extends ConsumerWidget {
         if (scenarios.isEmpty) {
           return Text(
             l.t('common.empty'),
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: AppColors.textSecondary),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
           );
         }
         return SizedBox(
@@ -1483,9 +1537,9 @@ class _ScenarioReviewQueueList extends ConsumerWidget {
         Text(
           l.t('dashboard.scenario_review_title'),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textMuted,
-                fontWeight: FontWeight.w600,
-              ),
+            color: AppColors.textMuted,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: AppSpacing.xs),
         queueAsync.when(
@@ -1493,10 +1547,9 @@ class _ScenarioReviewQueueList extends ConsumerWidget {
             if (items.isEmpty) {
               return Text(
                 l.t('review.nothing_due'),
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppColors.textSecondary),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
               );
             }
             return Column(
@@ -1509,8 +1562,7 @@ class _ScenarioReviewQueueList extends ConsumerWidget {
               ],
             );
           },
-          loading: () =>
-              const ShimmerBox(width: double.infinity, height: 60),
+          loading: () => const ShimmerBox(width: double.infinity, height: 60),
           error: (_, _) => const SizedBox.shrink(),
         ),
       ],
@@ -1530,8 +1582,7 @@ class _ScenarioReviewTile extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         children: [
-          Text(item.scenario.icon,
-              style: const TextStyle(fontSize: 18)),
+          Text(item.scenario.icon, style: const TextStyle(fontSize: 18)),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
@@ -1541,25 +1592,28 @@ class _ScenarioReviewTile extends ConsumerWidget {
                   item.scenario.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 if (item.queue.lastScore > 0)
                   Text(
-                    l.tArg('content.last_score', {'n': '${item.queue.lastScore}'}),
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: AppColors.textMuted),
+                    l.tArg('content.last_score', {
+                      'n': '${item.queue.lastScore}',
+                    }),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
                   ),
               ],
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xs,
+              vertical: 2,
+            ),
             decoration: BoxDecoration(
               color: AppColors.warning.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -1567,9 +1621,9 @@ class _ScenarioReviewTile extends ConsumerWidget {
             child: Text(
               dueText,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.warning,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: AppColors.warning,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -1625,8 +1679,7 @@ class _SetGoalDialogState extends ConsumerState<_SetGoalDialog> {
                 ChoiceChip(
                   label: Text(l.t(GoalType.labelKey(type))),
                   selected: _selectedType == type,
-                  onSelected: (_) =>
-                      setState(() => _selectedType = type),
+                  onSelected: (_) => setState(() => _selectedType = type),
                 ),
             ],
           ),
@@ -1654,7 +1707,8 @@ class _SetGoalDialogState extends ConsumerState<_SetGoalDialog> {
               ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2))
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : Text(l.t('common.save')),
         ),
       ],
@@ -1664,10 +1718,9 @@ class _SetGoalDialogState extends ConsumerState<_SetGoalDialog> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      await ref.read(userGoalServiceProvider).setGoal(
-            goalType: _selectedType,
-            target: _targetController.text,
-          );
+      await ref
+          .read(userGoalServiceProvider)
+          .setGoal(goalType: _selectedType, target: _targetController.text);
       ref.invalidate(userGoalProvider);
       ref.invalidate(recommendedScenariosProvider);
       if (mounted) Navigator.of(context).pop();
@@ -1675,7 +1728,9 @@ class _SetGoalDialogState extends ConsumerState<_SetGoalDialog> {
       if (mounted) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context).t('goal.save_failed'))),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).t('goal.save_failed')),
+          ),
         );
       }
     }
