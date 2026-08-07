@@ -11,6 +11,17 @@ Thumbs.db
 # Claude Code session data
 .claude/
 
+# Agent session data and local secret-bearing runtime files
+.workbuddy/
+.env
+.env.*
+!.env.example
+.tunnel/
+*.db
+*.db-wal
+*.db-shm
+*.log
+
 # CodeGraph index
 .codegraph/
 

@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout requested release
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.ref || github.ref }}
 
@@ -43,7 +43,7 @@ jobs:
           echo "RELEASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: '3.44.4'
           cache: true
@@ -87,7 +87,7 @@ jobs:
           tar -czf ai-talk-teacher-web.tgz release-payload release-sha.txt
 
       - name: Upload production and Demo Web artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ai-talk-teacher-web
           path: ai-talk-teacher-web.tgz
@@ -101,7 +101,7 @@ jobs:
       name: aliyun-production
     steps:
       - name: Download production and Demo Web artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: ai-talk-teacher-web
 
@@ -115,7 +115,7 @@ jobs:
           echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
 
       - name: Copy production and Demo Web to Aliyun
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
           host: ${{ secrets.ALIYUN_HOST }}
           username: ${{ secrets.ALIYUN_USER }}
@@ -125,7 +125,7 @@ jobs:
           target: /tmp
 
       - name: Atomically activate production and Demo Web
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
           RELEASE_SHA: ${{ steps.resolve_release.outputs.release_sha }}
           PROD_TARGET: ${{ env.PROD_TARGET }}
@@ -198,7 +198,7 @@ jobs:
             fi
 
       - name: Verify production and Demo Web health
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
           RELEASE_SHA: ${{ steps.resolve_release.outputs.release_sha }}
           PROD_URL: ${{ env.PROD_URL }}
@@ -223,7 +223,7 @@ jobs:
 
       - name: Roll back production and Demo Web after deployment failure
         if: failure()
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
           RELEASE_SHA: ${{ steps.resolve_release.outputs.release_sha }}
           PROD_TARGET: ${{ env.PROD_TARGET }}
