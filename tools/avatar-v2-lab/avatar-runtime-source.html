@@ -73,7 +73,7 @@ const head = new TalkingHead(root, {
   lipsyncModules:[],
 });
 
-const AVATAR_URL = './avatar-v2/mpfb.glb';
+const AVATAR_URL = './avatar-v2/rocketbox-female-01.glb';
 const current = {state:'idle', emotion:'neutral', gesture:'idle', viseme:'closed', audio:0};
 let ready = false;
 let disposed = false;
@@ -119,26 +119,34 @@ function clearMorphs(keys, transition = 180) {
 }
 
 function finishMaterials() {
-  // MPFB is deliberately kept CC0 and self-hosted. A restrained PBR finish
-  // makes its skin, hair and suit respond more like a studio CG asset while
-  // leaving the texture maps and rig untouched.
+  // Rocketbox is deliberately kept MIT and self-hosted. A restrained PBR
+  // finish makes its skin, hair and clothing respond like a studio asset
+  // while leaving the texture maps and facial rig untouched.
+  head.armature?.rotation.set(0, 0, Math.PI / 2);
+  head.stop();
+  head.armature?.updateMatrixWorld(true);
   head.armature?.traverse((object) => {
     if (!object.isMesh || !object.material) return;
+    if (object.isSkinnedMesh) {
+      object.bindMatrix.identity();
+      object.bindMatrixInverse.identity();
+      object.skeleton.calculateInverses();
+    }
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     materials.forEach((material) => {
       const name = String(material.name || '').toLowerCase();
-      material.envMapIntensity = name.includes('ponytail') ? 0.85 : 0.65;
-      if (name.includes('female_casualsuit')) {
-        material.color?.setRGB(0.58, 0.72, 0.98);
-        material.metalness = 0.12;
-        material.roughness = 0.58;
-      } else if (name.includes('ponytail')) {
-        material.roughness = 0.42;
-      } else if (name.includes('body') || name.includes('high-poly')) {
-        material.roughness = 0.56;
+      material.envMapIntensity = 0.72;
+      material.metalness = Math.min(Number(material.metalness) || 0, 0.08);
+      material.roughness = Math.max(Number(material.roughness) || 0.48, 0.42);
+      if (name.includes('head') || name.includes('body') || name.includes('skin')) {
+        material.roughness = 0.5;
       }
     });
   });
+  const eyePoint = head.objectLeftEye.getWorldPosition(head.objectLeftEye.position.clone());
+  head.avatarHeight = eyePoint.y + 0.2;
+  head.setView('upper', {cameraX: 0.2, cameraY: 0.8, cameraDistance: 6});
+  head.start();
 }
 
 function applyViseme(name) {
@@ -233,24 +241,26 @@ function runGesture(name) {
     case 'open_palm':
     case 'open_hand':
     case 'greeting':
-      cue(180, () => head.playGesture('handup', 1.7, false, 650));
+      cue(180, () => head.lookAt(0.58, 0.48, 900));
+      cue(1100, () => head.lookAtCamera(650));
       break;
     case 'praise':
-      cue(160, () => head.playGesture('thumbup', 1.5, false, 650));
-      cue(1550, () => head.lookAtCamera(700));
+      cue(160, () => head.setMood('happy'));
+      cue(700, () => head.lookAtCamera(800));
       break;
     case 'thinking':
     case 'thinkpose':
     case 'thinkPose':
     case 'confused':
       applyEmotion('thinking');
-      cue(160, () => head.playGesture('shrug', 1.7, false, 700));
-      cue(850, () => head.lookAt(0.34, 0.58, 820));
+      cue(160, () => head.lookAt(0.34, 0.58, 900));
+      cue(1050, () => head.lookAtCamera(700));
       break;
     case 'explain':
     default:
-      cue(180, () => head.playGesture('side', 1.5, false, 650));
-      cue(1550, () => head.playGesture('handup', 1.1, true, 650));
+      cue(180, () => head.lookAtCamera(700));
+      cue(950, () => head.lookAt(0.58, 0.48, 850));
+      cue(1750, () => head.lookAtCamera(600));
       break;
   }
 }
@@ -385,11 +395,6 @@ async function boot() {
     await head.showAvatar({
       url:AVATAR_URL, body:'F', avatarMood:'neutral',
       baseline:{headRotateX:-0.025, eyeBlinkLeft:0.15, eyeBlinkRight:0.15},
-      modelDynamicBones:[
-        {bone:'Ponytail1', type:'full', stiffness:20, damping:2, external:0.7},
-        {bone:'Ponytail2', type:'full', stiffness:160, damping:8, external:0.8, pivot:true},
-        {bone:'Ponytail3', type:'full', stiffness:320, damping:14, external:0.85},
-      ],
     });
     finishMaterials();
     const audioReady = await setupSpeechAnalysis();

@@ -11,9 +11,13 @@ into an independently testable web lab and a thin Flutter host bridge.
 - `@met4citizen/headaudio` extracts audio-driven Oculus visemes in the lab and
   in the production iframe. Flutter forwards the exact encoded TTS bytes plus
   the native playback start clock; synthetic amplitude is only a fallback.
-- The bundled `mpfb.glb` is the CC0 MakeHuman/MPFB character supplied by the
-  TalkingHead project. No Ready Player Me URL, CDN model, iframe evaluation,
-  or paid avatar service is required.
+- The bundled `rocketbox-female-01.glb` is a self-hosted Microsoft Rocketbox
+  female character under MIT, converted from the facial FBX with 176 facial
+  targets, 15 visemes and 52 ARKit names. No Ready Player Me URL, CDN model,
+  iframe evaluation, or paid avatar service is required.
+- The asset pipeline is reproducible with `scripts/convert-rocketbox.py` and
+  `scripts/rebind-rocketbox.mjs`; the latter normalizes the glTF armature and
+  inverse bind matrices for Three.js skinning.
 
 ## Run the lab
 
@@ -43,12 +47,14 @@ the same asset tree.
 
 ## Quality boundary
 
-The runtime now supports film-like motion primitives and can accept a more
-cinematic authored GLB without changing the bridge. The included free CC0
-character is a high-quality prototype asset, not a MetaHuman-level film asset.
-Reaching true CG/3A character fidelity requires a separately authored,
-optimized character with facial blendshapes, hair/cloth simulation, and
-production motion capture; the runtime is ready for that asset replacement.
+The included Rocketbox character is a materially stronger human-CG prototype
+than the previous cartoon fallback, with real PBR textures, facial targets and
+local audio lip sync. It is still not a MetaHuman/film-level asset: reaching
+that bar requires an authorized high-resolution character with authored
+hair/cloth, eyes/skin shaders and production motion capture. Generic
+TalkingHead hand clips are intentionally not applied because their authored
+bone axes do not match Rocketbox; the current semantic gesture timeline uses
+safe gaze/emotion cues until a retargeted body-motion set is added.
 
 ## Notices
 

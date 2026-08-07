@@ -8,10 +8,17 @@ npm install
 npm run dev
 ```
 
-The lab uses a self-hosted MPFB/MakeHuman GLB (CC0), TalkingHead for GLB
-animation, expression, eye contact and gesture blending, and HeadAudio for
-audio-driven Oculus viseme inference. The speech sample is a local WAV so the
-mouth clock is the actual audio playback clock rather than a character timer.
+The lab uses the self-hosted Microsoft Rocketbox female GLB (MIT), TalkingHead
+for GLB animation, expression and eye contact, and HeadAudio for audio-driven
+Oculus viseme inference. The Rocketbox facial FBX is converted with
+`scripts/convert-rocketbox.py`, then normalized with
+`scripts/rebind-rocketbox.mjs`; the latter repairs inverse bind matrices for
+Three.js skinning. The speech sample is a local WAV so the mouth clock is the
+actual audio playback clock rather than a character timer.
+
+Rocketbox's authored arm axes are not compatible with TalkingHead's generic
+Mixamo hand clips, so semantic gesture controls currently use safe gaze and
+emotion timelines instead of malformed limb motion.
 
 The runtime is deliberately exercised here before the Flutter iframe bridge is
 changed. Once this page passes visual and interaction review, the same runtime

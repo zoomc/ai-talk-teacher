@@ -4,10 +4,13 @@
 
 ## 已知限制
 
-- 当前 3D runtime 使用本地 vendored Three.js/TalkingHead/HeadAudio 与 CC0 MPFB GLB，
-  不依赖 Three.js CDN 或 Ready Player Me 在线模型。MPFB 仍是高质量 prototype，不是
-  电影/MetaHuman 级资产；若产品要求该级别，需要另行制作并审查授权的 PBR、高模、
-  毛发/布料与 facial-rig asset。
+- 当前 3D runtime 使用本地 vendored Three.js/TalkingHead/HeadAudio 与 MIT Rocketbox
+  facial GLB，不依赖 Three.js CDN 或 Ready Player Me 在线模型。Rocketbox 是明显优于旧
+  卡通 fallback 的人类 CG prototype，但不是电影/MetaHuman 级资产；若产品要求该级别，
+  需要另行制作并审查授权的 PBR、高模、毛发/布料与 facial-rig asset。
+- Rocketbox 的 authored arm axes 与 TalkingHead 通用 Mixamo 手势片段不兼容；当前 gesture
+  API 保留语义事件和时间线，用 gaze/emotion cue 保证不会出现肢体拉伸。下一步需要专用
+  retarget body-motion clips 或在 Blender 中重定向后再打开手部动作。
 - 浏览器端 BYOK 仍会把 key 暴露给浏览器运行时；PWA cache、URL、日志和构建物不保存 key，
   但这不能抵御 XSS。高风险部署需同源后端 relay、CSP、Trusted Types、短期 token 和服务端审计。
 - 真实 Provider 的 CORS、HTTP 5xx、超时、流中断和 TTS/STT 计费没有用真实 key 做 CI；E2E
@@ -22,10 +25,11 @@
 
 ## Backlog
 
-1. 将 CC0 prototype 替换为授权的电影级角色资产，并把版本、hash、骨骼/morph 清单和许可证纳入 release artifact。
-2. 增加同源 Provider relay 与 CSP/Trusted Types 方案，默认关闭浏览器直连高敏感 Provider。
-3. 用真实设备测首屏、GLB ready、TTS 首音、FPS、内存及 30 分钟连续会话增长。
-4. 增加 WebKit、Safari standalone、Android Chrome、iOS Safari 的权限与音频回归。
-5. 把 `dart:html` bridge 迁移到 `dart:js_interop`，消除 web library 弃用提示。
-6. 增加 schema v10 的旧库升级 fixture、备份/恢复演练及数据导入导出脱敏测试。
-7. 为真实 STT/LLM/TTS relay 建立 opt-in nightly smoke，而不是把 secret 放入 PR CI。
+1. 将 Rocketbox prototype 替换为授权的电影级角色资产，并把版本、hash、骨骼/morph 清单和许可证纳入 release artifact。
+2. 为 Rocketbox 制作专用 retarget body-motion clips，替换当前安全 gaze/emotion gesture cue。
+3. 增加同源 Provider relay 与 CSP/Trusted Types 方案，默认关闭浏览器直连高敏感 Provider。
+4. 用真实设备测首屏、GLB ready、TTS 首音、FPS、内存及 30 分钟连续会话增长。
+5. 增加 WebKit、Safari standalone、Android Chrome、iOS Safari 的权限与音频回归。
+6. 把 `dart:html` bridge 迁移到 `dart:js_interop`，消除 web library 弃用提示。
+7. 增加 schema v10 的旧库升级 fixture、备份/恢复演练及数据导入导出脱敏测试。
+8. 为真实 STT/LLM/TTS relay 建立 opt-in nightly smoke，而不是把 secret 放入 PR CI。

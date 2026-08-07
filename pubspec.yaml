@@ -77,7 +77,6 @@ flutter:
     - assets/3d/vendor/
     - assets/3d/vendor/headaudio/
     - assets/3d/vendor/talkinghead/
-    - assets/3d/vendor/three/build/
     - assets/3d/vendor/three/examples/jsm/controls/
     - assets/3d/vendor/three/examples/jsm/curves/
     - assets/3d/vendor/three/examples/jsm/environments/

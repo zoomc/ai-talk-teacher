@@ -3,7 +3,7 @@ import path from 'node:path';
 import {defineConfig} from 'vite';
 
 const repoRoot = path.resolve(import.meta.dirname, '../..');
-const avatarSource = path.join(repoRoot, 'assets/3d/avatar-v2/mpfb.glb');
+const avatarSource = path.join(repoRoot, 'assets/3d/avatar-v2/rocketbox-female-01.glb');
 
 function bundledAvatar() {
   return {

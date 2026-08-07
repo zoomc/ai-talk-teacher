@@ -14,7 +14,7 @@
 | Flutter/Dart 与官方插件 | 随 SDK/package 元数据分发；以各 package 仓库 LICENSE 为准 | 在 release CI 导出完整 license notice |
 | Riverpod、go_router、sqflite、just_audio、record 等 pub 依赖 | 版本已由 `pubspec.lock` 锁定；本仓库不复制其源码 | 逐包确认 LICENSE/NOTICE 与二进制再分发要求 |
 | Three.js、GLTFLoader、TalkingHead、HeadAudio | 已 vendored 到 `assets/3d/vendor/`，生产 runtime 不请求 CDN；渲染器/运行时许可证不覆盖模型资产 | 随发布物保留 `assets/3d/vendor/THIRD_PARTY_NOTICES.md`，升级依赖时复核 notice |
-| MPFB GLB | `assets/3d/avatar-v2/mpfb.glb` 为 TalkingHead 项目提供的 CC0 资产，随包自托管 | 保留来源与 hash；若升级为真正电影级资产，替换为另行签署/审查的授权模型 |
+| Microsoft Rocketbox facial GLB | `assets/3d/avatar-v2/rocketbox-female-01.glb`，由 Microsoft Rocketbox `Female_Adult_01_facial.fbx` 转换并随包自托管；MIT | 保留官方来源、commit、hash 和 MIT notice；若升级为真正电影级资产，替换为另行签署/审查的授权模型 |
 | Rhubarb Lip Sync | 可选本地增强，不是 Web 必需依赖 | 若随原生包发布，保留其许可证与二进制来源说明 |
 
 ## 证据与限制

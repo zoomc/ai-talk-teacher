@@ -15,17 +15,19 @@ const requiredSource = [
   'avatar:stopSpeechAudio',
   'HeadAudio',
   "case 'idle':",
-  "bone:'Ponytail1'",
+  'rocketbox-female-01.glb',
+  'calculateInverses()',
+  'Math.PI / 2',
   'head.dispose()',
 ];
 const requiredBundle = [
   'avatar:speakAudio',
   'avatar:stopSpeechAudio',
   'AudioWorkletNode',
-  'Ponytail1',
+  'rocketbox-female-01.glb',
 ];
 const requiredAssets = [
-  'assets/3d/avatar-v2/mpfb.glb',
+  'assets/3d/avatar-v2/rocketbox-female-01.glb',
   'assets/3d/vendor/headaudio/headworklet.mjs',
   'assets/3d/vendor/headaudio/model-en-mixed.bin',
 ];

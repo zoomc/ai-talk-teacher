@@ -43,7 +43,13 @@ const head = new TalkingHead(avatarNode, {
   lightSpotPhi: 0.9,
   lightSpotTheta: 3.4,
   lightSpotDispersion: 1.8,
-});
+}) as TalkingHead & {
+  start(): void;
+  stop(): void;
+  lookAt(x: number, y: number, duration?: number): void;
+  objectLeftEye: any;
+  avatarHeight: number;
+};
 
 let phase: Phase = 'idle';
 let emotion: Emotion = 'neutral';
@@ -67,29 +73,37 @@ function setStatus(text: string, ready = false) {
 }
 
 function finishMaterials() {
-  // Keep the CC0 MPFB asset local while giving its PBR materials a more
+  // Keep the MIT Rocketbox asset local while giving its PBR materials a
   // cinematic studio response. No rig or morph target is modified here.
   const runtimeHead = head as TalkingHead & {
-    armature?: {traverse(callback: (object: any) => void): void};
+    armature?: {scale: any; rotation: any; position: any; updateMatrixWorld(force?: boolean): void; traverse(callback: (object: any) => void): void};
   };
+  runtimeHead.armature?.rotation.set(0, 0, Math.PI / 2);
+  head.stop();
+  runtimeHead.armature?.updateMatrixWorld(true);
   runtimeHead.armature?.traverse((object: any) => {
     const mesh = object;
     if (!mesh.isMesh || !mesh.material) return;
+    if (mesh.isSkinnedMesh) {
+      mesh.bindMatrix.identity();
+      mesh.bindMatrixInverse.identity();
+      mesh.skeleton.calculateInverses();
+    }
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     materials.forEach((material: any) => {
       const name = String(material.name || '').toLowerCase();
-      material.envMapIntensity = name.includes('ponytail') ? 0.85 : 0.65;
-      if (name.includes('female_casualsuit')) {
-        material.color?.setRGB(0.58, 0.72, 0.98);
-        material.metalness = 0.12;
-        material.roughness = 0.58;
-      } else if (name.includes('ponytail')) {
-        material.roughness = 0.42;
-      } else if (name.includes('body') || name.includes('high-poly')) {
-        material.roughness = 0.56;
+      material.envMapIntensity = 0.72;
+      material.metalness = Math.min(Number(material.metalness) || 0, 0.08);
+      material.roughness = Math.max(Number(material.roughness) || 0.48, 0.42);
+      if (name.includes('head') || name.includes('body') || name.includes('skin')) {
+        material.roughness = 0.5;
       }
     });
   });
+  const eyePoint = head.objectLeftEye.getWorldPosition(head.objectLeftEye.position.clone());
+  head.avatarHeight = eyePoint.y + 0.2;
+  head.setView('upper', {cameraX: 0.2, cameraY: 0.8, cameraDistance: 6});
+  head.start();
 }
 
 function setPhase(next: Phase) {
@@ -123,21 +137,23 @@ function queueGesture(name: string) {
   if (now - lastGestureAt < 700) return;
   lastGestureAt = now;
   stopGesture();
-  const timeline: Record<string, Array<[number, string, number, boolean]>> = {
-    'small nod': [[220, 'nod', 900, false]],
-    'large nod': [[220, 'nod', 1400, false]],
-    'shake head': [[250, 'shake', 1300, false]],
-    'open palm': [[360, 'side', 1800, false]],
-    explain: [[260, 'side', 1600, false], [1550, 'handup', 1300, true]],
-    praise: [[240, 'thumbup', 1500, false], [1750, 'nod', 800, false]],
-    greeting: [[180, 'handup', 1800, false]],
-    thinking: [[200, 'shrug', 1800, false]],
+  // Rocketbox facial animation is high quality, but its authored arm pose is
+  // not compatible with TalkingHead's generic Mixamo hand clips. Keep the
+  // gesture API semantic and use gaze/emotion cues here; this avoids asking a
+  // mismatched rig to make implausible, broken limb rotations.
+  const cues: Record<string, Array<[number, () => void]>> = {
+    'small nod': [[120, () => head.lookAtCamera(500)], [720, () => head.lookAt(0.5, 0.47, 420)]],
+    'large nod': [[120, () => head.lookAtCamera(850)], [1050, () => head.lookAt(0.5, 0.4, 650)]],
+    'shake head': [[80, () => head.lookAt(0.38, 0.5, 450)], [580, () => head.lookAt(0.62, 0.5, 650)], [1320, () => head.lookAtCamera(520)]],
+    'open palm': [[180, () => head.lookAt(0.58, 0.48, 900)], [1100, () => head.lookAtCamera(650)]],
+    explain: [[180, () => head.lookAtCamera(700)], [950, () => head.lookAt(0.58, 0.48, 850)], [1750, () => head.lookAtCamera(600)]],
+    praise: [[160, () => head.setMood('happy')], [700, () => head.lookAtCamera(800)]],
+    greeting: [[160, () => head.lookAtCamera(900)], [900, () => head.lookAt(0.58, 0.5, 700)]],
+    thinking: [[160, () => head.lookAt(0.34, 0.58, 900)], [1050, () => head.lookAtCamera(700)]],
   };
-  const cues = timeline[name] ?? timeline.explain;
-  cues.forEach(([delay, gesture, duration, mirror]) => {
-    window.setTimeout(() => head.playGesture(gesture, duration / 1000, mirror, 650), delay);
-  });
-  gestureTimer = window.setTimeout(stopGesture, cues[cues.length - 1][0] + cues[cues.length - 1][2] + 850);
+  const selected = cues[name] ?? cues.explain;
+  selected.forEach(([delay, callback]) => window.setTimeout(callback, delay));
+  gestureTimer = window.setTimeout(stopGesture, selected[selected.length - 1][0] + 1200);
 }
 
 async function setupAudioDrivenLipSync() {
@@ -234,11 +250,6 @@ async function boot() {
     await head.showAvatar({
       url: '/avatar.glb', body: 'F', avatarMood: 'neutral',
       baseline: {headRotateX: -0.025, eyeBlinkLeft: 0.15, eyeBlinkRight: 0.15},
-      modelDynamicBones: [
-        {bone: 'Ponytail1', type: 'full', stiffness: 20, damping: 2, external: 0.7},
-        {bone: 'Ponytail2', type: 'full', stiffness: 160, damping: 8, external: 0.8, pivot: true},
-        {bone: 'Ponytail3', type: 'full', stiffness: 320, damping: 14, external: 0.85},
-      ],
     });
     finishMaterials();
     await setupAudioDrivenLipSync();
@@ -247,7 +258,8 @@ async function boot() {
     updateFps();
   } catch (error) {
     console.error(error);
-    setStatus('Avatar failed to load');
+    const reason = error instanceof Error ? error.message : String(error);
+    setStatus(`Avatar failed: ${reason}`);
     document.querySelector('#caption-note')!.textContent = 'Check local asset / browser WebGL support';
   }
 }

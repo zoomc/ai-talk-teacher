@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Avatar V2 cinematic Web runtime — 2026-08-07
 
 - Replaced the experimental 2D-first avatar path with a self-hosted WebGL/GLB
-  Avatar V2 runtime: CC0 MPFB character, local Three.js modules, TalkingHead
+  Avatar V2 runtime: MIT Rocketbox human-CG character, local Three.js modules, TalkingHead
   animation/state blending, and HeadAudio audio-driven visemes.
 - Added an independent `tools/avatar-v2-lab` with real local WAV playback,
   idle breathing/blinking/eye motion, emotion presets, gesture timelines,
@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   completion, Flutter Web explicitly bundles nested GLB/worklet assets,
   semantic idle/gesture aliases are synchronized, ponytail dynamic bones are
   enabled, and renderer DPR is capped for high-density devices.
+- Follow-up asset pass: converted Rocketbox Female Adult facial FBX into a
+  local GLB with 176 facial targets, 15 visemes and 52 ARKit names; normalized
+  the skin inverse bind matrices for Three.js, upgraded the material response
+  and replaced unsafe generic hand clips with safe semantic gaze/emotion cues.
 
 ### Runtime isolation and layered tutor — 2026-08-04
 

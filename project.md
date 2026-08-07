@@ -10,7 +10,7 @@ SpeakFlow 是一个 Flutter 多端 AI 英语口语练习应用，支持 Web、iO
 
 - Flutter + Riverpod + SQLite（Web 使用 sqflite Common FFI）。
 - LLM、STT、TTS 由用户配置的 Provider Profile 驱动，密钥本地安全保存。
-- 3D 外教为 Three.js + TalkingHead + 本地 CC0 MPFB GLB：Web 使用同源 iframe，
+- 3D 外教为 Three.js + TalkingHead + 本地 MIT Rocketbox facial GLB：Web 使用同源 iframe，
   移动/桌面使用 `webview_flutter`，HeadAudio 分析真实 TTS 字节驱动口型；失败时
   回退到 Flutter 绘制角色。
 - 界面语言的优先级：用户设置 > 浏览器语言（Web）> 系统语言 > 中文。
@@ -23,8 +23,10 @@ SpeakFlow 是一个 Flutter 多端 AI 英语口语练习应用，支持 Web、iO
 worklet 与 viseme 模型都随 `assets/3d/` 自托管，Web/原生 WebView 不依赖在线角色
 服务。DPR capped、动态骨骼、眼神、眨眼、呼吸、情绪、语义手势和真实音频口型都在
 runtime 内完成；WebGL/模型/AudioWorklet 失败时才回退到分层 2D painter。
-当前 CC0 MPFB 是高质量可运行 prototype，不是 MetaHuman/电影级资产；若要达到真正
-3A/film fidelity，应替换为经过授权的高模、PBR/法线/眼睛/毛发/服装资产，桥接协议不变。
+当前 Rocketbox 是明显优于旧卡通 fallback 的人类 CG prototype，不是 MetaHuman/电影级
+资产；若要达到真正 3A/film fidelity，应替换为经过授权的高模、PBR/法线/眼睛/毛发/服装
+资产，桥接协议不变。通用 TalkingHead 手势片段与 Rocketbox 骨骼轴不兼容，当前手势语义
+时间线使用安全的眼神/表情 cue，待专用 retarget body-motion set 再恢复手部动作。
 
 生产级 Live2D 仍需要定稿原画的分层 PSD、Cubism 绑定产物（`.moc3` / motions）和
 发布授权，因此当前不随仓库捆绑。
