@@ -406,7 +406,7 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
             constraints: const BoxConstraints(minHeight: 56, maxHeight: 160),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: isLight ? AppColors.lightBgSurface : AppColors.bgTertiary,
+              color: isLight ? AppColors.lightBgTertiary : AppColors.bgTertiary,
               borderRadius: BorderRadius.circular(AppRadius.xl),
               border: Border.all(
                 color: isRecording
@@ -414,7 +414,27 @@ class _ChatInputBarState extends ConsumerState<ChatInputBar>
                     : (isLight
                           ? AppColors.lightGlassBorder
                           : AppColors.glassBorder),
+                width: 1.2,
               ),
+              boxShadow: isRecording
+                  ? [
+                      BoxShadow(
+                        color: AppColors.error.withValues(alpha: 0.15),
+                        blurRadius: 12,
+                        spreadRadius: -4,
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: (isLight
+                                ? AppColors.lightTextMuted
+                                : AppColors.glassBorder)
+                            .withValues(alpha: 0.5),
+                        blurRadius: 8,
+                        spreadRadius: -6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
             ),
             child: TextField(
               controller: controller,

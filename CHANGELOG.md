@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### UI overhaul & premium design — 2026-08-08
+
+- Comprehensive visual redesign across **all** screens (home, chat, settings, review,
+  profile, scenarios, onboarding) — targeting international top-tier app quality.
+- Premium design system v2: deeper dark-space backgrounds, richer accent spectrum
+  (purple → cyan → pink), multi-layer glass morphism, enhanced glow effects, and
+  refined gradients.
+- Liquid Glass 26 widgets: GlassCard (hover/press transitions, depth shadows),
+  StatusPill (glow dot), GlassDialog, GlassBottomSheet, multi-blob aurora GlassBackground.
+- Home page: gradient icon containers, colored priority bars, elevated badges, refined
+  typography spacing.
+- Chat: refined bubble radii, subtle bubble shadows, polished input bar with shadow
+  and border.
+- Settings: bolder section headers, tinted gradient icon tiles, enhanced toggle tiles.
+- Theme: elevated surfaces, tertiary/pink accents, tooltip theming, switch track
+  refinement.
+- Dark/light theme support verified for all new tokens.
+- Web build verified clean (no compile errors, only pre-existing info-level lints).
+
 ### Avatar V2 cinematic Web runtime — 2026-08-07
 
 - Replaced the experimental 2D-first avatar path with a self-hosted WebGL/GLB

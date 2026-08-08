@@ -955,10 +955,12 @@ class _SettingsSection extends StatelessWidget {
           ),
           child: Text(
             title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
               color: isLight
                   ? AppColors.lightTextSecondary
                   : AppColors.textSecondary,
+              letterSpacing: 0.2,
             ),
           ),
         ),
@@ -995,13 +997,29 @@ class _SettingsTile extends StatelessWidget {
     final chevronColor = isLight
         ? AppColors.lightTextMuted
         : AppColors.textMuted;
+    final iconColor = isDestructive ? AppColors.error : AppColors.accentSecondary;
     return ListTile(
       onTap: onTap,
-      leading: Icon(
-        icon,
-        color: isDestructive ? AppColors.error : AppColors.accentSecondary,
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              iconColor.withValues(alpha: 0.18),
+              iconColor.withValues(alpha: 0.06),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+        ),
+        child: Icon(icon, color: iconColor, size: 20),
       ),
-      title: Text(title, style: TextStyle(color: titleColor)),
+      title: Text(
+        title,
+        style: TextStyle(color: titleColor, fontWeight: FontWeight.w600),
+      ),
       subtitle: Text(
         subtitle,
         style: Theme.of(

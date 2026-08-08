@@ -68,16 +68,23 @@ class _HomePageState extends ConsumerState<HomePage> {
                         child: Row(
                           children: [
                             Container(
-                              width: 48,
-                              height: 48,
+                              width: 52,
+                              height: 52,
                               decoration: BoxDecoration(
                                 gradient: AppColors.gradientPrimary,
                                 borderRadius: BorderRadius.circular(
                                   AppRadius.lg,
                                 ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.glowPurple,
+                                    blurRadius: 16,
+                                    spreadRadius: -4,
+                                  ),
+                                ],
                               ),
                               child: const Icon(
-                                Icons.mic,
+                                Icons.auto_awesome,
                                 color: Colors.white,
                                 size: 24,
                               ),
@@ -91,13 +98,17 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     _greeting(l),
                                     style: Theme.of(
                                       context,
-                                    ).textTheme.headlineSmall,
+                                    ).textTheme.headlineSmall?.copyWith(
+                                      letterSpacing: -0.3,
+                                    ),
                                   ),
+                                  const SizedBox(height: 2),
                                   Text(
                                     l.t('dashboard.subtitle'),
                                     style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(
                                           color: AppColors.textSecondary,
+                                          letterSpacing: 0.1,
                                         ),
                                   ),
                                 ],
@@ -379,27 +390,43 @@ class _StreakBadge extends StatelessWidget {
     return streak.when(
       data: (v) => Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
+          horizontal: AppSpacing.sm + 2,
+          vertical: AppSpacing.xs + 2,
         ),
         decoration: BoxDecoration(
-          color: AppColors.warning.withValues(alpha: 0.18),
+          gradient: LinearGradient(
+            colors: [
+              AppColors.warning.withValues(alpha: 0.2),
+              AppColors.warning.withValues(alpha: 0.08),
+            ],
+          ),
           borderRadius: BorderRadius.circular(AppRadius.full),
+          border: Border.all(
+            color: AppColors.warning.withValues(alpha: 0.25),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.warning.withValues(alpha: 0.15),
+              blurRadius: 8,
+              spreadRadius: -2,
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.local_fire_department,
               color: AppColors.warning,
-              size: 18,
+              size: 20,
             ),
             const SizedBox(width: 4),
             Text(
               '$v',
               style: const TextStyle(
                 color: AppColors.warning,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
               ),
             ),
           ],
@@ -671,9 +698,10 @@ class _BigActionButton extends StatelessWidget {
       onTap: onTap,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
-        vertical: AppSpacing.md,
+        vertical: AppSpacing.md + 4,
       ),
       glowColor: color,
+      glowIntensity: 1.2,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -681,44 +709,70 @@ class _BigActionButton extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      color.withValues(alpha: 0.25),
+                      color.withValues(alpha: 0.10),
+                    ],
+                  ),
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.2),
+                      blurRadius: 12,
+                      spreadRadius: -2,
+                    ),
+                  ],
                 ),
-                child: Icon(icon, color: color, size: 22),
+                child: Icon(icon, color: color, size: 24),
               ),
               if (badge != null)
                 Positioned(
-                  right: -6,
-                  top: -6,
+                  right: -4,
+                  top: -4,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 1,
+                      horizontal: 6,
+                      vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.error,
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.error,
+                          AppColors.error.withValues(alpha: 0.8),
+                        ],
+                      ),
                       borderRadius: BorderRadius.circular(AppRadius.full),
                       border: Border.all(
                         color: Theme.of(context).scaffoldBackgroundColor,
-                        width: 1.5,
+                        width: 2,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.error.withValues(alpha: 0.4),
+                          blurRadius: 6,
+                          spreadRadius: 0,
+                        ),
+                      ],
                     ),
                     child: Text(
                       badge!,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 10,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             label,
             textAlign: TextAlign.center,
@@ -818,83 +872,109 @@ class _TaskCard extends StatelessWidget {
     final priorityColor = _priorityColor(task.priority);
     return GlassCard(
       onTap: onTap,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.md,
-      ),
-      child: Row(
-        children: [
-          // Priority pill
-          Container(
-            width: 28,
-            height: 28,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: priorityColor.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              'P${task.priority}',
-              style: TextStyle(
-                color: priorityColor,
-                fontWeight: FontWeight.w700,
-                fontSize: 10,
+      padding: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm + 2,
+        ),
+        child: Row(
+          children: [
+            // Priority indicator — colored accent bar
+            Container(
+              width: 4,
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    priorityColor,
+                    priorityColor.withValues(alpha: 0.5),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(AppRadius.pill),
               ),
             ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Icon(task.icon, color: AppColors.accentPrimary, size: 22),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l.t(task.titleKey),
-                  style: Theme.of(context).textTheme.titleSmall,
+            const SizedBox(width: AppSpacing.sm + 2),
+            // Icon with subtle glow
+            Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.accentPrimary.withValues(alpha: 0.18),
+                    AppColors.accentPrimary.withValues(alpha: 0.06),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  l.t(task.subtitleKey),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(task.icon, color: AppColors.accentPrimary, size: 18),
+            ),
+            const SizedBox(width: AppSpacing.sm + 2),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.t(task.titleKey),
+                    style: Theme.of(context).textTheme.titleSmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l.t(task.subtitleKey),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (task.badge != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      border: Border.all(
+                        color: AppColors.warning.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Text(
+                      task.badge!,
+                      style: const TextStyle(
+                        color: AppColors.warning,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                Text(
+                  l.tArg('plan.minutes', {'n': '${task.durationMinutes}'}),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
                 ),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (task.badge != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 4),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                  child: Text(
-                    task.badge!,
-                    style: const TextStyle(
-                      color: AppColors.warning,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              Text(
-                l.tArg('plan.minutes', {'n': '${task.durationMinutes}'}),
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

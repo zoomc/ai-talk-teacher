@@ -460,7 +460,7 @@ class _MasteryRow extends StatelessWidget {
               value: progress,
               backgroundColor:
                   Theme.of(context).brightness == Brightness.light
-                      ? AppColors.lightBgSurface
+                      ? AppColors.lightBgSecondary
                       : AppColors.bgTertiary,
               valueColor: AlwaysStoppedAnimation<Color>(color),
               minHeight: 8,

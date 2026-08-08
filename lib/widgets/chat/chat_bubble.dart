@@ -96,10 +96,10 @@ class ChatBubble extends StatelessWidget {
           final maxWidth =
               constraints.maxWidth * Responsive.bubbleMaxWidthFraction(context);
           final bubbleRadius = BorderRadius.only(
-            topLeft: const Radius.circular(AppRadius.lg),
-            topRight: const Radius.circular(AppRadius.lg),
-            bottomLeft: Radius.circular(isUser ? AppRadius.xs : AppRadius.lg),
-            bottomRight: Radius.circular(isUser ? AppRadius.lg : AppRadius.xs),
+            topLeft: const Radius.circular(AppRadius.xl),
+            topRight: const Radius.circular(AppRadius.xl),
+            bottomLeft: Radius.circular(isUser ? AppRadius.sm : AppRadius.xl),
+            bottomRight: Radius.circular(isUser ? AppRadius.xl : AppRadius.sm),
           );
           return Align(
             alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -121,7 +121,14 @@ class ChatBubble extends StatelessWidget {
                   constraints: BoxConstraints(maxWidth: maxWidth, minWidth: 64),
                   decoration: BoxDecoration(
                     borderRadius: bubbleRadius,
-                    border: Border.all(color: accent.withValues(alpha: 0.25)),
+                    border: Border.all(color: accent.withValues(alpha: 0.28)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: accent.withValues(alpha: isLight ? 0.05 : 0.1),
+                        blurRadius: 10,
+                        spreadRadius: -4,
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
